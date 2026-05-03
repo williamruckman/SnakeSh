@@ -111,13 +111,26 @@ jobs:
 
       - name: Select macOS artifact mode
         shell: bash
+        env:
+          MACOS_CERT_BASE64: ${{ secrets.MACOS_CERT_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
         run: |
-          if [[ -n "${{ secrets.MACOS_CERT_BASE64 }}" && -n "${{ secrets.MACOS_CERT_PASSWORD }}" && -n "${{ secrets.MACOS_SIGN_IDENTITY }}" ]]; then
+          if [[ -n "${MACOS_CERT_BASE64}" && -n "${MACOS_CERT_PASSWORD}" && -n "${MACOS_SIGN_IDENTITY}" ]]; then
             echo "MACOS_ARTIFACT_SUFFIX=" >> "$GITHUB_ENV"
             echo "MACOS_SIGNING_ENABLED=1" >> "$GITHUB_ENV"
+            if [[ -n "${MACOS_NOTARY_APPLE_ID}" && -n "${MACOS_NOTARY_TEAM_ID}" && -n "${MACOS_NOTARY_PASSWORD}" ]]; then
+              echo "MACOS_NOTARY_ENABLED=1" >> "$GITHUB_ENV"
+            else
+              echo "MACOS_NOTARY_ENABLED=0" >> "$GITHUB_ENV"
+            fi
           else
             echo "MACOS_ARTIFACT_SUFFIX=-unsigned" >> "$GITHUB_ENV"
             echo "MACOS_SIGNING_ENABLED=0" >> "$GITHUB_ENV"
+            echo "MACOS_NOTARY_ENABLED=0" >> "$GITHUB_ENV"
           fi
 
       - name: Build frozen app
@@ -149,7 +162,7 @@ jobs:
           APP_PATH="dist/SnakeSh.app" SIGN_TARGET=app bash scripts/sign_macos.sh
 
       - name: Notarize macOS app bundle
-        if: env.MACOS_SIGNING_ENABLED == '1' && secrets.MACOS_NOTARY_APPLE_ID != '' && secrets.MACOS_NOTARY_TEAM_ID != '' && secrets.MACOS_NOTARY_PASSWORD != ''
+        if: env.MACOS_SIGNING_ENABLED == '1' && env.MACOS_NOTARY_ENABLED == '1'
         shell: bash
         env:
           APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
@@ -172,7 +185,7 @@ jobs:
           TARGET_PATH="dist/SnakeSh-macos-${{ matrix.arch }}${MACOS_ARTIFACT_SUFFIX}.dmg" SIGN_TARGET=dmg bash scripts/sign_macos.sh
 
       - name: Notarize macOS disk image
-        if: env.MACOS_SIGNING_ENABLED == '1' && secrets.MACOS_NOTARY_APPLE_ID != '' && secrets.MACOS_NOTARY_TEAM_ID != '' && secrets.MACOS_NOTARY_PASSWORD != ''
+        if: env.MACOS_SIGNING_ENABLED == '1' && env.MACOS_NOTARY_ENABLED == '1'
         shell: bash
         env:
           APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
