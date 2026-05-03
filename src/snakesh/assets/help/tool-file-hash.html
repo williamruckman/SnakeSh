@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: File Hash</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: File Hash</h1>
+  <p>The File Hash tool computes or verifies file digests on a worker thread so large files do not block the GUI.</p>
+
+  <h2>Fields</h2>
+  <ul>
+    <li><strong>Target File</strong>: file to hash or verify. Use <code>Browse...</code> to select it.</li>
+    <li><strong>Algorithm</strong>: hashing algorithm. Supported entries come from SnakeSh's built-in list, including MD5, SHA1, SHA256, SHA384, SHA512, and BLAKE2b.</li>
+    <li><strong>Generated Digest</strong>: read-only field populated after generation or verification.</li>
+    <li><strong>Manual Verify</strong>: optional known digest pasted directly into the dialog.</li>
+    <li><strong>Checksum File</strong>: optional checksum file path. Use <code>Browse...</code> to select it.</li>
+  </ul>
+
+  <h2>Buttons</h2>
+  <ul>
+    <li><strong>Generate</strong>: computes the digest for the target file using the selected algorithm.</li>
+    <li><strong>Verify</strong>: verifies the file. If <strong>Manual Verify</strong> has a value, that path is used first. Otherwise the checksum file path is used.</li>
+    <li><strong>Clear</strong>: clears all editable fields except the selected algorithm and resets the details area.</li>
+  </ul>
+
+  <h2>Details Pane</h2>
+  <p>The details pane shows either generation metadata such as file path, size, elapsed time, and digest, or verification metadata such as expected digest, actual digest, verification source, and matched checksum entry name.</p>
+
+  <h2>Operational Notes</h2>
+  <ul>
+    <li>Verification requires either a manual digest or a checksum file.</li>
+    <li>Common checksum-file formats are supported by the backing service.</li>
+    <li>While a background task is running, Generate, Verify, and Clear are disabled.</li>
+  </ul>
+</body>
+</html>

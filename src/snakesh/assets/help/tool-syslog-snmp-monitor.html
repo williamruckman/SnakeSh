@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Syslog / SNMP Monitor</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Syslog / SNMP Monitor</h1>
+  <p>The Syslog / SNMP Monitor is a GUI-managed collector for receiving, browsing, alerting on, and archiving syslog messages plus SNMP traps and informs. It is built as a non-modal operations sidecar, so you can leave it open beside the main SnakeSh workspace.</p>
+
+  <h2>Profiles and Layout</h2>
+  <ul>
+    <li><strong>Profiles</strong>: save, load, update, rename, and delete reusable monitor configurations from the top row.</li>
+    <li><strong>What a profile stores</strong>: listener settings, bind address, SNMPv3 users, alert rules, retention policy, filter state, visible columns, display timezone, and dashboard/detail splitter layout.</li>
+    <li><strong>Top-right Status Badge</strong>: shows <strong>Running</strong>, <strong>Starting</strong>, <strong>Stopped</strong>, or <strong>Error</strong> with high-contrast color coding while the status line below the tabs keeps the full runtime message.</li>
+    <li><strong>Tab Layout</strong>: use <strong>Settings</strong> for listener and protocol setup, <strong>Monitor</strong> for filters and received events, <strong>Alerts</strong> for rules, <strong>Dashboard</strong> for charts, and <strong>Archive / Retention</strong> for local data controls.</li>
+    <li><strong>Bind Address</strong>: uses the same pulldown pattern as the Web Server tool, including wildcard presets, discovered interface addresses, and a <strong>Custom...</strong> entry for manual IPv4 or IPv6 input.</li>
+    <li><strong>Window Controls</strong>: the monitor window can be maximized for wide event tables and charts.</li>
+  </ul>
+
+  <h2>Listener Setup</h2>
+  <ul>
+    <li><strong>Syslog UDP</strong> defaults to port <code>1514</code>.</li>
+    <li><strong>Syslog TCP</strong> defaults to port <code>1514</code>.</li>
+    <li><strong>Syslog TLS</strong> defaults to port <code>6514</code> and requires a certificate plus key before start.</li>
+    <li><strong>SNMP Traps / Informs</strong> default to UDP port <code>1162</code>.</li>
+    <li><strong>SNMP Versions</strong>: v1, v2c, and v3/USM are configured from the same tool window. Community strings and SNMPv3 users are entered entirely through GUI dialogs.</li>
+  </ul>
+  <p>On Linux and macOS, using privileged ports such as <code>514</code> or <code>162</code> can trigger a GUI elevation prompt. SnakeSh keeps the default listener ports non-privileged so normal use does not require that prompt, and the elevated helper is launched back into the same SnakeSh profile-data location so the GUI can continue showing status, events, and stop control normally.</p>
+
+  <h2>Searching and Filtering</h2>
+  <p>The <strong>Monitor</strong> tab combines a quick find field with a broader filter panel above the received event view. You can filter by time range, source, listener, protocol, transport, syslog severity or facility, hostname, app or tag, PID, message ID, SNMP version, security name, notification OID, enterprise OID, varbind text, alerted-only state, and live versus archived data scope.</p>
+  <p>Start and end timestamps expect ISO-style text such as <code>2026-03-31T15:30:00+00:00</code>. Regex and case-sensitive search are optional toggles.</p>
+
+  <h2>Table, Copy, and Export</h2>
+  <ul>
+    <li><strong>Double-click an event</strong> to open it in a separate popup window with Fields, Raw Payload, and JSON tabs. The popup can also be maximized.</li>
+    <li><strong>Display Timezone</strong>: choose <strong>UTC</strong>, <strong>System Local</strong>, or a specific IANA timezone from the pulldown above the event table. This changes only how times are shown in the GUI.</li>
+    <li>Copy the current cell, current row, selected rows, current column, or all visible rows.</li>
+    <li>Show or hide columns from the <strong>Columns</strong> menu. Common fields such as facility, severity, hostname, app/tag, PID, message text, notification OID, and varbind summary can all be displayed.</li>
+    <li>Export the current filtered result set as CSV or JSON.</li>
+    <li>Export only the selected rows when you want to hand off a narrow incident slice instead of the full filtered view.</li>
+  </ul>
+  <p>CSV and JSON exports keep the stored timestamp values. Copy actions that read from the visible table use the currently selected display timezone.</p>
+
+  <h2>Alerts</h2>
+  <p>Alert rules can match syslog or SNMP events by severity threshold, source text, app or tag, trap OID, enterprise OID, or general message and varbind text. Each rule can show a popup, play a sound, or do both.</p>
+  <p>Instead of spawning a separate popup for every event, SnakeSh keeps current alerts in one live alert window that updates as new alerts arrive. Use <strong>Dismiss Alerts</strong> to clear the current list. Sound-enabled rules use the same bell-style sound path as the terminal bell so audio behavior stays consistent.</p>
+
+  <h2>Dashboard</h2>
+  <p>The Dashboard tab graphs the current filtered subset with event-rate, severity-distribution, top-source, top-app/tag, top-trap, and alert-over-time views. Severity slices and the top-source, top-app, and top-trap charts can be clicked to push values back into the <strong>Monitor</strong> tab filters. Chart colors follow the active SnakeSh theme so the dashboard stays readable in either dark or light layouts.</p>
+
+  <h2>Retention and Local Storage</h2>
+  <ul>
+    <li><strong>Hot Database Retention</strong>: how long live events remain in the local SQLite database.</li>
+    <li><strong>Archive Retention</strong>: how long compressed archive files are retained.</li>
+    <li><strong>Maximum Archive Size</strong>: total on-disk quota for archive files before oldest archives are purged.</li>
+    <li><strong>Archive Rotation Threshold</strong>: archive maintenance threshold value kept in the profile for planning and future tuning.</li>
+    <li><strong>Archive Now</strong> and <strong>Purge Now</strong>: available only while the collector is stopped so maintenance does not race the active writer.</li>
+    <li><strong>Clear Database...</strong>: available only while stopped. It warns before deleting all live events, pending notifications, and archived files for the current profile.</li>
+  </ul>
+  <p>Closing the monitor while the collector is still running shows a warning first. If you confirm, SnakeSh stops the collector before allowing the window or the main application to finish closing.</p>
+  <p>Monitor history is stored locally under SnakeSh's application data directory in a per-profile folder. Settings exports include the saved monitor profiles, but they do not bundle the captured event database or compressed archive history.</p>
+</body>
+</html>

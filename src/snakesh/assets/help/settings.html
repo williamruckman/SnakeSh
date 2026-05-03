@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Settings and Themes</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Settings and Themes</h1>
+  <p>The Settings dialog controls the global behavior of SnakeSh. It covers appearance, terminal defaults, Local Shell behavior, logging, secrets backends, startup prompts, desktop integration, standalone tool launchers, and data migration tools.</p>
+
+  <h2>Theme Presets and Colors</h2>
+  <p>SnakeSh now defaults to the <strong>Onyx Blue</strong> theme. The default theme selection and the actual default color values are derived from the same preset so the label and colors stay in sync.</p>
+  <ul>
+    <li>Choose a preset theme for quick styling changes.</li>
+    <li>Adjust terminal and tab colors manually if you need a custom palette.</li>
+    <li>Manual edits move the preset into <code>Custom</code>.</li>
+    <li><code>Restore Defaults</code> returns theme-related values to the current default preset, which is Onyx Blue unless the application changes that default in a future release. Saving after a restore also clears saved Workspace Profiles, Fast Commands, Web Server Profiles, and Syslog / SNMP Monitor Profiles.</li>
+  </ul>
+
+  <h2>Window Behavior</h2>
+  <p>Settings now includes the main-window fullscreen shortcut and an option to hide the top action bar and bottom command bar while fullscreen is active.</p>
+
+  <h2>Terminal Behavior</h2>
+  <ul>
+    <li>Terminal font family and font size</li>
+    <li>Scrollback size for the retained searchable history viewer</li>
+    <li>Optional classic black/white default terminal colors for ncurses and TUI applications that depend on terminal defaults</li>
+    <li>Cursor blink</li>
+    <li>Optional BEL beep and visual bell flash</li>
+    <li>Active and inactive tab color styling</li>
+  </ul>
+
+  <h2>Local Shell Defaults</h2>
+  <p>You can define the default shell command and choose where new Local Shell tabs start: your home directory, the application's current working directory, or a custom path.</p>
+
+  <h2>Logging and Retention</h2>
+  <p>Terminal session logging can be enabled manually per tab or globally through Settings. Separate cleanup policies can remove older session logs and archived web-server logs automatically after the configured retention windows, and crash logging can be turned on for fatal-error capture. The crash-logging toggle is intended for fatal faults only. For live freeze or hang investigations, launch SnakeSh with <code>--debug-level debug</code> so the run writes a dedicated diagnostics log.</p>
+
+  <h2>Secrets Backend Setup</h2>
+  <p>SnakeSh can store reusable credentials through multiple backends. The Settings dialog includes setup and test actions so you can validate the chosen backend before relying on it.</p>
+
+  <h2>Startup and Platform Integration</h2>
+  <ul>
+    <li>Optional master-password prompt at startup</li>
+    <li>Optional master-password prompt before standalone tool launches</li>
+    <li>Default startup profile selection</li>
+    <li>Linux desktop integration install, repair, or removal</li>
+    <li>Cross-platform per-tool launcher install or removal through <code>Manage Tool Launchers...</code></li>
+    <li>Import and export entry points for sessions and settings</li>
+  </ul>
+
+  <h2>Need the Full Field List?</h2>
+  <p>Open <strong>Settings Reference</strong> from the Help index for the full field-by-field breakdown of every setting, provider-specific secrets option, and bottom-of-dialog action button.</p>
+</body>
+</html>

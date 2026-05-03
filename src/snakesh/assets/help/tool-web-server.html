@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Web Server</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Web Server</h1>
+  <p>The Web Server tool launches a GUI-managed helper that can either serve static files or run a single-upstream reverse proxy. It is designed for quick testing and local hosting, not for deploying a full general-purpose application server stack.</p>
+
+  <h2>Profiles</h2>
+  <ul>
+    <li><strong>Profile</strong>: drop-down list of saved web server configurations. The current selection is remembered and restored the next time you open the tool.</li>
+    <li><strong>Load</strong>: applies the selected saved profile to the form without starting the server. If a different profile is loaded while a server is still active, SnakeSh warns first and stops the current helper before switching to the new profile.</li>
+    <li><strong>Save As...</strong>: saves the current form fields as a new named profile.</li>
+    <li><strong>Update</strong>: overwrites the selected profile with the current form values.</li>
+    <li><strong>Rename...</strong>: changes the selected profile name.</li>
+    <li><strong>Delete</strong>: removes the selected profile after confirmation.</li>
+  </ul>
+  <p>Profiles are stored in SnakeSh settings so they remain available across restarts and can be included in normal settings export or import flows.</p>
+
+  <h2>Fields</h2>
+  <ul>
+    <li><strong>Bind Address</strong>: choose a detected interface address, a wildcard bind such as <code>0.0.0.0</code> or <code>::</code>, or switch to <strong>Custom...</strong> to type a manual IPv4 or IPv6 address. Defaults to <code>127.0.0.1</code>.</li>
+    <li><strong>Port</strong>: TCP port to listen on. The suggested value follows the current mode and TLS selection until you override it manually.</li>
+    <li><strong>Mode</strong>: chooses between <code>Static Files</code> and <code>Reverse Proxy</code>.</li>
+    <li><strong>Document Root</strong> / <strong>Index Page</strong> / <strong>Directory Listing</strong>: static-file settings shown only in <code>Static Files</code> mode.</li>
+    <li><strong>Upstream URL</strong>: reverse-proxy origin used in <code>Reverse Proxy</code> mode.</li>
+    <li><strong>Path Prefix</strong>, <strong>Strip Prefix</strong>, <strong>Preserve Host</strong>, <strong>X-Forwarded-*</strong>, <strong>Upstream TLS Verify</strong>, <strong>WebSocket Support</strong>, timeout fields, and <strong>Extra Request Headers</strong>: structured reverse-proxy controls shown only in <code>Reverse Proxy</code> mode.</li>
+    <li><strong>TLS Mode</strong>: chooses <code>HTTP Only</code>, <code>Manual Certificate</code>, <code>Self-Signed Certificate</code>, or <code>Certbot (HTTP-01)</code>.</li>
+    <li><strong>Certificate File</strong>, <strong>Key File</strong>, and optional <strong>Intermediate / Chain File</strong>: manual-TLS inputs.</li>
+    <li><strong>Certbot Executable</strong>, <strong>Primary Domain</strong>, <strong>Additional Domains</strong>, <strong>Contact Email</strong>, <strong>HTTP-01 Port</strong>, and <strong>Staging</strong>: guided certbot inputs shown only in certbot mode.</li>
+  </ul>
+
+  <h2>Buttons</h2>
+  <ul>
+    <li><strong>Start</strong>: validates the configuration, writes the helper config, and launches the helper process.</li>
+    <li><strong>Stop</strong>: requests server shutdown through the helper stop signal.</li>
+    <li><strong>Open in Browser</strong>: opens the currently reported server URL in the default browser when the server is running.</li>
+    <li><strong>Open Current Log</strong>: opens the archived log file for the current or most recent run.</li>
+    <li><strong>Open Log Folder</strong>: opens the web-server log archive folder.</li>
+    <li><strong>Clear Log View</strong>: clears the visible log pane only.</li>
+  </ul>
+
+  <h2>Runtime Display</h2>
+  <ul>
+    <li><strong>URL</strong>: shows the current helper-reported URL or <code>(not running)</code>.</li>
+    <li><strong>Log output</strong>: shows appended helper logs.</li>
+    <li><strong>Status line</strong>: reports validation problems, launch state, running state, and stop state.</li>
+  </ul>
+
+  <h2>Operational Notes</h2>
+  <ul>
+    <li>Unix-like systems may require GUI elevation for privileged listener ports or privileged certbot challenge ports.</li>
+    <li>Certbot checks run only when you click <strong>Start</strong>. SnakeSh does not renew certificates in the background or while the tool is stopped.</li>
+    <li>Archived web-server logs are retained and pruned using the web-server log cleanup settings in the main Settings dialog.</li>
+    <li>The selected saved profile and the tool's log/form splitter position are restored the next time you open the dialog.</li>
+    <li>Saved profiles can contain incomplete or not-yet-valid values. Validation still happens only when you click <strong>Start</strong>.</li>
+    <li>Closing the dialog while the server is running requests helper shutdown.</li>
+  </ul>
+</body>
+</html>

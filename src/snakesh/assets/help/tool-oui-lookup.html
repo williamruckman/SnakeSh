@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: OUI Lookup</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: OUI Lookup</h1>
+  <p>The OUI Lookup tool resolves MAC addresses or OUI prefixes against SnakeSh's bundled offline vendor snapshot.</p>
+
+  <h2>Input</h2>
+  <ul>
+    <li><strong>MAC address or OUI prefix</strong>: accepts full MAC addresses and shorter prefixes such as <code>00:11:22:33:44:55</code> or <code>70-B3-D5-F2-F/36</code>.</li>
+    <li><strong>Lookup</strong>: runs the lookup.</li>
+    <li>Pressing <strong>Enter</strong> in the input field also starts the lookup.</li>
+  </ul>
+
+  <h2>Result Fields</h2>
+  <ul>
+    <li><strong>Vendor</strong>: resolved vendor name, <code>Unknown</code> when no match is found, or <code>Unavailable</code> when no bundled snapshot is installed.</li>
+    <li><strong>Matched Prefix</strong>: the matched normalized prefix and its bit length.</li>
+    <li><strong>Normalized Input</strong>: the cleaned hexadecimal form SnakeSh used for matching.</li>
+  </ul>
+
+  <h2>Status Behavior</h2>
+  <p>The status line reports Ready, invalid-input validation messages, no-match messages, snapshot-unavailable messages, or Lookup complete. Invalid input resets the result fields and reports the validation error instead of doing a lookup.</p>
+</body>
+</html>

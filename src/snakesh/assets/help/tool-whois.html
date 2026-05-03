@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Whois</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Whois</h1>
+  <p>The Whois tool performs WHOIS lookups through SnakeSh's internal lookup service and formats the result in a scrollable text view.</p>
+
+  <h2>Fields</h2>
+  <ul>
+    <li><strong>Query</strong>: domain name, IP address, or ASN.</li>
+    <li><strong>Server</strong>: optional WHOIS server override. When blank, SnakeSh starts with the default referral path.</li>
+    <li><strong>Timeout</strong>: lookup timeout in milliseconds.</li>
+    <li><strong>Follow referrals</strong>: controls whether downstream WHOIS referrals are followed automatically.</li>
+  </ul>
+
+  <h2>Buttons and Output</h2>
+  <ul>
+    <li><strong>Lookup</strong>: starts the WHOIS request.</li>
+    <li><strong>Clear</strong>: clears the output pane.</li>
+    <li><strong>Output pane</strong>: shows the query banner followed by the formatted WHOIS response text.</li>
+  </ul>
+
+  <h2>Status Behavior</h2>
+  <p>The status line reports Ready, Running, Complete, or Failed. The dialog blocks closing while a background WHOIS lookup is still in progress.</p>
+</body>
+</html>

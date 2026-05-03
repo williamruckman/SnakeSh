@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Import and Export</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Import and Export</h1>
+  <p>SnakeSh includes first-party import and export so you can back up your environment, move it to another machine, or share a sanitized subset with teammates.</p>
+
+  <h2>What You Can Export</h2>
+  <ul>
+    <li>Sessions only</li>
+    <li>Settings only</li>
+    <li>Combined sessions and settings</li>
+    <li>A selected subset of sessions instead of the entire library</li>
+  </ul>
+  <p>Settings exports include the normal application preferences such as appearance, workspace profiles, fast commands, web server profiles, Syslog / SNMP monitor profiles, and password-generator defaults.</p>
+  <p>For the Syslog / SNMP Monitor, the exported profile metadata includes saved listener settings, filters, visible columns, splitter layout, and display-timezone preference.</p>
+
+  <h2>Export Protection</h2>
+  <p>Exports can be written without a password, but encrypted export bundles are available when you need to store or share the file more safely. Use password-protected exports for anything beyond short-lived local backups.</p>
+
+  <h2>What Is Not Bundled</h2>
+  <p>Saved session passwords and backend auth values such as service tokens, vault tokens, or CLI unlock secrets are not embedded in first-party exports because those values stay in the OS keyring or the selected secrets backend. Captured Syslog / SNMP monitor history, pending alert rows, and archive files also remain local application data instead of being packed into first-party exports. After importing on another machine, reconnect the backend or re-enter any required secrets there.</p>
+
+  <h2>Import Modes</h2>
+  <p>Settings import replaces the current application settings after confirmation. Session import supports merge and overwrite modes so you can decide whether imported sessions should coexist with or replace current ones.</p>
+
+  <h2>Third-Party Import</h2>
+  <p>The Third Party Import workflow can ingest SecureCRT XML, OpenSSH configuration files, and PuTTY session definitions. Third-party export is intentionally not provided, which keeps SnakeSh from trying to guarantee compatibility with every external format on write.</p>
+
+  <h2>Practical Advice</h2>
+  <ul>
+    <li>Create a password-protected export before large session-library refactors.</li>
+    <li>Use selective export when sharing only a specific customer or environment folder.</li>
+    <li>Prefer merge mode during trial imports so you can inspect the result before replacing existing data.</li>
+  </ul>
+</body>
+</html>

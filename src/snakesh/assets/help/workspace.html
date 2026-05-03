@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Workspace and Tabs</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Workspace and Tabs</h1>
+  <p>The workspace is where active connections live after you launch them from the session library. SnakeSh treats terminals, file transfer tabs, and remote viewers as related but distinct workspace types so each mode gets the controls it actually needs.</p>
+
+  <h2>Session List Panel</h2>
+  <ul>
+    <li>The search box filters the saved session tree as you type.</li>
+    <li>The dropdown beside search switches between <strong>Show</strong>, <strong>Auto</strong>, and <strong>Float</strong> session-list modes.</li>
+    <li>In <strong>Auto</strong> mode the session list collapses until you hover the main splitter handle, and you can still drag that handle to resize the panel while it is revealed.</li>
+    <li>In <strong>Float</strong> mode the search box, session tree, and mode dropdown move into a separate always-on-top window. Closing that window returns the list to <strong>Show</strong> in the main workspace.</li>
+  </ul>
+
+  <h2>Split Panes and Tab Movement</h2>
+  <ul>
+    <li>SSH and SFTP tabs can move between horizontal and vertical split panes.</li>
+    <li>Tabs can be rearranged by drag and drop across panes.</li>
+    <li>This allows side-by-side work such as a Local Shell next to an SSH session, or an SSH tab next to its SFTP workspace.</li>
+  </ul>
+
+  <h2>Detached Windows</h2>
+  <p>Terminal-style tabs can be detached into independent non-modal windows when you want to place them on another monitor or keep them visible while reorganizing the main workspace. SnakeSh now treats Local Shell tabs the same way as SSH, SFTP, and Telnet tabs for detach and reattach behavior.</p>
+
+  <h2>Main Window Fullscreen</h2>
+  <p>SnakeSh can switch the main window into borderless fullscreen using the configured fullscreen shortcut. Settings can also hide the top action bar and bottom command bar while fullscreen is active so only the session list and workspace stay visible.</p>
+
+  <h2>Tab Context Actions</h2>
+  <ul>
+    <li><strong>Rename Tab</strong> changes the visible tab label for the current workspace session.</li>
+    <li><strong>Disconnect</strong> ends an active terminal session without closing the tab, so the current screen contents stay available.</li>
+    <li><strong>Reconnect Session</strong> is available for closed reconnectable terminal tabs and reconnects them in place.</li>
+    <li><strong>Open SFTP Tab</strong> appears on saved SSH terminal tabs, including closed SSH tabs in the tab strip, so file transfer can reuse the same session definition.</li>
+    <li><strong>Group Manager</strong> and related group actions control fan-out behavior for terminal commands.</li>
+  </ul>
+
+  <h2>Tab Groups</h2>
+  <p>Grouped terminal tabs receive the same typed command from the bottom command bar or from a Fast Command launch. Grouped tabs are marked in their title, and the group manager lets you rename groups or change membership without reconnecting the sessions.</p>
+
+  <h2>Profiles</h2>
+  <p>Profiles capture the current workspace state so it can be restored later. A profile can include:</p>
+  <ul>
+    <li>Open sessions and tab order</li>
+    <li>Split pane layout</li>
+    <li>Detached windows and their geometry</li>
+    <li>Custom tab labels</li>
+    <li>Group assignments</li>
+    <li>Optional tool windows to start when the profile loads</li>
+  </ul>
+  <p>You can also select a default startup profile to reopen a known workspace every time SnakeSh launches, and the Profile Manager can configure which tools should open with each saved profile.</p>
+
+  <h2>Bottom Command Bar</h2>
+  <p>The bottom command bar is intentionally terminal-only. It targets the active terminal tab or the active tab's group, and its <strong>Scrollback</strong> button opens the searchable history window for the active terminal tab without blocking terminal use. It does not send input to RDP, VNC, or NoMachine viewer tabs.</p>
+
+  <h2>Need the Exact Menu Options?</h2>
+  <p>Open <strong>Context Menus</strong> from the Help index for the full list of right-click and on-demand menu actions available in terminal views, the session tree, SFTP panes, tab strips, Network Inspector, Fast Commands, and Profiles.</p>
+</body>
+</html>

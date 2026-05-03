@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="SnakeSh app icon">
+  <defs>
+    <filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#8ff662" flood-opacity="0.95" />
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#8ff662" flood-opacity="1" />
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" fill="#000000" />
+
+  <g filter="url(#neon-glow)" fill="none" stroke="#8ff662" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="92" y="123" width="840" height="814" rx="38" ry="38" />
+  </g>
+
+  <g filter="url(#neon-glow)" fill="none" stroke="#8ff662" stroke-width="66" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M812 244 C748 192 650 196 620 255 C592 311 636 356 712 376 C780 394 843 409 861 465 C882 529 827 585 747 596 C669 606 606 583 548 536" />
+  </g>
+
+  <g filter="url(#neon-glow)" fill="none" stroke="#8ff662" stroke-width="42" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M164 625 L334 717 L164 810" />
+  </g>
+
+  <g filter="url(#neon-glow)" fill="#8ff662">
+    <rect x="374" y="806" width="130" height="32" rx="6" />
+  </g>
+</svg>

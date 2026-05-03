@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Session Editor Reference</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Session Editor Reference</h1>
+  <p>This page is the field-by-field reference for the Session Editor. SnakeSh hides and resets some fields automatically when the selected protocol does not support them, so the same dialog behaves differently depending on whether you are editing SSH, SFTP, RDP, VNC, NoMachine, Telnet, or Serial sessions. Local Shell tabs are launched separately from the main window and are configured globally in Settings rather than through the Session Editor.</p>
+
+  <h2>Always-Visible Core Fields</h2>
+  <ul>
+    <li><strong>Name</strong>: display name of the saved session in the session tree and workspace labels.</li>
+    <li><strong>Protocol</strong>: session type. Changing this immediately updates the visible fields and default port.</li>
+    <li><strong>Folder</strong>: session-library folder path. Defaults to <code>Default</code> if left blank when saving.</li>
+    <li><strong>Tags (comma-separated)</strong>: free-form tag list used for filtering and organization.</li>
+    <li><strong>Notes</strong>: stored free-form notes for the session.</li>
+  </ul>
+
+  <h2>Common Network Connection Fields</h2>
+  <ul>
+    <li><strong>Host</strong>: network hostname or address. Hidden for Serial sessions. For Serial, the saved host field is reused to store the selected port path or COM port.</li>
+    <li><strong>Username</strong>: username for network protocols that use it. Hidden for Serial.</li>
+    <li><strong>Port</strong>: network port number. Hidden for Serial. Automatically resets to the protocol default when the protocol is changed.</li>
+    <li><strong>Domain (RDP)</strong>: Windows domain field shown only for RDP sessions.</li>
+  </ul>
+
+  <h2>SSH and SFTP Fields</h2>
+  <ul>
+    <li><strong>Default Local Folder (SFTP)</strong>: preferred starting folder on the local machine for SSH or SFTP file-transfer workflows.</li>
+    <li><strong>Default Remote Folder (SFTP)</strong>: preferred starting folder on the remote host for SSH or SFTP file-transfer workflows.</li>
+    <li><strong>Use key auth</strong>: enables key-based authentication for SSH or SFTP sessions.</li>
+    <li><strong>Private Key Path</strong>: path to the private key file. The <code>Browse</code> button opens a file picker filtered for common private-key file types.</li>
+    <li><strong>Public Key Path</strong>: path to the matching public key file. The <code>Browse</code> button opens a file picker filtered for <code>.pub</code> files.</li>
+    <li><strong>Enable X11 forwarding (SSH/SFTP)</strong>: enables X11 forwarding for the SSH family.</li>
+    <li><strong>Use legacy SSH compatibility mode (older endpoints)</strong>: enables compatibility-oriented SSH behavior for older servers or network devices.</li>
+    <li><strong>Enable SSH keepalive packets (30s interval)</strong>: enables keepalive traffic to reduce idle disconnects.</li>
+    <li><strong>SSH Tunneling...</strong>: opens the SSH tunneling editor described later on this page.</li>
+  </ul>
+
+  <h2>Password and Credential Fields</h2>
+  <ul>
+    <li><strong>Save password in OS keyring</strong>: stores the password in the configured secrets backend or OS keyring for supported protocols. The checkbox is shown only for SSH, SFTP, RDP, and VNC.</li>
+    <li><strong>Password (optional)</strong>: password entry field. Shown only for protocols that support saved-password storage through the current editor model.</li>
+    <li><strong>Show / Hide</strong> button beside Password: reveals the current password field and, when editing a session with saved credentials, can load the stored password for display so it can be reviewed or replaced.</li>
+  </ul>
+
+  <h2>Per-Session Terminal Color Overrides</h2>
+  <ul>
+    <li><strong>Override global terminal colors for this session</strong>: enables per-session terminal colors.</li>
+    <li><strong>Terminal Background Override</strong>: background color used when per-session override is enabled.</li>
+    <li><strong>Terminal Foreground Override</strong>: foreground color used when per-session override is enabled.</li>
+    <li><strong>Terminal Color Preview</strong>: live preview of the selected terminal override colors. When overrides are disabled, the preview indicates that the global colors remain in effect.</li>
+    <li><strong>Pick</strong> buttons beside the color fields: open the color picker.</li>
+  </ul>
+
+  <h2>Shell Banner Fields</h2>
+  <ul>
+    <li><strong>Shell Banner Message</strong>: optional plain-text message shown above the connected terminal. Visible only for SSH, Telnet, and Serial sessions.</li>
+    <li><strong>Shell Banner Font Color</strong>: text color used by the shell banner message.</li>
+    <li><strong>Blink shell banner while connected</strong>: toggles a blinking warning banner. If the banner message is blank, the color and blink settings are ignored.</li>
+  </ul>
+
+  <h2>RDP and VNC Display Fields</h2>
+  <ul>
+    <li><strong>Resolution (RDP/VNC)</strong>: display resolution. Supports preset values such as <code>1024x768</code>, <code>1280x720</code>, <code>1920x1080</code>, plus <code>Default</code> and <code>Auto</code>. The field is editable, so a custom resolution can be typed manually.</li>
+    <li><strong>Launch in fullscreen</strong>: starts the remote desktop in fullscreen mode.</li>
+    <li><strong>Allow dynamic remote resize</strong>: VNC-only option that allows remote resize when the selected VNC server and viewer support it.</li>
+    <li><strong>Color Depth (RDP/VNC)</strong>: display color depth. Choices are Default, 8-bit, 16-bit, 24-bit, and 32-bit.</li>
+  </ul>
+
+  <h2>RDP-Only Fields</h2>
+  <ul>
+    <li><strong>Domain (RDP)</strong>: Windows login domain.</li>
+    <li><strong>Audio (RDP)</strong>: audio routing policy. Choices are <code>On this computer</code>, <code>On remote computer</code>, and <code>Do not play</code>.</li>
+    <li><strong>Open Mode</strong>: Linux-only RDP option that selects <code>Open in tab</code> or <code>Open detached window</code>. On non-Linux platforms the field is hidden and RDP is forced into detached mode.</li>
+  </ul>
+
+  <h2>NoMachine Fields</h2>
+  <ul>
+    <li><strong>Enable audio streaming</strong>: enables remote audio streaming.</li>
+    <li><strong>Mute audio on remote computer while connected</strong>: attempts to mute the remote side while audio is being redirected.</li>
+    <li><strong>Auto-resize physical desktop</strong>: allows physical desktop resizing where NoMachine supports it.</li>
+    <li><strong>Resize Mode (NoMachine)</strong>: chooses <code>Scale to fit</code> or <code>Viewport (scroll)</code>.</li>
+    <li><strong>Link Quality (NoMachine)</strong>: connection-quality scale from 0 to 9.</li>
+    <li><strong>Video Quality (NoMachine)</strong>: image-quality scale from 0 to 9.</li>
+  </ul>
+
+  <h2>Telnet Fields</h2>
+  <ul>
+    <li><strong>Terminal Type (Telnet)</strong>: advertised terminal type string. The field is editable and pre-populated with values such as <code>xterm-256color</code>, <code>xterm</code>, <code>vt100</code>, and <code>ansi</code>.</li>
+    <li><strong>Connect Timeout (Telnet, s)</strong>: connect-timeout value in seconds.</li>
+    <li><strong>Use TLS (Telnet over SSL)</strong>: enables TLS for Telnet connections.</li>
+    <li><strong>Validate server certificate</strong>: certificate-validation toggle used when TLS is enabled.</li>
+  </ul>
+
+  <h2>Serial Fields</h2>
+  <ul>
+    <li><strong>Serial Port</strong>: serial device selector. It is editable and includes a <code>Refresh</code> button to rescan ports. On Windows this includes COM ports; on Unix-like systems it scans common device-path patterns.</li>
+    <li><strong>Baud Rate</strong>: editable baud-rate selector with common preset values from 300 through 230400.</li>
+    <li><strong>Data Bits</strong>: serial data-bit width. Choices are 5, 6, 7, and 8 bits.</li>
+    <li><strong>Parity</strong>: parity mode. Choices are None, Even, Odd, Mark, and Space.</li>
+    <li><strong>Stop Bits</strong>: stop-bit count. Choices are 1, 1.5, and 2.</li>
+    <li><strong>Flow Control</strong>: flow-control mode. Choices are None, RTS/CTS, XON/XOFF, and DSR/DTR.</li>
+  </ul>
+
+  <h2>Automation Controls</h2>
+  <ul>
+    <li><strong>Enable automated scripting after connection (SSH/Telnet/Serial)</strong>: enables post-connect automation for the supported terminal protocols.</li>
+    <li><strong>Automated Scripting...</strong>: opens the automation editor. Visible only for SSH, Telnet, and Serial.</li>
+    <li><strong>Automation summary label</strong>: shows a concise summary of the current automation steps so the session can be reviewed without reopening the automation dialog.</li>
+  </ul>
+
+  <h2>Automated Scripting Dialog</h2>
+  <ul>
+    <li><strong>Add</strong>: create a new automation step.</li>
+    <li><strong>Edit</strong>: edit the selected automation step.</li>
+    <li><strong>Remove</strong>: delete the selected step.</li>
+    <li><strong>Move Up / Move Down</strong>: reorder steps.</li>
+    <li><strong>Step Type</strong> in the step editor: chooses <code>Command</code>, <code>Sleep</code>, or <code>Expect</code>.</li>
+    <li><strong>Command</strong>: command text used by a Command step.</li>
+    <li><strong>Seconds</strong>: delay used by a Sleep step.</li>
+    <li><strong>Expect Text</strong>: required text match used by an Expect step.</li>
+    <li><strong>Timeout (s)</strong>: wait time for an Expect step.</li>
+    <li><strong>On Timeout</strong>: Expect-step timeout behavior. Choices are <code>Terminate Script</code> and <code>Continue Script</code>.</li>
+  </ul>
+
+  <h2>SSH Tunneling Dialog</h2>
+  <ul>
+    <li><strong>Dynamic (SOCKS)</strong> tab: manages SOCKS listeners forwarded through the SSH session.</li>
+    <li><strong>Static</strong> tab: manages local and remote TCP forward rules.</li>
+    <li><strong>Add / Edit / Remove</strong> buttons on both tabs: create, modify, or delete tunnel definitions.</li>
+    <li><strong>Tunneling summary label</strong>: shows enabled and total dynamic/static tunnel counts after the dialog is closed.</li>
+  </ul>
+
+  <h3>Dynamic Tunnel Editor</h3>
+  <ul>
+    <li><strong>Bind Host</strong>: local interface address for the SOCKS listener.</li>
+    <li><strong>Bind Port</strong>: local TCP port for the SOCKS listener.</li>
+    <li><strong>Enabled</strong>: whether the tunnel should be active when the session connects.</li>
+  </ul>
+
+  <h3>Static Tunnel Editor</h3>
+  <ul>
+    <li><strong>Direction</strong>: chooses <code>Local Forward</code> or <code>Remote Forward</code>.</li>
+    <li><strong>Bind Host</strong>: listening interface for the forward.</li>
+    <li><strong>Bind Port</strong>: listening port for the forward.</li>
+    <li><strong>Target Host</strong>: target endpoint host for the forward.</li>
+    <li><strong>Target Port</strong>: target endpoint port for the forward.</li>
+    <li><strong>Enabled</strong>: whether the rule is active when the session connects.</li>
+  </ul>
+
+  <h2>Protocol Visibility Rules</h2>
+  <ul>
+    <li>RDP shows domain, audio, and Linux-only open mode fields.</li>
+    <li>VNC shows remote-display fields and the dynamic-resize checkbox, but not the RDP-only domain or audio controls.</li>
+    <li>NoMachine shows the NoMachine quality and resize controls and always uses detached-viewer behavior.</li>
+    <li>Telnet shows terminal-type, timeout, and TLS controls.</li>
+    <li>Serial hides host-style network fields and shows device-line settings instead.</li>
+    <li>SSH and SFTP show key-auth, SFTP folder, X11, keepalive, legacy-compatibility, tunneling, and terminal-color-override controls.</li>
+    <li>Only SSH, Telnet, and Serial expose the automation and shell-banner controls.</li>
+    <li>Local Shell is not part of the Session Editor; configure its defaults in Settings and launch it from the main toolbar.</li>
+  </ul>
+
+  <h2>Save / Cancel</h2>
+  <ul>
+    <li><strong>OK</strong>: saves the edited session definition.</li>
+    <li><strong>Cancel</strong>: closes the editor without applying the current changes.</li>
+  </ul>
+</body>
+</html>

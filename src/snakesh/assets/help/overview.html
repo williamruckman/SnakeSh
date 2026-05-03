@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Overview</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+    .callout { background: #f4f8fc; border-left: 4px solid #2a5f92; padding: 0.75rem 1rem; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>SnakeSh Overview</h1>
+  <p>SnakeSh is a multi-protocol remote access workspace that combines terminal sessions, file transfer, remote desktop launchers, local utilities, and encrypted session storage inside one Qt application.</p>
+
+  <div class="callout">
+    <strong>What SnakeSh is best at:</strong> keeping a mixed SSH, SFTP, RDP, VNC, NoMachine, Telnet, Serial, and Local Shell workflow in one place without forcing you to bounce between separate tools.
+  </div>
+
+  <h2>Main Application Areas</h2>
+  <h3>Session Library</h3>
+  <p>The left-side session tree stores your saved connections, folders, and organization metadata. Sessions can be tagged, duplicated, bulk-edited when the selection shares a protocol, renamed, moved between folders, or opened in bulk. The panel can stay visible, switch to auto-hide, or move into its own always-on-top floating window from the dropdown beside the search box.</p>
+
+  <h3>Workspace</h3>
+  <p>The center workspace holds terminal tabs, SFTP panes, remote viewer tabs, split layouts, detached windows, and the main window fullscreen workflow. Terminal-style tabs can participate in grouping, profiles, searchable scrollback, logging, shell-banner warnings, and reattach flows. Remote desktop viewers stay visually separate from terminal command injection so that SnakeSh does not guess at protocol-specific keystroke behavior.</p>
+
+  <h3>Command Areas</h3>
+  <p>SnakeSh has two distinct command mechanisms:</p>
+  <ul>
+    <li>The bottom command bar is for active terminal tabs only.</li>
+    <li>Saved Fast Commands can target grouped terminal tabs or copy text to the clipboard when the active tab is an RDP, VNC, or NoMachine viewer.</li>
+  </ul>
+
+  <h3>Tools</h3>
+  <p>The <code>Tools</code> menu launches detached standalone tool processes instead of opening the tool UI inside the main workspace process. This keeps a busy utility such as Resource Monitor or Ping from stalling the console tab and also lets tools stay open after the main SnakeSh window closes. Current tools include Resource Monitor, Network Inspector, Whois, ASN Lookup, Dig, Traceroute, Ping, IP Scan, MTU / MSS Calculator, File Hash, OUI Lookup, Web Server, Syslog / SNMP Monitor, Subnet Calculator, Password Generator, Diff Tool, and Help.</p>
+
+  <h3>Settings and Security</h3>
+  <p>The <code>Settings</code> dialog controls themes, colors, terminal behavior, main-window fullscreen behavior, Local Shell defaults, session and web-server log retention, secrets backends, desktop integration, per-tool launcher management, startup and tool-launch security, import, and export. Sensitive session data is encrypted at rest and password reuse can be delegated to a supported secrets backend.</p>
+
+  <h2>Recommended Workflow</h2>
+  <ul>
+    <li>Create folders that reflect environments, customers, or roles.</li>
+    <li>Save sessions with protocol-specific details instead of re-entering connection settings.</li>
+    <li>Open an SSH tab for command work, then launch an SFTP tab from that saved SSH session when file transfer is needed.</li>
+    <li>Use tab groups and profiles for repeatable daily worksets.</li>
+    <li>Open the Help window or a standalone tool beside the main interface, or launch the tool directly with <code>snakesh tool &lt;tool_key&gt;</code>.</li>
+    <li>Open <strong>Command Line and Launchers</strong> from the Help index when you need the full CLI option reference, including debug flags, desktop integration commands, helper modes, and every registered tool key.</li>
+  </ul>
+
+  <h2>Platform Notes</h2>
+  <p>Some capabilities depend on the operating system or installed external programs. Examples include <code>xfreerdp</code> for Linux RDP, platform VNC viewers, <code>nxplayer</code> for NoMachine, <code>pysnmp</code> for SNMP notification support, and OS-level elevation prompts when a web server or monitor listener must bind to a privileged port. The Troubleshooting section covers these differences in more detail.</p>
+</body>
+</html>

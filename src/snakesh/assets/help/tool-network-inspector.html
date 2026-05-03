@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Network Inspector</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Network Inspector</h1>
+  <p>The Network Inspector is a read-only local network snapshot viewer. It refreshes local interfaces, routing, ARP neighbors, listening ports, and DNS data and presents the results on dedicated tabs.</p>
+
+  <h2>Top Buttons</h2>
+  <ul>
+    <li><strong>Refresh</strong>: starts a new snapshot collection pass. While a refresh is running, the button is disabled.</li>
+    <li><strong>Auto Refresh</strong>: reruns snapshot collection on a repeating timer.</li>
+    <li><strong>Every</strong>: refresh interval in seconds for auto refresh.</li>
+    <li><strong>Privileged Ports / Processes</strong>: requests an elevated helper session for richer local listening-port and process visibility on the <strong>Ports</strong> tab.</li>
+    <li><strong>Copy Selected</strong>: copies the selected rows from the active tab as tab-delimited text with headers.</li>
+    <li><strong>Copy All</strong>: copies every row from the active tab as tab-delimited text with headers.</li>
+  </ul>
+
+  <h2>Tabs</h2>
+  <ul>
+    <li><strong>IP</strong>: interface name, link status, MAC or primary type value, and address details. Child rows show per-address entries.</li>
+    <li><strong>Routing</strong>: route family, destination, gateway, interface, metric, and flags/source information.</li>
+    <li><strong>ARP</strong>: IP address, MAC address, interface, ARP or neighbor state, and resolved vendor name from the bundled OUI snapshot.</li>
+    <li><strong>Ports</strong>: listening protocol, address family, local address, PID, and process name when available.</li>
+    <li><strong>DNS</strong>: hostname, FQDN, nameservers, search domains, and resolver notes.</li>
+  </ul>
+
+  <h2>Copy and Selection Behavior</h2>
+  <ul>
+    <li>Rows support extended multi-selection.</li>
+    <li><strong>Ctrl+C</strong> copies the current selection from the focused tab.</li>
+    <li><strong>Ctrl+A</strong> selects all rows in the focused tab.</li>
+    <li>Right-click on a tab view opens <strong>Copy Selected</strong> and <strong>Copy All</strong>.</li>
+  </ul>
+
+  <h2>Status Line</h2>
+  <p>The status line reports refresh progress, warnings from partial collectors, copy counts, and snapshot failures.</p>
+
+  <h2>Operational Notes</h2>
+  <ul>
+    <li>The inspector is local-machine focused. It does not query a selected remote session.</li>
+    <li>Privileged visibility applies only to the <strong>Ports</strong> tab. IP, routing, ARP, and DNS data still use the normal local snapshot collectors.</li>
+    <li>Once elevated access is granted, SnakeSh keeps that helper session for the life of the tool window so auto refresh and manual refresh do not prompt again during the same session.</li>
+    <li>Visible detail varies by operating system and installed networking tools.</li>
+    <li>OUI vendor resolution is offline and uses SnakeSh's bundled snapshot.</li>
+  </ul>
+</body>
+</html>

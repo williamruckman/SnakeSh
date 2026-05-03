@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Help Window</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Help Window</h1>
+  <p>The Help window is a non-modal documentation viewer that stays open while you continue using the rest of SnakeSh.</p>
+
+  <h2>Layout</h2>
+  <ul>
+    <li><strong>Contents list</strong>: page index on the left side.</li>
+    <li><strong>Document browser</strong>: selected page content on the right side.</li>
+    <li><strong>Intro line</strong>: explains that the help guide can stay visible while you work.</li>
+  </ul>
+
+  <h2>Behavior</h2>
+  <ul>
+    <li>Selecting an entry in the left index loads the corresponding bundled HTML page.</li>
+    <li>External links open through the default external browser.</li>
+    <li>The document viewer uses a fixed readable document style so help content remains legible under the app theme.</li>
+    <li>If the bundled manifest or a selected page is missing, the dialog shows an inline error message instead of failing silently.</li>
+  </ul>
+
+  <h2>When to Use It</h2>
+  <p>Use the Help window as the in-app reference manual for settings, session fields, platform differences, command-line launch modes, context menus, and the individual tool dialogs documented throughout this guide.</p>
+</body>
+</html>

@@ -1,0 +1,75 @@
+# Python bytecode and test/tool caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Virtual environments and local Python packaging output
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+*.whl
+
+# Build and release artifacts
+.build/
+build/
+dist/
+*.AppImage
+*.dmg
+*.pkg
+*.msi
+*.exe
+*.zip
+*.tar.gz
+*.sha256
+
+# Extracted AppImage / linuxdeploy roots
+squashfs-root/
+squashfs-root-*/
+
+# Downloaded packaging helper binaries
+tools/*.AppImage
+
+# Local application state and logs
+snakesh_data/
+securepython_data/
+*.log
+
+# Local secrets and machine-specific environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# PlatformIO / embedded build state, if opened from a PlatformIO workspace
+.pio/
+.pioenvs/
+.piolibdeps/
+libdeps/
+.sconsign*.dblite
+
+# Editor, OS, and assistant-local files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+SnakeSh.code-workspace
+.agents/
+.codex
+.codex/

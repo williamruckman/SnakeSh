@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snakesh"
+version = "1.5-RC1"
+description = "SnakeSh: cross-platform remote access workspace in Python."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+requires-python = ">=3.11"
+dependencies = [
+  "aiohttp>=3.10,<4",
+  "PySide6>=6.7,<7",
+  "asyncssh>=2.14",
+  "cffi>=1.16",
+  "cryptography>=42",
+  "dnspython>=2.6",
+  "keyring>=25",
+  "psutil>=5.9",
+  "pyasn1>=0.6,<1",
+  "pyserial>=3.5",
+  "pysnmp>=7,<8",
+  "pyte>=0.8.2",
+]
+
+[project.scripts]
+SnakeSh = "snakesh.__main__:cli_main"
+snakesh = "snakesh.__main__:cli_main"
+securepython = "snakesh.__main__:cli_main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+snakesh = [
+  "assets/*.png",
+  "assets/*.ico",
+  "assets/*.icns",
+  "assets/*.svg",
+  "assets/*.json",
+  "assets/help/*.json",
+  "assets/help/*.html",
+]

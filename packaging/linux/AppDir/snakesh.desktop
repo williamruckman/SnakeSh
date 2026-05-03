@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SnakeSh
+Comment=Remote terminal client
+Exec=AppRun %U
+Icon=snakesh
+MimeType=application/x-snakesh-export;
+Terminal=false
+Categories=Network;Utility;
+StartupNotify=true

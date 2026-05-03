@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Diff Tool</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Diff Tool</h1>
+  <p>The Diff Tool compares two text buffers side by side. You can paste content directly into either pane or open files from disk, then review and merge differences without leaving SnakeSh.</p>
+
+  <h2>Layout</h2>
+  <ul>
+    <li><strong>Left and right headers</strong>: each side has <code>Open...</code> and <code>Save</code> controls plus an eliding path label that shows the current file when one is loaded.</li>
+    <li><strong>Two editors</strong>: side-by-side plain-text editors with line numbers and no wrapping, suitable for pasted config snippets or full files.</li>
+    <li><strong>Center gutter</strong>: shows visual connectors between changed blocks and exposes per-block copy buttons in both directions.</li>
+    <li><strong>Scroll maps</strong>: narrow overview bars on both sides show where changes are located in the full document and stay aligned with scrolling.</li>
+    <li><strong>Search row</strong>: a built-in search field can be shown when needed and can target either the left or right editor.</li>
+    <li><strong>Status line</strong>: reports whether the files are identical or how many changed lines were detected.</li>
+  </ul>
+
+  <h2>Comparison Behavior</h2>
+  <ul>
+    <li>Differences are recomputed automatically after edits, with a short debounce so typing does not relaunch the diff on every keystroke.</li>
+    <li>Line-level changes are highlighted across both editors, and replace blocks also receive inline character-level highlights.</li>
+    <li>Scrolling is synchronized between the two panes so matching regions stay aligned while you inspect changes.</li>
+    <li>Both editors use the terminal font family and point size from SnakeSh settings so the diff panes match the rest of the application.</li>
+    <li>Very large files trigger a warning before opening, and files above the hard size limit are refused to avoid freezing the editor.</li>
+    <li>Files that look binary trigger a confirmation prompt before loading because they usually are not meaningful text diff targets.</li>
+  </ul>
+
+  <h2>Merge Controls</h2>
+  <ul>
+    <li><strong>&gt;</strong> and <strong>&lt;</strong> buttons in the center gutter copy a single changed block from one side to the other.</li>
+    <li><strong>Apply All →</strong>: replaces every differing block on the left with the right-side content.</li>
+    <li><strong>← Apply All</strong>: replaces every differing block on the right with the left-side content.</li>
+    <li><strong>Save</strong>: writes the current editor text back to the existing file path or prompts for a destination if the side was not opened from a file.</li>
+  </ul>
+
+  <h2>Search</h2>
+  <ul>
+    <li>The search row is hidden by default; click the <strong>Search</strong> button to show or hide it, or press <code>Ctrl+F</code> to open and focus it.</li>
+    <li><strong>Left</strong> and <strong>Right</strong> choose which editor the current search targets.</li>
+    <li>Press <code>Ctrl+F</code> to open the search row and select the current query.</li>
+    <li><strong>▲</strong> and <strong>▼</strong> move between matches inside the selected editor; the match label shows the current index.</li>
+    <li><strong>Case</strong> enables case-sensitive search.</li>
+    <li><strong>Regex</strong> treats the input as a regular expression.</li>
+    <li>Press <code>Escape</code> or use the close button on the search row to hide it and clear the active search highlights.</li>
+  </ul>
+</body>
+</html>

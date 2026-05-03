@@ -1,0 +1,4 @@
+include LICENSE
+include NOTICE
+include THIRD_PARTY_NOTICES.md
+include src/snakesh/assets/oui_snapshot.json

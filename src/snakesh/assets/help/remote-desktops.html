@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Remote Desktops</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Remote Desktops</h1>
+  <p>SnakeSh supports RDP, VNC, and NoMachine sessions through integrated launch workflows. These sessions still live in the session library, but their runtime behavior is different from terminal tabs because desktop viewers do not share a universal input API.</p>
+
+  <h2>RDP</h2>
+  <ul>
+    <li>Windows uses <code>mstsc</code>.</li>
+    <li>Linux uses <code>xfreerdp</code>.</li>
+    <li>Linux can run supported RDP sessions inside SnakeSh tabs or as detached viewers.</li>
+    <li>The <strong>Open Mode</strong> field appears only on Linux; non-Linux RDP is always detached.</li>
+    <li>Saved credentials and RDP domain values can be applied where supported.</li>
+  </ul>
+
+  <h2>VNC</h2>
+  <p>VNC uses an installed platform viewer such as TigerVNC or compatible alternatives. SnakeSh detects available viewers and applies display preferences when the selected client supports them.</p>
+
+  <h2>NoMachine</h2>
+  <p>NoMachine uses <code>nxplayer</code> and follows a detached-viewer workflow. This keeps the session managed inside SnakeSh without pretending the viewer behaves like an embedded terminal. Saved sessions can also tune audio streaming, remote audio muting, physical-desktop auto-resize, resize mode, and link/video quality.</p>
+
+  <h2>Display Preferences</h2>
+  <p>RDP and VNC sessions can store options such as resolution, fullscreen, and color depth. These settings stay attached to the session definition so reconnects use the same viewing preference each time. NoMachine uses its own quality and resize controls instead of the shared RDP/VNC resolution fields.</p>
+
+  <h2>Clipboard-Oriented Fast Commands</h2>
+  <p>Saved Fast Commands behave differently on remote viewer tabs. Instead of trying to type into the remote desktop, SnakeSh copies the command text to the local clipboard and tells you to paste it manually inside the remote session. This keeps the behavior predictable across viewer implementations.</p>
+
+  <h2>Platform Limits</h2>
+  <p>Not every protocol supports in-tab rendering on every operating system. When a viewer must run detached, SnakeSh still manages the session entry and launch flow, but the actual desktop surface opens through the platform viewer process. See <strong>Platform Differences</strong> in the Help index for a direct Windows, Linux, and macOS comparison.</p>
+</body>
+</html>

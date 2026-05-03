@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: MTU / MSS Calculator</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: MTU / MSS Calculator</h1>
+  <p>The MTU / MSS Calculator is a planning tool. It does not send network traffic. Instead, it estimates the usable payload sizes that remain after subtracting extra overhead from an outer or interface MTU.</p>
+
+  <h2>Inputs</h2>
+  <ul>
+    <li><strong>Outer / Interface MTU</strong>: the starting MTU value before extra overhead is removed.</li>
+    <li><strong>IP Version</strong>: chooses IPv4 or IPv6 header math.</li>
+    <li><strong>Extra Overhead Preset</strong>: applies a common overhead profile such as VLAN or PPPoE.</li>
+    <li><strong>Custom Extra Bytes</strong>: enabled only when the preset is <strong>Custom</strong>.</li>
+  </ul>
+
+  <h2>Calculated Values</h2>
+  <ul>
+    <li><strong>Effective MTU</strong>: MTU remaining after subtracting the selected extra overhead.</li>
+    <li><strong>Total Extra Overhead</strong>: the number of bytes removed by the preset or custom value.</li>
+    <li><strong>Max Ping Payload</strong>: the largest ICMP echo payload size that fits.</li>
+    <li><strong>Max UDP Payload</strong>: the largest UDP payload size that fits.</li>
+    <li><strong>TCP MSS (no options)</strong>: the largest TCP segment size that fits when TCP options are not considered.</li>
+  </ul>
+
+  <h2>Buttons</h2>
+  <ul>
+    <li><strong>Copy Summary</strong>: copies the current calculation and any advisories to the clipboard.</li>
+    <li><strong>Send to Ping</strong>: opens or reuses the Ping tool, prefills the packet size and IP version, and leaves the target unchanged.</li>
+    <li><strong>Close</strong>: closes the tool window.</li>
+  </ul>
+
+  <h2>Advisories and Limits</h2>
+  <p>The tool reports hard validation errors when the effective MTU is too small to fit the selected IP and transport headers. It also shows non-blocking advisories when the effective MTU falls below the typical IPv4 minimum of 68 bytes or the IPv6 minimum MTU of 1280 bytes.</p>
+</body>
+</html>

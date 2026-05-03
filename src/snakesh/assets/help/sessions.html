@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Sessions and Protocols</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Sessions and Protocols</h1>
+  <p>Create, edit, duplicate, bulk-edit same-protocol selections, and organize saved sessions from the main session library. The editor only shows fields that apply to the selected protocol, which keeps unrelated SSH, desktop, serial, and file-transfer settings out of the way.</p>
+
+  <h2>Session Library Basics</h2>
+  <ul>
+    <li>Sessions can live inside folders and subfolders.</li>
+    <li>Folders can be renamed, removed, or used for bulk organization.</li>
+    <li>Sessions can be duplicated to create variants without rebuilding every field.</li>
+    <li>Same-protocol multi-select can open the bulk-edit workflow for shared field updates.</li>
+    <li>Multi-select support lets you connect to several sessions or move them together.</li>
+  </ul>
+
+  <h2>Common Session Fields</h2>
+  <p>Most network sessions share a host, port, username, notes, tags, and protocol-specific display text. Some protocols expose additional fields such as RDP domain, terminal overrides, viewer resolution, NoMachine quality controls, or saved-password handling for SSH, SFTP, RDP, and VNC. Local Shell is launched from the main toolbar and configured globally in Settings rather than saved as a session type.</p>
+
+  <h2>Terminal-Oriented Protocols</h2>
+  <h3>SSH</h3>
+  <p>SSH sessions support key-based authentication, password fallback, host key trust prompts, optional X11 forwarding, port forwarding profiles, post-connect automation, and in-app terminal tabs. The terminal tab can launch a paired SFTP workspace from the tab context menu.</p>
+
+  <h3>SFTP</h3>
+  <p>SFTP sessions open the dual-pane file-transfer workspace. They can reuse saved SSH-style credentials and support default local and remote start folders.</p>
+
+  <h3>Telnet</h3>
+  <p>Telnet sessions run inside the native terminal workspace. Optional TLS, terminal type selection, and certificate validation controls are available when the target environment requires them.</p>
+
+  <h3>Serial</h3>
+  <p>Serial sessions expose baud rate, parity, stop bits, data bits, and flow control options. They use the same terminal view as network sessions so searchable scrollback, logging, and tab handling stay consistent.</p>
+
+  <h3>Local Shell</h3>
+  <p>Local Shell is a built-in toolbar action rather than a saved session protocol. It opens a local terminal tab inside the same workspace model as SSH, Telnet, and Serial tabs, and its default command/start directory are configured globally in Settings.</p>
+
+  <h2>Remote Desktop Protocols</h2>
+  <h3>RDP</h3>
+  <p>RDP sessions launch through platform tools. Linux supports in-tab and detached modes with <code>xfreerdp</code>. Windows uses <code>mstsc</code>. Certificate trust can be confirmed from a GUI prompt on Linux before the viewer starts.</p>
+
+  <h3>VNC</h3>
+  <p>VNC sessions use an installed viewer when available. SnakeSh applies saved display preferences when the selected viewer supports them.</p>
+
+  <h3>NoMachine</h3>
+  <p>NoMachine sessions integrate with <code>nxplayer</code> and use a detached-viewer workflow. They still appear in the session library and share the same saved metadata model, including audio, resize, and quality preferences.</p>
+
+  <h2>Per-Session Convenience Features</h2>
+  <ul>
+    <li>Saved passwords can be stored through the configured secrets backend instead of only inside the encrypted session store.</li>
+    <li>Per-session terminal foreground and background colors can override the global theme.</li>
+    <li>SSH, Telnet, and Serial sessions can display a shell banner with custom color and optional blink above the terminal.</li>
+    <li>Automation flows can run after connect for terminal-based protocols.</li>
+    <li>SSH and SFTP sessions expose public-key installation helpers.</li>
+  </ul>
+
+  <h2>Need the Full Field List?</h2>
+  <p>Open <strong>Session Editor Reference</strong> from the Help index for the full field-by-field breakdown of the Session Editor, including SSH tunneling, automation steps, display options, serial settings, and protocol-specific visibility rules.</p>
+</body>
+</html>

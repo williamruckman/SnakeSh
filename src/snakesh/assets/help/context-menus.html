@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Context Menus</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Context Menus</h1>
+  <p>This page documents the custom SnakeSh menus that appear when you right-click or open a context-style action menu. Some entries only appear when a tab type, selection state, or protocol supports them.</p>
+
+  <h2>Terminal View Right-Click Menu</h2>
+  <ul>
+    <li><strong>Copy and Paste</strong>: copies the current terminal selection to the clipboard and immediately pastes it back into the session.</li>
+    <li><strong>Copy</strong>: copies the current terminal selection to the clipboard.</li>
+    <li><strong>Paste</strong>: sends the current clipboard text into the terminal session.</li>
+    <li><strong>Open SFTP Tab</strong>: appears on SSH terminal tabs and requests a paired SFTP workspace that reuses the same saved session definition.</li>
+    <li><strong>Disconnect</strong>: ends the active shell session but keeps the tab and visible history open so you can review output or reconnect later.</li>
+    <li><strong>Log Session to File...</strong>: starts per-tab terminal logging when logging is currently off.</li>
+    <li><strong>Stop Logging</strong>: stops per-tab terminal logging when it is currently on.</li>
+  </ul>
+
+  <h2>Command Bar Input Right-Click Menu</h2>
+  <ul>
+    <li><strong>Undo</strong>: undo the last text change.</li>
+    <li><strong>Redo</strong>: redo the previously undone text change.</li>
+    <li><strong>Cut</strong>: cut the selected text.</li>
+    <li><strong>Copy</strong>: copy the selected text.</li>
+    <li><strong>Paste</strong>: paste clipboard text into the input field.</li>
+    <li><strong>Delete</strong>: delete the selected text.</li>
+    <li><strong>Select All</strong>: select the full command-bar contents.</li>
+  </ul>
+
+  <h2>SFTP Local Pane Right-Click Menu</h2>
+  <ul>
+    <li><strong>Upload Selected</strong>: uploads the selected local files or directories to the remote side, warning before overwriting existing remote files when enabled.</li>
+    <li><strong>New Folder...</strong>: creates a new directory inside the local folder currently open in the pane.</li>
+    <li><strong>Rename...</strong>: renames the selected local file or directory.</li>
+    <li><strong>Delete Selected</strong>: deletes the selected local files or directories after confirmation when delete warnings are enabled.</li>
+    <li><strong>Refresh</strong>: reloads the current local directory view.</li>
+  </ul>
+
+  <h2>SFTP Remote Pane Right-Click Menu</h2>
+  <ul>
+    <li><strong>Download Selected</strong>: downloads the selected remote items to the local side, warning before overwriting existing local files when enabled.</li>
+    <li><strong>Upload Selected Local</strong>: uploads whatever is currently selected on the local side without switching focus, warning before overwriting existing remote files when enabled.</li>
+    <li><strong>New Folder...</strong>: creates a new directory inside the remote folder currently open in the pane.</li>
+    <li><strong>Rename...</strong>: renames the selected remote file or directory.</li>
+    <li><strong>Delete Selected</strong>: deletes the selected remote items after confirmation when delete warnings are enabled.</li>
+    <li><strong>Refresh</strong>: reloads the current remote directory listing.</li>
+  </ul>
+
+  <h2>Workspace Tab-Strip Right-Click Menu</h2>
+  <ul>
+    <li><strong>Group Tabs...</strong>: assign the selected tab to a terminal group.</li>
+    <li><strong>Manage Groups...</strong>: open the group manager. It is enabled only when groups already exist.</li>
+    <li><strong>Ungroup Tabs</strong>: remove the current tab from its group. It appears enabled only when the tab is grouped.</li>
+    <li><strong>Split Vertical (Side by Side)</strong>: split the current tab into a side-by-side workspace layout.</li>
+    <li><strong>Split Horizontal (Top/Bottom)</strong>: split the current tab into a top/bottom workspace layout.</li>
+    <li><strong>Rename Tab...</strong>: change the visible label for the life of the current session tab.</li>
+    <li><strong>Detach Tab</strong>: move the current detachable terminal-style tab into its own window.</li>
+    <li><strong>Reattach Tab</strong>: return a detached terminal-style tab to the main workspace.</li>
+    <li><strong>Disconnect</strong>: end the active terminal session while keeping the tab, title, group membership, and on-screen history in place.</li>
+    <li><strong>Close Tab</strong>: close the current tab. Active terminal and remote-viewer tabs ask for confirmation unless the warning is disabled in Settings.</li>
+    <li><strong>Reconnect Session</strong>: reconnect a closed SSH, Telnet, Serial, or Local Shell tab in place so the preserved history remains visible.</li>
+    <li><strong>Open SFTP Tab</strong>: appears on saved SSH tabs, even after the terminal has closed, so file transfer can still reuse the session definition.</li>
+    <li><strong>Log Session to File...</strong> / <strong>Stop Logging</strong>: start or stop per-tab terminal logging.</li>
+    <li><strong>Detach Viewer</strong>: detach a Linux RDP viewer from an embedded tab when supported.</li>
+    <li><strong>Attach Viewer to Tab</strong>: reattach a detached Linux RDP viewer to the workspace when embedded mode is supported.</li>
+  </ul>
+
+  <h2>Session Tree Right-Click Menu</h2>
+  <ul>
+    <li><strong>Add Session...</strong>: create a new session. The suggested folder depends on the current selection.</li>
+    <li><strong>Edit Session...</strong>: edit the currently selected session when exactly one session is selected and no folders are selected.</li>
+    <li><strong>New Folder</strong>: create a top-level folder.</li>
+    <li><strong>New Subfolder</strong>: create a subfolder beneath the currently selected folder.</li>
+    <li><strong>Rename Folder...</strong>: rename the selected folder when exactly one folder is selected.</li>
+    <li><strong>Rename Session...</strong>: rename the selected session when exactly one session is selected.</li>
+    <li><strong>Duplicate Session</strong>: duplicate the selected session when exactly one session is selected.</li>
+    <li><strong>Bulk Edit Selected Sessions...</strong>: edit multiple selected sessions together when at least two sessions of the same protocol are selected.</li>
+    <li><strong>Connect</strong> / <strong>Connect Selected Sessions</strong>: open the selected sessions.</li>
+    <li><strong>Open SFTP Tab</strong>: open an SFTP workspace for a single selected SSH or SFTP session.</li>
+    <li><strong>Install Public Key</strong>: launch the SSH/SFTP public-key installation helper for a single selected SSH or SFTP session.</li>
+    <li><strong>Delete</strong>: delete the selected session(s) or folder(s).</li>
+  </ul>
+
+  <h2>Network Inspector Right-Click Menu</h2>
+  <ul>
+    <li><strong>Copy Selected</strong>: copy the selected rows from the current Network Inspector tab as tab-delimited text with headers.</li>
+    <li><strong>Copy All</strong>: copy every row from the current Network Inspector tab as tab-delimited text with headers.</li>
+    <li><strong>Ctrl+C</strong>: keyboard shortcut for copy selected on the focused Network Inspector tab.</li>
+    <li><strong>Ctrl+A</strong>: keyboard shortcut for select all on the focused Network Inspector tab.</li>
+  </ul>
+
+  <h2>Fast Commands Drop-Down Menu</h2>
+  <ul>
+    <li><strong>Saved Fast Command entries</strong>: run the selected saved command.</li>
+    <li><strong>No Fast Commands Saved</strong>: disabled placeholder shown when there are no saved entries.</li>
+    <li><strong>Add Fast Command...</strong>: create a new saved command.</li>
+    <li><strong>Manage Fast Commands...</strong>: open the Fast Command manager dialog.</li>
+  </ul>
+
+  <h2>Profiles Drop-Down Menu</h2>
+  <ul>
+    <li><strong>Saved profile entries</strong>: apply the chosen workspace profile.</li>
+    <li><strong>No Profiles Saved</strong>: disabled placeholder shown when there are no saved profiles.</li>
+    <li><strong>Add Current Profile...</strong>: save the current workspace state as a profile, including currently open supported tool windows for optional autoload.</li>
+    <li><strong>Profile Manager...</strong>: open the profile manager dialog to load, replace, delete, set defaults, and edit which tools start when a profile loads.</li>
+  </ul>
+
+  <h2>Scope Note</h2>
+  <p>This page covers the custom menus provided by SnakeSh itself. Native operating-system file-picker menus, standard Qt text-field menus that SnakeSh does not customize, and external viewer menus from RDP, VNC, or NoMachine clients are outside the scope of the built-in guide.</p>
+</body>
+</html>

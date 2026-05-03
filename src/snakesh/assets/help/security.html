@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Security and Secrets</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Security and Secrets</h1>
+  <p>SnakeSh is designed to keep connection metadata usable without treating credentials casually. Session data is encrypted at rest and can work with a dedicated secrets backend when you need stronger separation between connection metadata and password storage.</p>
+
+  <h2>Encrypted Session Store</h2>
+  <p>Session data is encrypted locally with Fernet-based symmetric encryption. The encryption key is generated once and stored in the configured secrets backend or the default platform credential store when appropriate.</p>
+
+  <h2>Secrets Backends</h2>
+  <p>Supported backends include OS keyring, 1Password CLI, Bitwarden CLI, Keeper Commander, KeePassXC CLI, and HashiCorp Vault KV v2. Backend-specific setup and validation are available from Settings.</p>
+
+  <h2>Startup Gate</h2>
+  <p>SnakeSh can require a master password before opening the main interface. That startup gate is configured in Settings and stores only the derived verification material needed for the prompt, not a plaintext password.</p>
+
+  <h2>Host and Certificate Trust</h2>
+  <ul>
+    <li>SSH and SFTP host keys must be explicitly trusted before reuse.</li>
+    <li>Linux RDP launches can prompt for certificate trust before the viewer starts.</li>
+    <li>Telnet over TLS can apply certificate-validation controls when configured.</li>
+  </ul>
+
+  <h2>Exports and Logs</h2>
+  <p>Exports can be password-protected so backup or transfer bundles are not left in plain text. Terminal logs and Syslog / SNMP monitor captures are useful operationally, but they may contain sensitive command output, network identifiers, trap payloads, or device metadata, so review your retention settings and storage location carefully. Exported settings and sessions do not embed passwords or backend auth tokens that remain stored in the OS keyring or external secrets backend, and monitor history archives are not bundled into first-party exports.</p>
+
+  <h2>Operational Recommendations</h2>
+  <ul>
+    <li>Prefer SSH keys over passwords when the target systems allow it.</li>
+    <li>Use a secrets backend for reusable passwords and API tokens.</li>
+    <li>Review auto-logging behavior if commands may print secrets.</li>
+    <li>Treat captured syslog messages and SNMP trap history as sensitive data when they contain operational or customer identifiers.</li>
+    <li>Use encrypted exports when sharing or archiving data outside the current machine.</li>
+  </ul>
+</body>
+</html>

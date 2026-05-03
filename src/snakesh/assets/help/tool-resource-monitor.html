@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Resource Monitor</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Resource Monitor</h1>
+  <p>The Resource Monitor is SnakeSh's live local-system telemetry view. It opens in a separate non-modal window, keeps a rolling in-memory history from the moment you launch it, and clears that history when you close the tool.</p>
+
+  <h2>Overview Tab</h2>
+  <p>The <strong>Overview</strong> tab is designed as a Mission Center-style dashboard for quick visual scanning.</p>
+  <ul>
+    <li><strong>Summary cards</strong> show current CPU, memory, disk, per-device disk I/O, network bandwidth, process count, and per-adapter GPU status.</li>
+    <li><strong>Charts</strong> track the last live samples collected while the window remains open.</li>
+    <li><strong>Filesystems</strong> shows accessible local partitions, highlights the filesystem that contains your home directory, and includes per-device read or write throughput when SnakeSh can resolve it.</li>
+    <li><strong>Interfaces</strong> shows detected network interfaces with separate IPv4 and IPv6 addresses, state, link speed, and current receive or send rates, and can include offline adapters when that Settings option is enabled.</li>
+  </ul>
+  <p>GPU telemetry is best effort. SnakeSh attempts to detect NVIDIA, AMD, and Intel adapters and shows whichever utilization, VRAM, and temperature metrics are available for each adapter on the current OS and driver stack. When only partial GPU telemetry is available, the GPU cards stay readable and show which metrics are unavailable instead of treating the whole tab as failed.</p>
+
+  <h2>Disks and GPU Tabs</h2>
+  <p>The <strong>Disks</strong> tab keeps the home-volume space summary, but the live throughput cards, mounted-filesystem table, and throughput chart are shown per resolved device rather than as one machine-wide aggregate. The <strong>GPU</strong> tab keeps the existing card layout while rendering one line per adapter for utilization, VRAM, temperature, and adapter status above the per-adapter history charts.</p>
+
+  <h2>Network Tab</h2>
+  <p>The <strong>Network</strong> tab shows detected wired, wireless, virtual, and loopback adapters. When <strong>Offline Adapters</strong> is enabled in Settings, offline adapters stay visible with an <strong>Offline</strong> state until they reconnect or are removed from the system.</p>
+
+  <h2>Settings Tab</h2>
+  <p>The <strong>Settings</strong> tab controls Resource Monitor display and refresh behavior for future samples and persists the choices in SnakeSh settings.</p>
+  <ul>
+    <li><strong>Offline Adapters</strong>: toggles whether offline network adapters stay visible.</li>
+    <li><strong>Zoom</strong>: scales Resource Monitor cards, tables, and charts between 75% and 150%.</li>
+    <li><strong>Telemetry Refresh</strong>: controls the live overview sample interval from 500 ms to 10000 ms.</li>
+    <li><strong>Process Refresh</strong>: controls process-list refresh timing from 2000 ms to 30000 ms.</li>
+    <li><strong>Chart History</strong>: keeps between 2 and 60 minutes of rolling in-memory chart samples while the tool is open.</li>
+  </ul>
+
+  <h2>Processes Tab</h2>
+  <p>The <strong>Processes</strong> tab focuses on the live process list for the current machine.</p>
+  <ul>
+    <li>Sort by CPU, memory, thread count, start time, or any of the visible process fields.</li>
+    <li>Use the search box to filter by process name, PID, user, or command text.</li>
+    <li>Use <strong>End Task</strong> for a normal termination request or <strong>Force Kill</strong> for a stronger stop action.</li>
+    <li>SnakeSh blocks attempts to terminate its own GUI process from this tool.</li>
+  </ul>
+
+  <h2>Authorization Prompts</h2>
+  <p>If a selected process requires elevated privileges to stop, SnakeSh first tries the normal process action and then offers the same OS-native authorization flow used by other privileged tools. On Linux this can use <code>pkexec</code> or <code>sudo</code>, on Windows it can trigger a UAC prompt, and on macOS it can use an administrator-authorization dialog.</p>
+
+  <h2>What Does Not Persist</h2>
+  <p>The Resource Monitor does not save chart history, process filters, or other live session state after the tool closes. Display and refresh preferences from the Settings tab are saved, but each new launch starts a fresh in-memory monitoring session.</p>
+
+  <h2>Freeze Diagnostics</h2>
+  <p>If you are investigating a Windows freeze or long-running hang around the Resource Monitor, launch SnakeSh with <code>--debug-level debug</code> before reproducing the issue. That per-run diagnostics mode writes a session log under <code>%LOCALAPPDATA%\SnakeSh\logs\debug\YYYY\MM\</code> unless you override it with <code>--debug-log-file</code>. The log captures worker timing, warnings, and hang watchdog traceback dumps, while the Settings crash-log toggle remains focused on fatal crashes and native faults.</p>
+  <ul>
+    <li>Start <code>snakesh --debug-level debug</code>.</li>
+    <li>Open the Resource Monitor and reproduce the hang.</li>
+    <li>After the freeze or forced close, collect the newest diagnostics log from the debug log folder.</li>
+    <li>If the UI stops pumping events for roughly 15 seconds, the same log should include an all-thread traceback dump.</li>
+  </ul>
+</body>
+</html>

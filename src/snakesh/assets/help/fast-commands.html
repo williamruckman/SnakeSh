@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Fast Commands</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Fast Commands</h1>
+  <p>Fast Commands store reusable command text that can be launched from the toolbar or menu without opening an external script editor. They are useful for routine operational commands, common diagnostics, and environment bootstrap snippets.</p>
+
+  <h2>How Fast Commands Differ From the Bottom Command Bar</h2>
+  <ul>
+    <li>The bottom command bar is ad-hoc and always terminal-only.</li>
+    <li>Fast Commands are saved and reusable.</li>
+    <li>Fast Commands can adapt to the current target type, including remote viewer tabs.</li>
+  </ul>
+
+  <h2>Creating and Managing Commands</h2>
+  <ul>
+    <li>Use <strong>Add Fast Command...</strong> from the Fast Commands menu to save the current command-bar text or another multi-line payload.</li>
+    <li><strong>Manage Fast Commands...</strong> opens the manager dialog for edit, rename, and delete actions.</li>
+    <li>Fast Commands are stored with application settings, so they can be included in normal settings export or import.</li>
+  </ul>
+
+  <h2>Terminal Tabs</h2>
+  <p>When the active target is a terminal tab, SnakeSh injects the saved text into that terminal. If the tab belongs to a group, SnakeSh fans the same text out to every terminal in the group. Local Shell, SSH, Telnet, and other terminal-style tabs all follow this behavior.</p>
+
+  <h2>Remote Viewer Tabs</h2>
+  <p>When the active target is an RDP, VNC, or NoMachine viewer tab, SnakeSh copies the command text to the clipboard instead of trying to inject keystrokes. The copied payload does not include an extra trailing newline, so you can decide how and where to paste it inside the remote system.</p>
+
+  <h2>Status Feedback</h2>
+  <p>After a Fast Command is launched against a remote viewer tab, SnakeSh shows a status message telling you that the text was copied and should be pasted inside the remote session.</p>
+
+  <h2>Practical Uses</h2>
+  <ul>
+    <li>Standard service restart commands</li>
+    <li>Environment-variable exports</li>
+    <li>Log tail commands</li>
+    <li>Inventory or health-check snippets</li>
+    <li>Paste-ready commands for remote desktops that do not expose a direct terminal channel</li>
+  </ul>
+</body>
+</html>

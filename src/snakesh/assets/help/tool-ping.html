@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Ping</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Ping</h1>
+  <p>The Ping tool is a GUI wrapper around the platform ping utility. It builds the command line for the current operating system, launches it, and streams the output into the dialog.</p>
+
+  <h2>Fields</h2>
+  <ul>
+    <li><strong>Target</strong>: hostname or IP address to probe.</li>
+    <li><strong>Count</strong>: number of probes to send.</li>
+    <li><strong>Timeout per probe</strong>: per-packet timeout in milliseconds.</li>
+    <li><strong>Packet size</strong>: ICMP payload size.</li>
+    <li><strong>Use IPv6</strong>: switches the request to IPv6 mode.</li>
+  </ul>
+
+  <h2>Buttons</h2>
+  <ul>
+    <li><strong>Run</strong>: builds and starts the ping command.</li>
+    <li><strong>Stop</strong>: terminates the running process.</li>
+    <li><strong>Clear</strong>: clears the output pane only.</li>
+  </ul>
+  <p>The <strong>MTU / MSS Calculator</strong> can prefill the Ping tool's <strong>Packet size</strong> and <strong>Use IPv6</strong> fields through its <strong>Send to Ping</strong> button. Prefilling does not start a probe and does not replace the current target field.</p>
+
+  <h2>Output Area</h2>
+  <p>The output pane shows the quoted command line first, followed by live stdout and stderr from the underlying ping process. When the process ends, SnakeSh appends the exit code.</p>
+
+  <h2>Status and Dependencies</h2>
+  <p>The status line reports whether the tool is ready, running, stopping, or finished. If the required system ping executable is missing, the tool reports that directly in the dialog.</p>
+</body>
+</html>

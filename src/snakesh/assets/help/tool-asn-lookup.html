@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: ASN Lookup</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: ASN Lookup</h1>
+  <p>The ASN Lookup tool performs WHOIS-based autonomous system lookups and summarizes the most common registry fields without hiding the raw response text.</p>
+
+  <h2>Input</h2>
+  <ul>
+    <li>Enter an ASN as <code>AS15169</code> or as a plain number such as <code>15169</code>.</li>
+    <li>Optionally choose a specific WHOIS server if you do not want SnakeSh to start from the default referral chain.</li>
+    <li>Enable or disable referral following depending on how much of the registry chain you want SnakeSh to walk automatically.</li>
+  </ul>
+
+  <h2>Output</h2>
+  <ul>
+    <li><strong>ASN</strong> shows the normalized result with the <code>AS</code> prefix.</li>
+    <li><strong>AS Name</strong>, <strong>Organization</strong>, <strong>Description</strong>, <strong>Country</strong>, and <strong>Registry Server</strong> are extracted on a best-effort basis from the WHOIS payload.</li>
+    <li><strong>Remarks</strong> displays any registry comment or remarks lines that were found.</li>
+    <li>The lower output pane keeps the raw WHOIS sections so you can inspect the full registry text.</li>
+  </ul>
+
+  <h2>Notes</h2>
+  <p>WHOIS formats vary between registries. If a field is blank, that usually means the registry response did not expose that field in a consistently parseable way. The raw response remains available even when structured parsing is partial.</p>
+</body>
+</html>

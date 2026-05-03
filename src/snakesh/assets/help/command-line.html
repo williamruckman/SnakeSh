@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Command Line and Launchers</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Command Line and Launchers</h1>
+  <p>SnakeSh can be started with <code>snakesh</code>, <code>python -m snakesh</code>, or the compatibility alias <code>securepython</code>. The same settings, theme, secrets configuration, and startup master-password gate apply no matter which launcher path you use.</p>
+
+  <h2>Main Application Launches</h2>
+  <ul>
+    <li><code>snakesh</code>: start the main GUI normally.</li>
+    <li><code>snakesh &lt;import_file.ssx&gt;</code>: start SnakeSh and immediately open an exported SnakeSh bundle for import.</li>
+    <li><code>snakesh --install-desktop</code>: install or repair the Linux AppImage desktop entry and launcher integration, then exit.</li>
+    <li><code>snakesh --uninstall-desktop</code>: remove the Linux AppImage desktop entry, launcher integration, and managed tool launchers, then exit.</li>
+    <li><code>snakesh --remove-tool-launchers</code>: remove managed standalone tool launcher entries, then exit.</li>
+    <li><code>snakesh --debug-level {info,debug,trace}</code>: enable a per-run diagnostics log for the current launch.</li>
+    <li><code>snakesh --debug-level debug --debug-log-file /path/to/log</code>: write the diagnostics log to a specific file instead of the default debug-log folder layout.</li>
+  </ul>
+  <p><code>--debug-log-file</code> requires <code>--debug-level</code>. Without an explicit log path, diagnostics logs are written into SnakeSh's managed debug-log directory tree for the current platform.</p>
+
+  <h2>Standalone Tool CLI</h2>
+  <p>The <code>tool</code> mode launches the same standalone dialogs that appear under the main <strong>Tools</strong> menu. Run <code>snakesh tool --help</code> to print the current command reference.</p>
+  <ul>
+    <li><code>snakesh tool list</code>: print the registered tool keys in launch order.</li>
+    <li><code>snakesh tool resource_monitor</code>: launch Resource Monitor.</li>
+    <li><code>snakesh tool network_inspector</code>: launch Network Inspector.</li>
+    <li><code>snakesh tool whois</code>: launch Whois.</li>
+    <li><code>snakesh tool asn_lookup</code>: launch ASN Lookup.</li>
+    <li><code>snakesh tool dig</code>: launch Dig.</li>
+    <li><code>snakesh tool traceroute</code>: launch Traceroute.</li>
+    <li><code>snakesh tool ping</code>: launch Ping.</li>
+    <li><code>snakesh tool ip_scan</code>: launch IP Scan.</li>
+    <li><code>snakesh tool mtu_calculator</code>: launch MTU / MSS Calculator.</li>
+    <li><code>snakesh tool file_hash</code>: launch File Hash.</li>
+    <li><code>snakesh tool oui_lookup</code>: launch OUI Lookup.</li>
+    <li><code>snakesh tool web_server</code>: launch Web Server.</li>
+    <li><code>snakesh tool syslog_snmp_monitor</code>: launch Syslog / SNMP Monitor.</li>
+    <li><code>snakesh tool subnet_calculator</code>: launch Subnet Calculator.</li>
+    <li><code>snakesh tool password_generator</code>: launch Password Generator.</li>
+    <li><code>snakesh tool diff</code>: launch Diff Tool.</li>
+    <li><code>snakesh tool help</code>: launch the standalone Help window.</li>
+  </ul>
+  <p><code>snakesh tool help</code> launches the Help tool itself. Use <code>snakesh tool --help</code> when you want the CLI usage text instead. Every registered tool also supports a tool-specific help view such as <code>snakesh tool resource_monitor --help</code>.</p>
+  <p>All standalone tools accept <code>--debug-level {info,debug,trace}</code> and <code>--debug-log-file PATH</code>. These debug flags may be placed before the tool key, as in <code>snakesh tool --debug-level debug resource_monitor</code>, or after the tool key, as in <code>snakesh tool resource_monitor --debug-level debug</code>. If both positions are used, the tool-specific value after the tool key takes precedence.</p>
+
+  <h2>Ping Prefill Options</h2>
+  <p>Only the standalone Ping tool accepts extra non-debug CLI arguments. These values prefill the GUI; they do not automatically start a ping run.</p>
+  <ul>
+    <li><code>snakesh tool ping --packet-size 1472</code>: open Ping with the packet-size field prefilled.</li>
+    <li><code>snakesh tool ping --ipv6</code>: open Ping with IPv6 mode enabled.</li>
+    <li><code>snakesh tool ping --packet-size 1452 --ipv6</code>: combine both prefill options.</li>
+  </ul>
+
+  <h2>Internal Helper Modes</h2>
+  <p>SnakeSh also exposes internal helper modes because the main app launches some privileged or isolated helper processes by re-running itself. These flags are real command-line options and appear in <code>--help</code>, but they are meant for SnakeSh-managed child processes rather than normal manual use.</p>
+  <ul>
+    <li><code>--web-server-helper INSTANCE_DIR</code>: run the Web Server worker for an existing helper session directory.</li>
+    <li><code>--network-inspector-ports-helper SESSION_DIR</code>: run the privileged Network Inspector ports collector for an existing helper session directory.</li>
+    <li><code>--mtr-helper SESSION_DIR</code>: run the native traceroute or MTR helper for an existing helper session directory.</li>
+    <li><code>--syslog-snmp-monitor-helper PROFILE_ID</code>: run the Syslog / SNMP Monitor collector for an existing monitor profile.</li>
+  </ul>
+
+  <h2>Launcher Entries</h2>
+  <p>On Linux, the main app can install desktop integration and standalone tool launchers from <strong>Settings</strong>. On Windows and macOS, SnakeSh can manage per-user launcher entries for standalone tools from the same <strong>Manage Tool Launchers...</strong> workflow. Use <code>--remove-tool-launchers</code> for cross-platform cleanup without changing SnakeSh data. Standalone tools share the same saved settings, theme, and optional tool-launch master-password gate as the main app.</p>
+</body>
+</html>

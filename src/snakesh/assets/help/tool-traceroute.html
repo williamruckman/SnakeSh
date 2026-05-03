@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Traceroute</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Traceroute</h1>
+  <p>The Traceroute tool presents an MTR-style live hop table while repeatedly tracing the current path to a target. By default SnakeSh uses the platform's normal unprivileged traceroute command set. An optional fast native mode can pipeline probes across cycles for better performance, but it may require elevation on some platforms.</p>
+
+  <h2>Fields</h2>
+  <ul>
+    <li><strong>Target</strong>: hostname or IP address to trace.</li>
+    <li><strong>Max hops</strong>: upper hop limit.</li>
+    <li><strong>Timeout per probe</strong>: timeout for each per-hop probe in milliseconds.</li>
+    <li><strong>Interval</strong>: pause between completed cycles.</li>
+    <li><strong>Cycles</strong>: choose <code>Run until stopped</code>, pick a preset from <code>1</code> through <code>10</code>, or choose <code>Custom</code> to enter another count.</li>
+    <li><strong>Protocol</strong>: choose <code>Auto</code>, <code>ICMP</code>, or <code>UDP</code>. <code>Auto</code> is the default and prefers the most reliable unprivileged backend for the current platform.</li>
+    <li><strong>Engine</strong>: enable <code>Fast native probing</code> to use the pipelined raw-socket backend. This mode can start the next cycle before slow hops from older cycles finish timing out, but it may prompt for elevation when the OS requires raw-socket access.</li>
+    <li><strong>Resolve hostnames</strong>: controls reverse lookup behavior for responding hops.</li>
+    <li><strong>Use IPv6</strong>: switches the trace to IPv6 mode.</li>
+  </ul>
+
+  <h2>Buttons and Table</h2>
+  <ul>
+    <li><strong>Start</strong>: launches the helper and begins collecting hop statistics.</li>
+    <li><strong>Stop</strong>: requests a clean stop for the active trace.</li>
+    <li><strong>Reset Stats</strong>: clears all accumulated hop counters and starts fresh on the next run.</li>
+    <li><strong>Graph</strong>: opens a live analysis window for the current trace with multiple chart views and export actions.</li>
+    <li><strong>Copy Report</strong>: copies a plain-text summary plus the current hop table.</li>
+    <li><strong>Hop table</strong>: shows <code>Hop</code>, <code>Host</code>, <code>Address</code>, <code>Loss%</code>, <code>Sent</code>, <code>Recv</code>, <code>Last</code>, <code>Avg</code>, <code>Best</code>, <code>Worst</code>, and <code>StDev</code>. Columns are resizable. Right-click a cell or header to copy a cell, row, selected rows, or a whole column. The default widths keep <code>Last</code> and <code>Avg</code> visible while still leaving room to expand host and address columns.</li>
+  </ul>
+
+  <h2>Graph Window</h2>
+  <p>The graph window follows the active traceroute session and updates live while the trace is running. It keeps the current run's per-probe history only; starting a new trace or using <code>Reset Stats</code> clears both the table summary and the graph history.</p>
+  <ul>
+    <li><strong>Views</strong>: <code>RTT Over Time</code>, <code>Latency Summary</code>, <code>Packet Loss</code>, <code>Jitter</code>, <code>Hop Heatmap</code>, <code>Worst Hops</code>, <code>Cumulative Path</code>, and <code>Reachability Trend</code>.</li>
+    <li><strong>Filters</strong>: hop multi-select, timeout inclusion, and cycle range controls let you narrow the displayed history without changing the underlying trace data.</li>
+    <li><strong>Export Image</strong>: saves the current graph tab as <code>PNG</code> or <code>SVG</code>.</li>
+    <li><strong>Export CSV</strong>: exports the filtered raw probe history for the active session, including timeout rows.</li>
+  </ul>
+
+  <h2>Operational Notes</h2>
+  <p>SnakeSh still uses a helper process to aggregate repeated trace cycles. In the default mode it relies on the host system's normal unprivileged traceroute command set. <code>Auto</code> prefers ICMP-based <code>tracert</code> on Windows and UDP-style <code>traceroute</code> or <code>tracepath</code> on Unix-like systems. The optional fast native mode uses direct raw-socket probes instead, which lets later cycles start while older probes are still waiting on replies or timeouts.</p>
+  <p>Fast native mode may require elevation, depending on the platform and current permissions. Its cycle number means the probe wave launch order, not the moment when every hop in that cycle has already resolved. Loss and latency statistics still accumulate across the full session until the trace stops or you reset the session. <code>Avg</code> is the running average latency for successful replies in the current session. Reverse DNS is best-effort and may leave the <code>Host</code> column blank or equal to the numeric address when a name is unavailable.</p>
+</body>
+</html>

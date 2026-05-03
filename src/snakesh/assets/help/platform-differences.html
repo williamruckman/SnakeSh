@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Platform Differences</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #c8d6e5; padding: 0.6rem; vertical-align: top; text-align: left; }
+    th { background: #e9f0f8; color: #183b63; }
+  </style>
+</head>
+<body>
+  <h1>Platform Differences</h1>
+  <p>SnakeSh keeps the session library, workspace model, and most terminal workflows consistent across operating systems, but some capabilities change because the host OS exposes different viewers, shells, packaging models, and privilege rules.</p>
+
+  <h2>Quick Comparison</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Area</th>
+        <th>Windows</th>
+        <th>Linux</th>
+        <th>macOS</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Primary package</td>
+        <td>Setup EXE installer</td>
+        <td>AppImage with optional desktop integration</td>
+        <td>Signed/notarized dmg or zip when release signing is configured; unsigned local dmg/zip builds are also supported</td>
+      </tr>
+      <tr>
+        <td>Local Shell default</td>
+        <td>PowerShell or cmd</td>
+        <td>Detected user shell</td>
+        <td>Detected user shell</td>
+      </tr>
+      <tr>
+        <td>RDP support</td>
+        <td><code>mstsc</code>, detached/external viewer workflow</td>
+        <td><code>xfreerdp</code>, detached or supported in-tab workflow</td>
+        <td>Not supported</td>
+      </tr>
+      <tr>
+        <td>VNC</td>
+        <td>Installed viewer integration</td>
+        <td>Installed viewer integration</td>
+        <td>Installed viewer integration</td>
+      </tr>
+      <tr>
+        <td>NoMachine</td>
+        <td><code>nxplayer</code>, detached</td>
+        <td><code>nxplayer</code>, detached</td>
+        <td><code>nxplayer</code>, detached</td>
+      </tr>
+      <tr>
+        <td>X11 forwarding</td>
+        <td>Needs local X server, SnakeSh can help with VcXsrv</td>
+        <td>Needs working local X environment</td>
+        <td>Not a primary built-in workflow</td>
+      </tr>
+      <tr>
+        <td>Privileged web-server ports</td>
+        <td>No special low-port elevation path required</td>
+        <td>GUI elevation via <code>pkexec</code> when needed</td>
+        <td>GUI elevation via administrator prompt when needed</td>
+      </tr>
+      <tr>
+        <td>Desktop integration tools</td>
+        <td>Not applicable</td>
+        <td>Install/repair/remove supported from Settings</td>
+        <td>Not applicable</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>What Stays the Same Everywhere</h2>
+  <ul>
+    <li>SSH, SFTP, Telnet, Serial, and Local Shell tabs use the same terminal workspace model.</li>
+    <li>Local Shell tabs can detach and reattach the same way as other terminal tabs.</li>
+    <li>Fast Commands on RDP, VNC, and NoMachine tabs copy to the clipboard instead of injecting keystrokes.</li>
+    <li>Network Inspector, File Hash, OUI Lookup, Web Server, Syslog / SNMP Monitor, and the rest of the Tools menu follow the same basic GUI pattern.</li>
+    <li>Session encryption, saved-session structure, and secrets-backend support are shared across platforms.</li>
+  </ul>
+
+  <h2>Windows</h2>
+  <h3>Local and Terminal Work</h3>
+  <p>Local Shell tabs normally start with PowerShell or cmd. SSH, SFTP, Telnet, Serial, logging, grouping, and profiles behave the same way they do on other platforms.</p>
+
+  <h3>Remote Desktop Workflow</h3>
+  <p>RDP launches through <code>mstsc</code>. This is a Windows-native external viewer workflow rather than the Linux in-tab <code>xfreerdp</code> path. VNC depends on an installed compatible viewer. NoMachine uses <code>nxplayer</code> in detached mode.</p>
+
+  <h3>X11 and Helpers</h3>
+  <p>Windows is the platform where SnakeSh provides the most direct X11 helper behavior. If you enable SSH X11 forwarding, SnakeSh can prefer VcXsrv, detect other X servers, and offer install or launch assistance when needed.</p>
+
+  <h3>Web Server Tool</h3>
+  <p>Windows does not need the same special low-port elevation branch that Unix-like systems do for the Web Server tool. The GUI still manages the server instance, logs, and start or stop behavior in the same way.</p>
+
+  <h3>Syslog / SNMP Monitor</h3>
+  <p>Windows does not use the same low-port elevation flow that Linux and macOS do for monitor listeners. The same GUI still manages profile settings, local storage, dashboard graphs, and archive retention.</p>
+
+  <h2>Linux</h2>
+  <h3>Packaging and Integration</h3>
+  <p>Linux builds are distributed as an AppImage, and SnakeSh can create or repair desktop integration from Settings. This is the most desktop-integration-aware platform in the current app.</p>
+
+  <h3>Remote Desktop Workflow</h3>
+  <p>Linux has the richest RDP behavior in SnakeSh because <code>xfreerdp</code> can be used for a supported in-tab workflow or a detached viewer workflow. Linux RDP also includes a GUI certificate-trust prompt before launch when needed.</p>
+
+  <h3>Viewer and Network Tooling</h3>
+  <p>Linux commonly has the broadest set of optional helper tools available, including <code>xfreerdp</code>, <code>ip</code>, <code>arp</code>, resolver tools, and multiple VNC viewer options. As a result, the Network Inspector and protocol launchers often expose the most complete output here.</p>
+
+  <h3>X11 and Privileged Ports</h3>
+  <p>SSH X11 forwarding fits naturally into a Linux desktop that already has a working X environment. For the Web Server tool and the Syslog / SNMP Monitor, privileged ports can trigger GUI elevation through <code>pkexec</code>.</p>
+
+  <h2>macOS</h2>
+  <h3>Packaging and First Launch</h3>
+  <p>Unsigned local macOS builds are supported, and signed/notarized release artifacts depend on configured release credentials. Unsigned builds can involve Gatekeeper prompts or a Finder <code>Open</code> workflow before the app is allowed to run.</p>
+
+  <h3>Remote Desktop Workflow</h3>
+  <p>RDP is not currently supported on macOS in SnakeSh. SSH, SFTP, VNC, NoMachine, Telnet, Serial, and Local Shell workflows remain available. VNC and NoMachine rely on installed external viewer tools where appropriate.</p>
+
+  <h3>Terminal and Tool Behavior</h3>
+  <p>Local Shell tabs use the detected macOS shell environment. The Tools menu remains available, but output from network and resolver inspection can differ from Linux because macOS uses different underlying system commands and data sources.</p>
+
+  <h3>Web Server Tool</h3>
+  <p>When the Web Server tool needs a privileged port on macOS, SnakeSh uses an administrator-prompt style elevation path rather than a terminal-based sudo flow.</p>
+
+  <h3>Syslog / SNMP Monitor</h3>
+  <p>When the Syslog / SNMP Monitor needs a privileged port on macOS, SnakeSh uses the same administrator-prompt style GUI elevation path instead of asking you to open a shell.</p>
+
+  <h2>How to Think About Cross-Platform Differences</h2>
+  <ul>
+    <li>If the feature is purely inside the SnakeSh terminal workspace, behavior is usually the same everywhere.</li>
+    <li>If the feature launches an external viewer, behavior depends heavily on the host OS and installed client tools.</li>
+    <li>If the feature inspects local networking, expect the same categories of data but not necessarily identical fields or formatting.</li>
+    <li>If the feature needs system integration or elevation, Linux and macOS usually need a GUI privilege path while Windows follows native Windows application behavior.</li>
+  </ul>
+</body>
+</html>

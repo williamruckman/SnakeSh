@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Subnet Calculator</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Subnet Calculator</h1>
+  <p>The Subnet Calculator has separate IPv4 and IPv6 tabs. Each tab combines single-network analysis with a subnet-planning view.</p>
+
+  <h2>Protocol Tabs</h2>
+  <ul>
+    <li><strong>IPv4</strong>: tuned for IPv4 address analysis and subnet splitting.</li>
+    <li><strong>IPv6</strong>: tuned for IPv6 analysis and subnet planning.</li>
+  </ul>
+
+  <h2>Address Analysis Section</h2>
+  <ul>
+    <li><strong>Address input</strong>: CIDR input such as <code>198.51.100.55/24</code> or <code>2001:db8::1/64</code>.</li>
+    <li><strong>Analyze</strong>: parses the CIDR and fills the summary fields.</li>
+    <li><strong>Summary fields</strong>: include network, prefix, netmask, wildcard, first and last host range, total addresses, usable address count, and host-bit count. IPv4 labels use Broadcast and Host Range; IPv6 labels use Last Address and Address Range.</li>
+  </ul>
+
+  <h2>Subnet Planner Section</h2>
+  <ul>
+    <li><strong>Network</strong>: base network to split.</li>
+    <li><strong>Target Prefix</strong>: desired subnet prefix.</li>
+    <li><strong>Max</strong>: maximum number of subnets to generate in the table.</li>
+    <li><strong>Generate</strong>: calculates and displays the subnet plan.</li>
+    <li><strong>Results table</strong>: shows each generated subnet plus usable count, range, last/broadcast address, and netmask or prefix.</li>
+  </ul>
+
+  <h2>Status and Errors</h2>
+  <p>The status line reports successful analysis or generation. Invalid input triggers a warning dialog and updates the status line with the same error.</p>
+
+  <h2>Close Button</h2>
+  <p>The standard dialog close button closes the tool window.</p>
+</body>
+</html>

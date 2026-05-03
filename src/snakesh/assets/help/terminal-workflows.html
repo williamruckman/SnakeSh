@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Terminal Workflows</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Terminal Workflows</h1>
+  <p>SnakeSh uses a shared terminal framework for SSH, Telnet, Serial, and Local Shell tabs. This keeps copy behavior, searchable scrollback, logging, shell banners, grouping, and detaching consistent across different connection types.</p>
+
+  <h2>SSH and SFTP Workflow</h2>
+  <p>SSH is the primary interactive terminal workflow. A typical sequence is:</p>
+  <ul>
+    <li>Open an SSH tab for command-line work.</li>
+    <li>Launch an SFTP tab from the SSH context menu when file transfer is needed.</li>
+    <li>Use saved key authentication, password fallback, tunnels, automation, and logging as required.</li>
+  </ul>
+
+  <h2>Telnet Workflow</h2>
+  <p>Telnet tabs are handled inside SnakeSh instead of delegating to an external program. This makes them suitable for legacy network devices or embedded targets where SSH is unavailable.</p>
+
+  <h2>Serial Workflow</h2>
+  <p>Serial sessions are useful for console servers, lab gear, appliances, and development boards. Because they use the same terminal view, you still get searchable scrollback and log capture instead of a minimal serial console.</p>
+
+  <h2>Scrollback</h2>
+  <p>Active terminal tabs expose a <strong>Scrollback</strong> button on the bottom command bar. The dialog opens the tab's retained terminal history in a separate non-modal window, so you can keep using the terminal while the viewer stays live as new output arrives.</p>
+  <ul>
+    <li>Click <strong>Search</strong> or press <code>Ctrl+F</code> to open the find row.</li>
+    <li>Use <strong>Case</strong> for case-sensitive matching and <strong>Regex</strong> to search with regular expressions.</li>
+    <li>Use the next and previous buttons to move between matches; the match label shows the current index.</li>
+    <li>Press <code>Escape</code> to hide the find row and clear active search highlights.</li>
+    <li>When new output arrives while the dialog is open, the viewer text and any active search results refresh without forcing the view to jump to the newest line.</li>
+  </ul>
+
+  <h2>Local Shell Workflow</h2>
+  <p>Local Shell tabs are launched from the main toolbar, not from the saved-session library. They are still part of the same workspace model as remote terminals. You can:</p>
+  <ul>
+    <li>Detach and reattach them</li>
+    <li>Group them with other terminal tabs when that makes sense operationally</li>
+    <li>Include them in workspace profiles</li>
+    <li>Launch them with default or custom working-directory behavior</li>
+  </ul>
+
+  <h2>Automation and Reuse</h2>
+  <p>Terminal-oriented sessions can run post-connect automation steps such as commands, sleeps, and expect-style waits. This is useful for banner handling, environment preparation, or jump-host sequences.</p>
+
+  <h2>Shell Banners</h2>
+  <p>SSH, Telnet, and Serial sessions can display a shell banner above the terminal with a custom color and optional blink. Use this for maintenance warnings, environment reminders, or other cues that should stay visible during the session.</p>
+
+  <h2>Logging</h2>
+  <p>Terminal logging can be enabled manually for a single tab or globally through Settings. Logs are stored using folder-aware paths so related sessions can stay organized on disk.</p>
+
+  <h2>Copy and Keyboard Behavior</h2>
+  <p>The terminal view keeps keyboard focus inside the remote session for keys such as <code>Tab</code> and <code>Shift+Tab</code>. Standard copy and paste behavior is available where appropriate, while control-key combinations still behave like terminal input when that is the safer default.</p>
+  <p>Double-click a visible terminal token to select the full contiguous non-whitespace word for quick copy from the context menu or keyboard shortcuts that use the current selection.</p>
+  <p>When pasted text contains multiple lines, SnakeSh opens a <strong>Review Multi-line Paste</strong> dialog before sending it to the terminal. The same review flow applies to the bottom command bar when a grouped or active terminal target would receive a multi-line batch.</p>
+  <p>Dropping local files onto a terminal view or the bottom command bar inserts full local paths in shell-safe single quotes, so commands keep working when filenames contain spaces or apostrophes.</p>
+</body>
+</html>

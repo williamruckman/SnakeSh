@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Settings Reference</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Settings Reference</h1>
+  <p>This page is the field-by-field reference for the Settings dialog. It covers the visible options, the provider-specific sections that appear conditionally, and the action buttons at the bottom of the dialog.</p>
+
+  <h2>Appearance</h2>
+  <ul>
+    <li><strong>Theme</strong>: chooses a preset palette. If you manually edit any theme color field, SnakeSh automatically switches the preset label to <code>Custom</code>.</li>
+    <li><strong>App Background Start</strong>: start color of the main application gradient.</li>
+    <li><strong>App Background End</strong>: end color of the main application gradient.</li>
+    <li><strong>Text Color</strong>: default foreground text color used across the interface.</li>
+    <li><strong>Field Background</strong>: background color for editable inputs, trees, tables, and similar widgets.</li>
+    <li><strong>Field Border</strong>: border color for inputs and list-style controls.</li>
+    <li><strong>Accent Color</strong>: base action color used by buttons and highlights.</li>
+    <li><strong>Accent Hover</strong>: hover-state color for accent buttons.</li>
+    <li><strong>Accent Pressed</strong>: pressed-state color for accent buttons.</li>
+    <li><strong>Pick</strong> button beside each color: opens the color picker and previews the result live where supported.</li>
+  </ul>
+
+  <h2>Tab Colors</h2>
+  <ul>
+    <li><strong>Tab Active Background</strong>: background color for the selected tab.</li>
+    <li><strong>Tab Active Foreground</strong>: text color for the selected tab.</li>
+    <li><strong>Tab Inactive Background</strong>: background color for non-selected tabs.</li>
+    <li><strong>Tab Inactive Foreground</strong>: text color for non-selected tabs.</li>
+  </ul>
+
+  <h2>Window</h2>
+  <ul>
+    <li><strong>Fullscreen Shortcut</strong>: keyboard shortcut that toggles borderless fullscreen for the main SnakeSh window.</li>
+    <li><strong>Hide Controls in Fullscreen</strong>: when enabled, fullscreen hides the top action bar and bottom command bar so the session list and workspace remain.</li>
+  </ul>
+
+  <h2>Terminal</h2>
+  <ul>
+    <li><strong>Terminal Background</strong>: default terminal canvas color used when classic default-color compatibility is disabled.</li>
+    <li><strong>Terminal Foreground</strong>: default terminal text color used when classic default-color compatibility is disabled.</li>
+    <li><strong>Classic Default Colors</strong>: maps the terminal's default colors to classic black and light gray for ncurses/TUI apps that rely on terminal defaults instead of explicit ANSI black.</li>
+    <li><strong>Default Color Help</strong>: explains the difference between explicit ANSI colors emitted by an app and the terminal's own default foreground/background colors.</li>
+    <li><strong>Terminal Font Family</strong>: fixed-width font used in terminal views.</li>
+    <li><strong>Terminal Font (pt)</strong>: terminal font size.</li>
+    <li><strong>Terminal Scrollback Lines</strong>: retained terminal history line count available in the searchable scrollback viewer.</li>
+    <li><strong>Session Log Folder</strong>: folder used for manual and global terminal session logging.</li>
+    <li><strong>Global Session Logging</strong>: if enabled, terminal sessions begin logging automatically on connect.</li>
+    <li><strong>Session Log Cleanup</strong>: enables automatic deletion of old session log files.</li>
+    <li><strong>Session Log Retention (days)</strong>: number of days to keep old terminal session log files when cleanup is enabled.</li>
+    <li><strong>Web Server Log Cleanup</strong>: enables automatic deletion of archived web-server log files.</li>
+    <li><strong>Web Server Log Retention (days)</strong>: number of days to keep archived web-server log files when cleanup is enabled.</li>
+    <li><strong>Crash Logging</strong>: records fatal-error details for troubleshooting. The inline <strong>Open Folder</strong> button opens the crash-log directory.</li>
+    <li><strong>Cursor Blink</strong>: enables a blinking terminal cursor.</li>
+    <li><strong>Terminal Bell</strong>: plays the terminal bell on BEL.</li>
+    <li><strong>Visual Bell</strong>: flashes the UI on BEL instead of or in addition to audio feedback.</li>
+    <li><strong>SFTP Delete Prompt</strong>: controls whether SFTP delete operations ask for confirmation.</li>
+    <li><strong>SFTP Overwrite Prompt</strong>: controls whether SFTP uploads and downloads ask for confirmation before replacing existing files.</li>
+    <li><strong>Active Tab Close Prompt</strong>: controls whether active terminal and remote-viewer tabs ask for confirmation before closing.</li>
+  </ul>
+
+  <h2>Local Shell</h2>
+  <ul>
+    <li><strong>Default Shell Command</strong>: optional override for the command SnakeSh launches for new Local Shell tabs.</li>
+    <li><strong>Startup Directory</strong>: chooses whether Local Shell starts in the home directory, the app's current working directory, or a custom path.</li>
+    <li><strong>Custom Startup Directory</strong>: directory field used only when <code>Startup Directory</code> is set to <code>Custom path</code>.</li>
+  </ul>
+
+  <h2>Startup Security</h2>
+  <ul>
+    <li><strong>Require a master password before opening SnakeSh</strong>: turns on the startup gate when a stored master password exists.</li>
+    <li><strong>Tool Launch Password</strong>: row that contains <code>Require a master password before launching standalone tools</code>. It uses the same stored master password material and can be enabled independently from the main startup prompt once a master password exists.</li>
+    <li><strong>New Password</strong>: new master password field.</li>
+    <li><strong>Confirm Password</strong>: confirmation field for the new master password.</li>
+    <li><strong>Clear Saved Password</strong>: row that contains the <code>Clear stored master password</code> checkbox used to remove the saved master-password hash material when settings are saved.</li>
+    <li><strong>Master Password Help</strong>: inline status and guidance label that explains the current master-password state.</li>
+  </ul>
+
+  <h2>Secrets Backend</h2>
+  <ul>
+    <li><strong>Backend Provider</strong>: chooses the credentials backend. Supported options are OS Keyring, 1Password CLI, Bitwarden CLI, Keeper Commander CLI, KeePass 2.x via KeePassXC CLI, and HashiCorp Vault KV v2.</li>
+    <li><strong>Backend Auth</strong>: static reminder that sensitive backend tokens are stored in the OS keyring and blank fields keep the current values.</li>
+    <li><strong>Backend Guide</strong>: dynamic setup help that changes with the selected provider.</li>
+  </ul>
+
+  <h3>1Password Provider Fields</h3>
+  <ul>
+    <li><strong>1Password Vault</strong>: target vault name.</li>
+    <li><strong>1Password Account</strong>: account shorthand or account domain.</li>
+    <li><strong>1Password CLI Path</strong>: path to the <code>op</code> executable.</li>
+    <li><strong>1Password Service Token</strong>: optional service-account token stored in the OS keyring. The nested <code>Clear</code> checkbox removes the stored value.</li>
+  </ul>
+
+  <h3>Bitwarden Provider Fields</h3>
+  <ul>
+    <li><strong>Bitwarden CLI Path</strong>: path to the <code>bw</code> executable.</li>
+    <li><strong>Bitwarden Session</strong>: optional <code>BW_SESSION</code> value stored in the OS keyring. The nested <code>Clear</code> checkbox removes the stored value.</li>
+  </ul>
+
+  <h3>Keeper Provider Fields</h3>
+  <ul>
+    <li><strong>Keeper CLI Path</strong>: path to the <code>keeper</code> executable.</li>
+    <li><strong>Keeper User</strong>: Keeper account username.</li>
+    <li><strong>Keeper Master Password</strong>: optional master password stored in the OS keyring. The nested <code>Clear</code> checkbox removes the stored value.</li>
+    <li><strong>Keeper Server (optional)</strong>: optional Keeper server override.</li>
+    <li><strong>Keeper Folder</strong>: target folder path used for SnakeSh-managed secrets.</li>
+  </ul>
+
+  <h3>KeePass Provider Fields</h3>
+  <ul>
+    <li><strong>KeePass CLI Path</strong>: path to <code>keepassxc-cli</code>.</li>
+    <li><strong>KeePass Database</strong>: path to the <code>.kdbx</code> database file.</li>
+    <li><strong>KeePass Master Password</strong>: optional master password stored in the OS keyring. The nested <code>Clear</code> checkbox removes the stored value.</li>
+    <li><strong>KeePass Password Env Var</strong>: environment variable name used as an alternative password source.</li>
+    <li><strong>KeePass Key File (optional)</strong>: optional key file path used with the database.</li>
+    <li><strong>KeePass Group</strong>: target group path inside the database.</li>
+  </ul>
+
+  <h3>Vault Provider Fields</h3>
+  <ul>
+    <li><strong>Vault Address</strong>: Vault base URL.</li>
+    <li><strong>Vault Mount</strong>: KV v2 mount path.</li>
+    <li><strong>Vault Token</strong>: optional token stored in the OS keyring. The nested <code>Clear</code> checkbox removes the stored value.</li>
+    <li><strong>Vault Token Env Var</strong>: environment variable name used as an alternative token source.</li>
+    <li><strong>Vault Namespace</strong>: optional Vault Enterprise namespace.</li>
+    <li><strong>Vault TLS</strong>: <code>Skip TLS certificate verification</code> toggle.</li>
+  </ul>
+
+  <h3>Secrets Backend Actions</h3>
+  <ul>
+    <li><strong>Setup Backend</strong>: runs backend-specific setup or readiness checks.</li>
+    <li><strong>Test Backend</strong>: tests connectivity and configuration without changing stored secrets.</li>
+    <li><strong>Backend Status</strong>: inline success or failure message from the most recent setup or test action.</li>
+    <li><strong>Backend Test</strong>: static hint explaining that setup and test actions do not change secrets by themselves.</li>
+  </ul>
+
+  <h2>Bottom-of-Dialog Actions</h2>
+  <ul>
+    <li><strong>Export SnakeSh</strong>: opens the first-party export flow for settings, sessions, or both.</li>
+    <li><strong>Import SnakeSh</strong>: opens the first-party import flow.</li>
+    <li><strong>Third Party Import</strong>: opens the external import workflow for SecureCRT, OpenSSH config, and PuTTY data.</li>
+    <li><strong>Install/Repair Desktop Integration</strong>: Linux-oriented desktop launcher repair or install action when supported by the current build.</li>
+    <li><strong>Remove Desktop Integration</strong>: removes the Linux desktop launcher integration and managed tool launchers when supported by the current build.</li>
+    <li><strong>Manage Tool Launchers...</strong>: installs or removes per-user launcher entries for standalone tools on supported platforms. The <code>--remove-tool-launchers</code> command removes all managed standalone tool launchers without changing SnakeSh data.</li>
+    <li><strong>Restore Defaults</strong>: resets fields to the app defaults. The warning notes that saving after this also clears saved Workspace Profiles, Fast Commands, Web Server Profiles, and Syslog / SNMP Monitor Profiles.</li>
+    <li><strong>OK</strong>: validates the current dialog state and saves the new settings.</li>
+    <li><strong>Cancel</strong>: closes the dialog without saving changes from the current editing session.</li>
+  </ul>
+</body>
+</html>

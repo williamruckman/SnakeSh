@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - File Transfer and SFTP</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>File Transfer and SFTP</h1>
+  <p>The SFTP workspace is a dual-pane file-transfer view with the local machine on the left and the remote host on the right. It is designed for operational transfer tasks rather than only raw file browsing.</p>
+
+  <h2>Opening SFTP</h2>
+  <ul>
+    <li>Connect directly to an SFTP session from the session library.</li>
+    <li>Open an SFTP tab from an existing SSH terminal so the same session definition is reused.</li>
+  </ul>
+
+  <h2>Navigation Model</h2>
+  <p>Each side of the workspace combines navigation and file-list panes. The local side reflects your current machine, while the remote side reflects the connected SFTP server.</p>
+
+  <h2>Transfer Actions</h2>
+  <ul>
+    <li>Double-click remote files to download.</li>
+    <li>Double-click local files to upload.</li>
+    <li>Use right-click upload, download, and <strong>New Folder...</strong> actions for explicit direction control and directory creation on either side.</li>
+    <li>Use drag and drop to upload files into the remote pane.</li>
+    <li>Press <code>F5</code> in an SFTP tab to refresh both the local and remote pane contents without changing directories.</li>
+  </ul>
+
+  <h2>Progress and Cancellation</h2>
+  <p>Large transfers use a progress dialog that reports percentage, elapsed time, speed, and cancellation status.</p>
+
+  <h2>Transfer Safety</h2>
+  <p>Uploads and downloads can warn before overwriting existing files. For transfers with multiple conflicts, you can allow all overwrites for the current transfer from the confirmation dialog.</p>
+
+  <h2>Delete Safety</h2>
+  <p>Both local and remote delete operations are available from the context menu. A confirmation prompt is shown by default, and the global warning behavior can be adjusted in Settings.</p>
+
+  <h2>Terminal Path Drops</h2>
+  <p>Dragging local files into a terminal view or the bottom command bar inserts full local paths wrapped in shell-safe single quotes. This keeps spaces and apostrophes intact when building commands.</p>
+
+  <h2>Default Start Folders</h2>
+  <p>SFTP-capable session definitions can store preferred local and remote starting folders. This is helpful when a workflow always begins in a project directory, upload staging path, or remote deployment location.</p>
+</body>
+</html>

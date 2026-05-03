@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: IP Scan</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: IP Scan</h1>
+  <p>The IP Scan tool performs built-in TCP connect scanning against a hostname, a single IP address, or a CIDR range. It is designed for quick operational discovery without requiring an external scanner package.</p>
+
+  <h2>Targeting</h2>
+  <ul>
+    <li><strong>Hostname</strong>: SnakeSh resolves the hostname to one or more TCP-capable addresses and scans each resolved address.</li>
+    <li><strong>Single IP</strong>: scans exactly that host.</li>
+    <li><strong>CIDR</strong>: expands the network into hosts and scans each one, up to the current safety cap.</li>
+  </ul>
+
+  <h2>Port Sets</h2>
+  <ul>
+    <li><strong>Common TCP 20</strong>: a smaller operationally useful set for fast checks.</li>
+    <li><strong>Common TCP 100</strong>: a broader built-in port list for service discovery.</li>
+    <li><strong>Custom Ports</strong>: enter comma-separated ports and ranges such as <code>22,80,443,8000-8100</code>.</li>
+  </ul>
+
+  <h2>Controls</h2>
+  <ul>
+    <li><strong>Scan</strong>: starts the TCP scan.</li>
+    <li><strong>Stop</strong>: requests cancellation of the running scan.</li>
+    <li><strong>Clear</strong>: clears both result tabs and resets the progress display.</li>
+    <li><strong>Copy Selected</strong> and <strong>Copy All</strong>: export the current tab as tab-separated rows with headers.</li>
+    <li><strong>Progress bar</strong>: tracks probe completion while the scan is running.</li>
+  </ul>
+
+  <h2>Results</h2>
+  <ul>
+    <li><strong>Hosts</strong> shows each scanned host, best-effort resolved name, status, open-port count, and elapsed time.</li>
+    <li><strong>Open Ports</strong> shows one row per open TCP port along with the best-effort service name.</li>
+    <li>Each tab has its own live <strong>Filter</strong> box so you can narrow visible rows without rerunning the scan.</li>
+    <li>Click the host address or open-port count for a host with discovered ports to switch into the <strong>Open Ports</strong> tab with that host pre-focused.</li>
+    <li>Use <strong>Clear Host Focus</strong> on the Open Ports tab to return from a host-specific drilldown to the full port list.</li>
+  </ul>
+
+  <h2>Notes</h2>
+  <p>The scanner is TCP-only. A host with no reported open ports is not guaranteed to be offline; it simply means no open TCP ports were found within the configured scan set and timeout. Reverse name enrichment is best-effort and may be blank even when a host is reachable.</p>
+</body>
+</html>

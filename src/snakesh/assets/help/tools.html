@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tools</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tools</h1>
+  <p>Tools launch as detached standalone processes so you can keep them visible while working in the main application without sharing the main window's UI event loop. They are meant to be operational sidecars, not modal interruptions, and they can stay open after the main SnakeSh window closes.</p>
+  <p>You can launch the same tools from the command line with <code>snakesh tool list</code>, <code>snakesh tool &lt;tool_key&gt;</code>, or for Ping specifically <code>snakesh tool ping --packet-size &lt;int&gt; [--ipv6]</code>. The <strong>Command Line and Launchers</strong> page in this guide lists every current top-level CLI option, every registered tool key, and the internal helper launch modes that also appear in <code>snakesh --help</code>. Settings, themes, and the optional tool-launch master-password gate still apply in standalone mode.</p>
+
+  <h2>Resource Monitor</h2>
+  <p>The Resource Monitor is SnakeSh's live local task-manager-style dashboard. It keeps an in-memory history from the moment you open it, then discards that history when you close the window.</p>
+  <ul>
+    <li><strong>Overview</strong> shows summary cards plus live charts for CPU, memory, disk I/O, network bandwidth, processes, dual-stack interface activity, and GPU telemetry when available.</li>
+    <li><strong>Filesystems</strong> shows accessible local partitions and highlights the filesystem containing your home directory.</li>
+    <li><strong>Interfaces</strong> shows active interface IPv4 and IPv6 addresses, link state, speed, and current receive or send rates, with optional offline-adapter visibility.</li>
+    <li><strong>Processes</strong> provides a sortable searchable process table with End Task and Force Kill actions.</li>
+    <li><strong>Settings</strong> controls offline-adapter visibility, zoom, telemetry refresh, process refresh, and chart-history length.</li>
+  </ul>
+  <p>If a process stop action requires elevated privileges, SnakeSh can prompt for OS-level authorization before retrying the action.</p>
+
+  <h2>Network Inspector</h2>
+  <p>The Network Inspector collects local machine details and presents them on dedicated tabs for IP/interface data, routing, ARP neighbors, listening ports, and DNS configuration.</p>
+  <ul>
+    <li><strong>IP</strong> shows interface status, MAC address, MTU, speed, and bound IP addresses.</li>
+    <li><strong>Routing</strong> shows route destinations, gateways, interfaces, metrics, and flags.</li>
+    <li><strong>ARP</strong> shows neighbor entries and resolves MAC vendors through the bundled offline OUI snapshot.</li>
+    <li><strong>Ports</strong> shows listening TCP and UDP sockets along with PID and process names when available.</li>
+    <li><strong>DNS</strong> shows hostname, FQDN, nameservers, search domains, and resolver notes.</li>
+  </ul>
+  <p>The current tab supports <strong>Copy Selected</strong>, <strong>Copy All</strong>, right-click copy actions, and keyboard copy shortcuts. Copied data is placed on the clipboard as tab-separated rows including column headers.</p>
+
+  <h2>IP Scan</h2>
+  <p>IP Scan is SnakeSh's built-in TCP connect scanner for quick host and service discovery without requiring an external scanner package.</p>
+  <ul>
+    <li>Scan a hostname, single IP address, or CIDR target.</li>
+    <li>Choose between <strong>Common TCP 20</strong>, <strong>Common TCP 100</strong>, or a custom port list.</li>
+    <li>Watch progress while the scan runs and stop it if needed.</li>
+    <li>Review structured <strong>Hosts</strong> and <strong>Open Ports</strong> tabs instead of raw console output.</li>
+    <li>Use the live filter box on either tab to narrow the visible rows.</li>
+    <li>Click a host with open ports on the <strong>Hosts</strong> tab to jump into a host-focused <strong>Open Ports</strong> view.</li>
+  </ul>
+
+  <h2>File Hash</h2>
+  <p>File Hash computes digests on a background worker so large files do not freeze the UI. Supported algorithms include MD5, SHA1, SHA256, SHA384, SHA512, and BLAKE2b.</p>
+  <ul>
+    <li>Generate a digest for a selected file.</li>
+    <li>Verify against a pasted digest.</li>
+    <li>Verify against checksum files using plain, GNU coreutils, or BSD-style formats.</li>
+  </ul>
+
+  <h2>Diff Tool</h2>
+  <p>The Diff Tool compares two text buffers or files side by side so you can inspect and merge text changes inside SnakeSh instead of switching to a separate comparison utility.</p>
+  <ul>
+    <li>Open files from disk or paste text directly into either side.</li>
+    <li>Review line-level and inline highlights for changed regions.</li>
+    <li>Use the center gutter buttons to copy one change block left or right, or use the apply-all buttons for a full one-way merge.</li>
+    <li>Keep both panes aligned with synchronized scrolling, line numbers, and scrollbar overview maps.</li>
+    <li>Use the hidden-by-default search row to search either pane, toggle it with the <strong>Search</strong> button or open it with <strong>Ctrl+F</strong>, and target matches with <strong>Left</strong>/<strong>Right</strong> plus optional case-sensitive or regex matching.</li>
+  </ul>
+
+  <h2>Web Server</h2>
+  <p>The Web Server tool launches either a local static-file server or a reverse proxy through the GUI instead of expecting you to manage a command in a separate shell.</p>
+  <ul>
+    <li>Choose a bind address from detected interfaces or wildcard presets, or use <strong>Custom...</strong> for a manual IPv4/IPv6 address, then set the port and either <strong>Static Files</strong> or <strong>Reverse Proxy</strong> mode.</li>
+    <li>Use HTTP only, a manual certificate/key pair, a self-signed certificate, or guided certbot HTTP-01 TLS.</li>
+    <li>Load an optional intermediate or chain certificate alongside a manual certificate.</li>
+    <li>Point reverse proxy mode at an upstream URL and tune path-prefix, forwarded-header, extra request headers, timeout, TLS-verification, and WebSocket settings.</li>
+    <li>Enable or disable directory listing fallback for static-file mode.</li>
+    <li>Save, load, update, rename, and delete reusable web server profiles from the same tool window.</li>
+    <li>Monitor status and archived per-run logs from the tool window.</li>
+  </ul>
+  <p>On Unix-like systems, SnakeSh can request GUI-based elevation when a privileged listener port or certbot challenge port is requested. Log cleanup and retention for archived web-server runs are controlled from the main Settings dialog.</p>
+
+  <h2>Syslog / SNMP Monitor</h2>
+  <p>The Syslog / SNMP Monitor receives syslog traffic plus SNMP traps and informs inside SnakeSh through a hidden helper process, then presents the data through a dedicated <strong>Settings</strong> tab, a separate <strong>Monitor</strong> tab for filters and received events, alert-rule editor, dashboard graphs, and archive-retention controls.</p>
+  <ul>
+    <li>Choose a bind address from the same wildcard, loopback, discovered-interface, and <strong>Custom...</strong> pulldown pattern used by the Web Server tool.</li>
+    <li>Enable syslog UDP, syslog TCP, syslog TLS, and SNMP notifications independently, each with GUI-configured ports and TLS or SNMPv3 settings where relevant.</li>
+    <li>Watch the top-right runtime badge for an always-visible running, starting, stopped, or error indicator while the detailed status line continues to show listener and event counts.</li>
+    <li>Copy the current cell, row, selected rows, or whole visible columns, and export the filtered or selected result set as CSV or JSON.</li>
+    <li>Use the <strong>Monitor</strong> tab to filter by time, source, listener, protocol, transport, syslog severity or facility, hostname, app or tag, PID, message ID, SNMP version, notification OID, enterprise OID, varbind text, and alert state.</li>
+    <li>Save listener, alert, retention, filter, and layout combinations as reusable profiles.</li>
+    <li>Review dashboard charts for event rate, severity distribution, top talkers, top apps/tags, top trap OIDs, and alert trends.</li>
+    <li>Control hot-data retention, compressed archive retention, and archive-disk quota from the GUI so captured events do not fill local storage indefinitely.</li>
+  </ul>
+  <p>Monitor profiles are included in SnakeSh settings exports, but the captured SQLite history and compressed archive files remain local application data. Privileged listener ports such as <code>514</code> and <code>162</code> can trigger GUI elevation on Unix-like systems.</p>
+
+  <h2>Password Generator</h2>
+  <p>Password Generator creates one or more passwords using the local OS secure random source through Python's <code>secrets</code> module.</p>
+  <ul>
+    <li>Choose length, count, and a complexity preset.</li>
+    <li>Toggle lowercase, uppercase, digits, and symbols independently.</li>
+    <li>Require specific characters or exclude problematic ones.</li>
+    <li>Copy the full generated list at once, and reopen the tool with the last-used options restored.</li>
+  </ul>
+
+  <h2>OUI Lookup</h2>
+  <p>OUI Lookup resolves MAC prefixes against SnakeSh's bundled offline OUI vendor snapshot. It accepts whole MAC addresses or shorter prefixes and prefers the longest matching prefix that exists in the local data.</p>
+
+  <h2>ASN Lookup</h2>
+  <p>ASN Lookup performs a WHOIS-based autonomous system lookup, normalizes plain numbers into <code>AS</code>-prefixed identifiers, and presents both structured summary fields and raw registry output.</p>
+
+  <h2>Help</h2>
+  <p>The Help window stays open independently so you can reference documentation while navigating the rest of SnakeSh, and it can also be launched directly as a standalone tool or from an installed launcher entry.</p>
+
+  <h2>Other Utilities</h2>
+  <ul>
+    <li><strong>Ping</strong> for reachability checks.</li>
+    <li><strong>MTU / MSS Calculator</strong> for estimating effective MTU, max ping payload, max UDP payload, and TCP MSS from common overhead scenarios.</li>
+    <li><strong>Dig</strong> for DNS query inspection.</li>
+    <li><strong>Traceroute</strong> for path diagnostics.</li>
+    <li><strong>Whois</strong> for domain and IP registration lookups.</li>
+    <li><strong>Subnet Calculator</strong> for CIDR and mask planning.</li>
+  </ul>
+
+  <h2>Need Field-Level Tool Docs?</h2>
+  <p>The Help index includes dedicated reference pages for each utility dialog, including Resource Monitor, Network Inspector, IP Scan, Ping, MTU / MSS Calculator, Traceroute, Dig, Whois, ASN Lookup, File Hash, OUI Lookup, Web Server, Syslog / SNMP Monitor, Password Generator, Subnet Calculator, Diff Tool, and the Help window itself.</p>
+</body>
+</html>

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HERE="$(dirname "$(readlink -f "$0")")"
+INTERNAL_LIB_ROOT="${HERE}/usr/lib/snakesh/_internal"
+QT_LIB_ROOT="${INTERNAL_LIB_ROOT}/PySide6/Qt/lib"
+QT_PLUGIN_ROOT="${HERE}/usr/lib/snakesh/_internal/PySide6/Qt/plugins"
+QT_PLATFORM_PLUGIN_ROOT="${QT_PLUGIN_ROOT}/platforms"
+
+if [[ -d "${INTERNAL_LIB_ROOT}" || -d "${QT_LIB_ROOT}" ]]; then
+    declare -a LD_LIBRARY_PATH_SEGMENTS=()
+    if [[ -d "${QT_LIB_ROOT}" ]]; then
+        LD_LIBRARY_PATH_SEGMENTS+=("${QT_LIB_ROOT}")
+    fi
+    if [[ -d "${INTERNAL_LIB_ROOT}" ]]; then
+        LD_LIBRARY_PATH_SEGMENTS+=("${INTERNAL_LIB_ROOT}")
+    fi
+    if [[ -n "${LD_LIBRARY_PATH:-}" ]]; then
+        LD_LIBRARY_PATH_SEGMENTS+=("${LD_LIBRARY_PATH}")
+    fi
+    export LD_LIBRARY_PATH="$(IFS=:; printf '%s' "${LD_LIBRARY_PATH_SEGMENTS[*]}")"
+fi
+
+if [[ -d "${QT_PLUGIN_ROOT}" ]]; then
+    export QT_PLUGIN_PATH="${QT_PLUGIN_PATH:-${QT_PLUGIN_ROOT}}"
+fi
+if [[ -d "${QT_PLATFORM_PLUGIN_ROOT}" ]]; then
+    export QT_QPA_PLATFORM_PLUGIN_PATH="${QT_QPA_PLATFORM_PLUGIN_PATH:-${QT_PLATFORM_PLUGIN_ROOT}}"
+fi
+
+exec "$HERE/usr/lib/snakesh/SnakeSh" "$@"

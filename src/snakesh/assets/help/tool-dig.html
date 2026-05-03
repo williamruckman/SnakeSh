@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Tool: Dig</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Tool: Dig</h1>
+  <p>The Dig tool performs DNS lookups through SnakeSh's internal DNS service layer rather than launching an external terminal command.</p>
+
+  <h2>Fields</h2>
+  <ul>
+    <li><strong>Query</strong>: hostname or domain name to resolve.</li>
+    <li><strong>Record type</strong>: DNS record type such as <code>A</code>, <code>AAAA</code>, <code>MX</code>, <code>TXT</code>, and other supported types.</li>
+    <li><strong>Nameserver</strong>: optional resolver IP address. When blank, SnakeSh uses the system resolver path.</li>
+    <li><strong>Timeout</strong>: lookup timeout in milliseconds.</li>
+    <li><strong>Use TCP</strong>: switches the DNS transport from UDP to TCP.</li>
+  </ul>
+
+  <h2>Buttons</h2>
+  <ul>
+    <li><strong>Lookup</strong>: starts the DNS lookup.</li>
+    <li><strong>Clear</strong>: clears the output pane.</li>
+  </ul>
+
+  <h2>Output</h2>
+  <p>The output pane first records the query summary line and then appends the formatted DNS result. Failures are reported inline with an error marker.</p>
+
+  <h2>Status Behavior</h2>
+  <p>The status line moves between Ready, Running, Complete, and Failed. The dialog cannot be closed while a threaded lookup is still running.</p>
+</body>
+</html>

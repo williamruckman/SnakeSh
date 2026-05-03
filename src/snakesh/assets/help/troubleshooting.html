@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SnakeSh Help - Troubleshooting</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; line-height: 1.55; margin: 18px; color: #1d2733; }
+    h1, h2, h3 { color: #183b63; }
+    code { background: #eef2f7; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Troubleshooting</h1>
+  <p>This section covers common issues that come from platform differences, missing dependencies, or permission requirements rather than from a broken session definition.</p>
+
+  <h2>Start Here for OS-Specific Behavior</h2>
+  <p>If you are trying to understand why a feature behaves differently on Windows, Linux, or macOS, open the <strong>Platform Differences</strong> page from the Help index first. It explains which variations are expected and which ones usually indicate a real problem.</p>
+
+  <h2>Viewer or Protocol Dependency Missing</h2>
+  <p>Some protocols depend on external programs such as <code>xfreerdp</code>, <code>mstsc</code>, <code>vncviewer</code>, <code>nxplayer</code>, <code>xauth</code>, or <code>ssh-keygen</code>. SnakeSh checks for these tools on demand and warns when the required dependency is unavailable.</p>
+
+  <h2>Web Server Permission Errors</h2>
+  <p>Binding to privileged ports on Unix-like systems may require elevation. Use a non-privileged port such as 8080 when possible. If a privileged port is necessary, SnakeSh will try to request GUI-based elevation instead of expecting you to launch a shell manually.</p>
+
+  <h2>Syslog / SNMP Monitor Will Not Start</h2>
+  <p>Check the selected profile's listener settings first. Syslog TLS requires a valid certificate and key, and SNMP notification support requires the bundled Python runtime to include <code>pysnmp</code> plus <code>pyasn1</code>. On Linux and macOS, privileged ports such as <code>514</code> and <code>162</code> can also require a GUI elevation prompt before the collector can bind successfully. After you approve that prompt, SnakeSh expects the helper to report back into the same profile-data directory; if the monitor still does not move into a running state, recheck the privileged-port prompt result and any local policy restrictions around <code>pkexec</code> or administrator-privileged app launches.</p>
+
+  <h2>Remote Viewer Behavior</h2>
+  <p>If a Fast Command does not appear to run inside an RDP, VNC, or NoMachine session, check the clipboard and paste it manually into the remote desktop. That behavior is intentional.</p>
+
+  <h2>DNS, ARP, or Route Data Looks Different Than Expected</h2>
+  <p>The Network Inspector uses operating-system tools and <code>psutil</code> to collect data. Output detail can vary by platform and by the availability of route, ARP, or resolver utilities. A missing field does not always indicate a broken inspector; sometimes the OS simply does not report the same detail in the same format.</p>
+
+  <h2>macOS Launch Warnings</h2>
+  <p>Unsigned macOS builds can trigger Gatekeeper warnings on first launch. Use Finder's <code>Open</code> action if your security policy permits it.</p>
+
+  <h2>Desktop Integration on Linux</h2>
+  <p>If the app-menu entry goes missing or stops launching the current build, open Settings and run the desktop integration repair or reinstall action.</p>
+
+  <h2>Unsure Which CLI Option to Use</h2>
+  <p>Run <code>snakesh --help</code>, <code>snakesh tool --help</code>, or open the <strong>Command Line and Launchers</strong> page from the Help index. That reference lists the normal GUI launch modes, diagnostics flags, desktop-integration actions, standalone tool keys, Ping prefill options, and the internal helper flags that SnakeSh uses for child processes.</p>
+
+  <h2>Session List Is Hidden</h2>
+  <p>If the saved-session tree seems to disappear, check the dropdown beside the session search box. <strong>Auto</strong> mode intentionally collapses the panel until you hover the main splitter handle, and <strong>Float</strong> moves it into a separate always-on-top window. Switch back to <strong>Show</strong> if you want the tree pinned open in the main window.</p>
+
+  <h2>Imported Configuration Is Missing Passwords</h2>
+  <p>That is expected when the passwords or backend auth values live in the OS keyring or an external secrets backend. First-party exports carry the session/settings metadata, not the external secret material, so re-enter those values or reconnect the backend on the destination machine.</p>
+
+  <h2>When to Use the Help Window</h2>
+  <p>The Help window is non-modal. Keep it open beside SnakeSh while you work so session fields, settings descriptions, and tool usage stay visible without closing the current connection workflow.</p>
+</body>
+</html>
