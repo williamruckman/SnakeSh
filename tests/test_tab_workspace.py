@@ -6,6 +6,7 @@ import errno
 import os
 from pathlib import Path
 import ssl
+import sys
 import tempfile
 import textwrap
 import time
@@ -2313,7 +2314,7 @@ class TabWorkspaceTests(unittest.TestCase):
                 """
             )
             started = tab.start_local_shell(
-                program=str(Path.cwd() / ".venv/bin/python"),
+                program=sys.executable,
                 arguments=["-c", code],
                 working_directory=str(Path.cwd()),
             )
@@ -2362,7 +2363,7 @@ class TabWorkspaceTests(unittest.TestCase):
                 """
             )
             started = tab.start_local_shell(
-                program=str(Path.cwd() / ".venv/bin/python"),
+                program=sys.executable,
                 arguments=["-c", code],
                 working_directory=str(Path.cwd()),
             )
