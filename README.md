@@ -54,7 +54,6 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - Settings include active/inactive tab background/foreground color controls
 - Windows X11 forwarding helper: prefers VcXsrv, falls back to other installed/running X servers, and can install/launch VcXsrv on demand
 - Tabbed multi-session workspace for concurrent connections
-- Resource Monitor provides a Mission Center-style local dashboard with live CPU, memory, disk, disk I/O, network, process, dual-stack interface summaries, best-effort NVIDIA/AMD/Intel GPU telemetry, configurable display/refresh settings, and a searchable process table with optional privilege-prompted end-task actions
 - Built-in Local Shell tab launcher (PowerShell/cmd on Windows, shell detection on Linux/macOS)
 - In-app SSH terminal tabs with VT/ANSI emulation (supports color and full-screen TUIs like `top`/`htop`)
 - Terminal key forwarding keeps `Tab`/`Shift+Tab` inside the SSH session instead of switching GUI focus
@@ -63,22 +62,10 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - Non-modal terminal scrollback window with live case-sensitive or regex search and configurable scrollback size
 - Terminal session logging supports per-tab manual logging and optional global auto-logging with folder-based paths by session folder hierarchy
 - Session log cleanup policy is configurable in Settings and defaults to enabled (7-day retention)
-- Tools menu launches detached standalone GUI processes for Resource Monitor, Network Inspector, IP Scan, Ping, Dig, Traceroute, Whois, ASN Lookup, File Hash, Web Server, Syslog / SNMP Monitor, OUI Lookup, Help, MTU / MSS Calculator, Subnet Calculator, Password Generator, and Diff Tool so a busy tool cannot stall the main console UI
-- Standalone tool CLI exposes full `--help` output, every registered tool key, and Ping prefill flags through `snakesh tool`
+- Tools menu launches registered standalone GUI processes so a busy tool cannot stall the main console UI
+- Standalone tool CLI exposes full `--help` output, every registered tool key, and supported prefill flags through `snakesh tool`
 - Settings includes per-user launcher management for individual tools on Linux, Windows, and macOS in addition to the main-app Linux desktop integration controls
-- MTU / MSS Calculator computes effective MTU, max Ping payload, max UDP payload, and TCP MSS from an outer/interface MTU plus common overhead presets, and can prefill the Ping tool without auto-running it
-- Network Inspector shows local interfaces, routes, ARP neighbors with offline OUI/vendor resolution, listening ports, and DNS configuration, and supports auto refresh, copy/export actions, and optional privileged port/process visibility where supported
-- IP Scan is a built-in TCP connect scanner for hostname/IP/CIDR targets with Common TCP 20/Common TCP 100/custom-port modes, live progress, stop support, search/filter boxes on both result tabs, and host-click drilldown from Hosts to a pre-filtered Open Ports view
-- Traceroute provides repeated MTR-style path tracing with an unprivileged command backend by default, optional faster native probing with elevation when needed, live hop statistics, resizable/copyable tables, graph views, and export actions across Windows, Linux, and macOS
-- ASN Lookup performs WHOIS-based autonomous system lookups, accepts bare numbers or `AS`-prefixed values, and shows both structured summary fields and the raw registry response
-- File Hash can generate MD5, SHA1, SHA256, SHA384, SHA512, and BLAKE2b digests and verify pasted or checksum-file values using plain, GNU coreutils, or BSD-style checksum formats
-- Password Generator uses the local OS CSPRNG, supports complexity presets, required/excluded characters, batch generation, and remembers the last-used options
-- Diff Tool compares two text buffers or files side by side with synchronized scrolling, per-change and apply-all copy actions, line and inline highlights, and a shared find bar with case-sensitive or regex search
-- Web Server tool can launch a GUI-managed static HTTP/HTTPS server or reverse proxy with detected-interface and wildcard bind-address presets plus custom manual entry, manual/self-signed/certbot TLS options, optional chain certificates, extra request headers, archived per-run logs, saved configuration profiles, settings-driven log cleanup, and GUI-based privileged-port elevation where supported
-- Syslog / SNMP Monitor receives syslog plus SNMP notifications through a GUI-managed helper, provides a dedicated Settings tab for listener setup, a Monitor tab for filters plus live or archived event review, a top-right running/stopped status badge, per-profile display timezone selection, double-click event popups, row or column copy plus CSV/JSON export, clear-data maintenance, a live aggregated alerts window with terminal-bell-style sound, theme-aware dashboard charts, close-time stop warnings, and GUI elevation for privileged ports without exposing a CLI
-- OUI Lookup uses a bundled offline OUI vendor snapshot so lookups work without runtime network access
-- Help opens an in-depth built-in guide with a clickable index on the left and the selected document on the right
-- Settings dialog covers appearance presets, terminal colors/font/scrollback, main-window fullscreen controls, session and web-server log retention, fatal crash logging, BEL/visual bell behavior, Local Shell defaults, and restore defaults
+- Settings dialog covers appearance presets, terminal colors/font/scrollback, main-window fullscreen controls, session and tool log retention, fatal crash logging, BEL/visual bell behavior, Local Shell defaults, and restore defaults
 - Default theme preset is Onyx Blue
 - Session editor supports per-session terminal background/foreground color overrides and password reveal for saved credentials
 - Profiles system can save/restore workspace state (split layout, open sessions, tab labels, detached windows with geometry), and a default startup profile can be set
@@ -87,7 +74,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - Settings dialog includes import/export for settings and sessions (separately or combined)
 - Export supports selective session picking (share only chosen sessions)
 - Optional password-protected encrypted export (PSK-derived key); unencrypted export when no password is set
-- First-party exports include configuration metadata, source-platform metadata, profiles, fast commands, web-server profiles, and Syslog / SNMP monitor profiles, but do not embed OS-keyring or secrets-backend passwords and auth tokens
+- First-party exports include configuration metadata, source-platform metadata, profiles, fast commands, and supported standalone-tool profiles, but do not embed OS-keyring or secrets-backend passwords and auth tokens
 - Import supports session overwrite or merge mode, with explicit overwrite warnings
 - Cross-platform settings imports keep portable preferences and data, but automatically reset OS-specific geometry, local-shell paths, and launcher paths to safe defaults on the destination OS
 - Settings includes a `Third Party Import` entry for importing SecureCRT XML, OpenSSH config, and PuTTY registry sessions (third-party export is intentionally disabled)
@@ -95,6 +82,28 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - Optional password save in the configured secrets backend (per-session setting)
 - Public-key install helper for SSH/SFTP sessions only: auto-discovers existing local keys, prompts to generate/import a key pair when missing, and appends local `*.pub` to remote `authorized_keys`
 - Encrypted-at-rest session data using `cryptography` + configured secrets backend
+
+## Included Tools
+
+| Logo | Tool | Description |
+| --- | --- | --- |
+| <img src="src/snakesh/assets/resource_monitor.png" alt="Resource Monitor logo" width="36"> | Resource Monitor | Mission Center-style local dashboard with live CPU, memory, disk, disk I/O, network, process, interface, and best-effort GPU telemetry, plus configurable refresh settings and searchable process actions. |
+| <img src="src/snakesh/assets/network_inspector.png" alt="Network Inspector logo" width="36"> | Network Inspector | Local network inventory for interfaces, routes, ARP neighbors, listening ports, and DNS configuration, with auto refresh, copy/export actions, offline OUI/vendor resolution, and optional privileged port/process visibility. |
+| <img src="src/snakesh/assets/whois.png" alt="Whois logo" width="36"> | Whois | Domain, IP, and registry lookup utility that returns WHOIS registration data from the appropriate public registry sources. |
+| <img src="src/snakesh/assets/asn_lookup.png" alt="ASN Lookup logo" width="36"> | ASN Lookup | WHOIS-based autonomous system lookup that accepts bare numbers or `AS`-prefixed values and shows structured summary fields alongside the raw registry response. |
+| <img src="src/snakesh/assets/dig.png" alt="Dig logo" width="36"> | Dig | DNS query inspector for checking records and resolver responses without leaving the SnakeSh toolset. |
+| <img src="src/snakesh/assets/traceroute.png" alt="Traceroute logo" width="36"> | Traceroute | Repeated MTR-style path tracing with an unprivileged command backend by default, optional faster native probing with elevation, live hop statistics, graph views, and export actions. |
+| <img src="src/snakesh/assets/ping.png" alt="Ping logo" width="36"> | Ping | Reachability checker for IPv4 or IPv6 targets, including CLI prefill support for packet size and IPv6 mode. |
+| <img src="src/snakesh/assets/ip_scan.png" alt="IP Scan logo" width="36"> | IP Scan | Built-in TCP connect scanner for hostnames, IP addresses, or CIDR ranges with common-port presets, custom ports, live progress, stop support, search/filter boxes, and host-to-port drilldown. |
+| <img src="src/snakesh/assets/mtu_calculator.png" alt="MTU / MSS Calculator logo" width="36"> | MTU / MSS Calculator | Calculates effective MTU, max Ping payload, max UDP payload, and TCP MSS from an outer/interface MTU plus common overhead presets, and can prefill the Ping tool. |
+| <img src="src/snakesh/assets/file_hash.png" alt="File Hash logo" width="36"> | File Hash | Generates MD5, SHA1, SHA256, SHA384, SHA512, and BLAKE2b digests and verifies pasted or checksum-file values in plain, GNU coreutils, or BSD-style formats. |
+| <img src="src/snakesh/assets/oui_lookup.png" alt="OUI Lookup logo" width="36"> | OUI Lookup | Offline MAC prefix vendor lookup using SnakeSh's bundled OUI snapshot, so lookups work without runtime network access. |
+| <img src="src/snakesh/assets/web_server.png" alt="Web Server logo" width="36"> | Web Server | GUI-managed static HTTP/HTTPS server or reverse proxy with detected-interface and wildcard bind presets, manual/self-signed/certbot TLS options, profiles, archived per-run logs, and GUI elevation for privileged ports where supported. |
+| <img src="src/snakesh/assets/syslog_snmp_monitor.png" alt="Syslog / SNMP Monitor logo" width="36"> | Syslog / SNMP Monitor | GUI-managed syslog and SNMP notification receiver with listener profiles, live and archived event review, filtering, alert views, dashboard charts, export actions, retention controls, and privileged-port elevation where supported. |
+| <img src="src/snakesh/assets/subnet_calculator.png" alt="Subnet Calculator logo" width="36"> | Subnet Calculator | CIDR and mask planning utility for summarizing networks and splitting address ranges into planned subnets. |
+| <img src="src/snakesh/assets/password_generator.png" alt="Password Generator logo" width="36"> | Password Generator | Local OS CSPRNG-backed password generator with complexity presets, required/excluded characters, batch generation, copy actions, and remembered last-used options. |
+| <img src="src/snakesh/assets/diff.png" alt="Diff Tool logo" width="36"> | Diff Tool | Side-by-side text or file comparison with synchronized scrolling, per-change and apply-all copy actions, line and inline highlights, and a shared find bar with case-sensitive or regex search. |
+| <img src="src/snakesh/assets/help.png" alt="Help logo" width="36"> | Help | In-depth standalone guide with a clickable index on the left and selected documentation on the right. |
 
 ## Security Model
 
