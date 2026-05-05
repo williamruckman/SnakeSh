@@ -1,7 +1,17 @@
+<p align="center">
+  <img src="src/snakesh/assets/snakesh-icon.png" alt="SnakeSh logo" width="160">
+</p>
+
 # SnakeSh
 
 SnakeSh is a cross-platform remote access workspace in Python with a modern Qt UI and secure session storage.
 Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, and Serial.
+
+<p align="center">
+  <a href="docs/assets/snakesh-preview.mp4">
+    <img src="docs/assets/snakesh-preview.gif" alt="Animated SnakeSh application preview" width="900">
+  </a>
+</p>
 
 ## Current Features
 
@@ -272,8 +282,9 @@ When you import a backup from a different OS, SnakeSh keeps portable settings su
 
 - GitHub Actions workflow:
 `.github/workflows/build.yml`
-- CI runs the full test suite before any packaging job.
-- CI builds release artifacts on GitHub-hosted runners for:
+- CI runs the full test suite on pull requests, `main` pushes, manual runs, and version tags.
+- CI builds release artifacts only for manual workflow runs and tags matching `v*`.
+- Release artifacts are built on GitHub-hosted runners for:
   - Linux x64 AppImage
   - Windows x64 Setup EXE
   - macOS x64 dmg/zip (Intel)
