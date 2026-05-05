@@ -1,17 +1,13 @@
-<p align="center">
-  <img src="src/snakesh/assets/snakesh-icon.png" alt="SnakeSh logo" width="160">
-</p>
+<img src="src/snakesh/assets/snakesh-icon.png" alt="SnakeSh logo" width="160">
 
 # SnakeSh
 
 SnakeSh is a cross-platform remote access workspace in Python with a modern Qt UI and secure session storage.
 Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, and Serial.
 
-<p align="center">
-  <a href="docs/assets/snakesh-preview.mp4">
-    <img src="docs/assets/snakesh-preview.gif" alt="Animated SnakeSh application preview" width="900">
-  </a>
-</p>
+<a href="docs/assets/snakesh-preview.mp4">
+  <img src="docs/assets/snakesh-preview.gif" alt="Animated SnakeSh application preview" width="900">
+</a>
 
 ## Current Features
 
