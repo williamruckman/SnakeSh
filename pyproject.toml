@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snakesh"
-version = "1.5-RC1"
+version = "1.6"
 description = "SnakeSh: cross-platform remote access workspace in Python."
 readme = "README.md"
 license = "Apache-2.0"

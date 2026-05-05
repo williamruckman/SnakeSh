@@ -91,6 +91,8 @@ class GpuAdapterSample:
     memory_used_bytes: int | None = None
     memory_total_bytes: int | None = None
     temperature_c: float | None = None
+    memory_total_is_capacity: bool = True
+    memory_kind: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -691,6 +693,8 @@ class ResourceMonitorOverviewCollector:
             utilization_percent = adapter.utilization_percent
             memory_used_bytes = adapter.memory_used_bytes
             memory_total_bytes = adapter.memory_total_bytes
+            memory_total_is_capacity = adapter.memory_total_is_capacity
+            memory_kind = adapter.memory_kind
             temperature_c = adapter.temperature_c
             backend = adapter.backend
             previous = previous_intel_adapters.get(adapter.id) if adapter.vendor == "Intel" else None
@@ -700,9 +704,14 @@ class ResourceMonitorOverviewCollector:
                     changed = True
                 if memory_used_bytes is None and previous.memory_used_bytes is not None:
                     memory_used_bytes = previous.memory_used_bytes
+                    memory_total_is_capacity = previous.memory_total_is_capacity
                     changed = True
                 if memory_total_bytes is None and previous.memory_total_bytes is not None:
                     memory_total_bytes = previous.memory_total_bytes
+                    memory_total_is_capacity = previous.memory_total_is_capacity
+                    changed = True
+                if not memory_kind and previous.memory_kind:
+                    memory_kind = previous.memory_kind
                     changed = True
                 if temperature_c is None and previous.temperature_c is not None:
                     temperature_c = previous.temperature_c
@@ -720,6 +729,8 @@ class ResourceMonitorOverviewCollector:
                     utilization_percent=utilization_percent,
                     memory_used_bytes=memory_used_bytes,
                     memory_total_bytes=memory_total_bytes,
+                    memory_total_is_capacity=memory_total_is_capacity,
+                    memory_kind=memory_kind,
                     temperature_c=temperature_c,
                 )
             )
@@ -1591,6 +1602,8 @@ class _GpuAdapterState:
     memory_total_bytes: int | None = None
     temperature_c: float | None = None
     sysfs_path: Path | None = None
+    memory_total_is_capacity: bool = True
+    memory_kind: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1600,6 +1613,8 @@ class _LinuxDrmFdinfoSample:
     engine_time_ns: int = 0
     memory_used_bytes: int | None = None
     memory_total_bytes: int | None = None
+    memory_total_is_capacity: bool = True
+    memory_kind: str = ""
 
 
 _GPU_VENDOR_NAMES = {
@@ -1634,6 +1649,8 @@ def _copy_gpu_adapter_states(adapters: list[_GpuAdapterState]) -> list[_GpuAdapt
             memory_total_bytes=adapter.memory_total_bytes,
             temperature_c=adapter.temperature_c,
             sysfs_path=adapter.sysfs_path,
+            memory_total_is_capacity=adapter.memory_total_is_capacity,
+            memory_kind=adapter.memory_kind,
         )
         for adapter in adapters
     ]
@@ -1653,14 +1670,24 @@ def _collect_gpu_inventory(*, platform_name: str | None = None) -> list[_GpuAdap
 def _build_gpu_sample(adapters: list[_GpuAdapterState]) -> GpuSample:
     detected = bool(adapters)
     utilization_values = [adapter.utilization_percent for adapter in adapters if adapter.utilization_percent is not None]
-    memory_pairs = [
+    memory_values = [
+        adapter.memory_used_bytes
+        for adapter in adapters
+        if adapter.memory_used_bytes is not None
+    ]
+    capacity_memory_pairs = [
         (adapter.memory_used_bytes, adapter.memory_total_bytes)
         for adapter in adapters
-        if adapter.memory_used_bytes is not None and adapter.memory_total_bytes is not None and adapter.memory_total_bytes > 0
+        if (
+            adapter.memory_used_bytes is not None
+            and adapter.memory_total_bytes is not None
+            and adapter.memory_total_bytes > 0
+            and adapter.memory_total_is_capacity
+        )
     ]
     temperature_values = [adapter.temperature_c for adapter in adapters if adapter.temperature_c is not None]
     has_utilization = bool(utilization_values)
-    has_memory = bool(memory_pairs)
+    has_memory = bool(memory_values)
     has_temperature = bool(temperature_values)
 
     utilization_percent = (
@@ -1669,18 +1696,21 @@ def _build_gpu_sample(adapters: list[_GpuAdapterState]) -> GpuSample:
         else None
     )
     memory_used_bytes = (
-        sum(int(used or 0) for used, _total in memory_pairs)
-        if memory_pairs
+        sum(int(value or 0) for value in memory_values)
+        if memory_values
         else None
     )
-    memory_total_bytes = (
-        sum(int(total or 0) for _used, total in memory_pairs)
-        if memory_pairs
+    memory_total_bytes = None
+    if capacity_memory_pairs and len(capacity_memory_pairs) == len(memory_values):
+        memory_used_bytes = sum(int(used or 0) for used, _total in capacity_memory_pairs)
+        memory_total_bytes = sum(int(total or 0) for _used, total in capacity_memory_pairs)
+    elif not memory_values:
+        memory_total_bytes = None
+    memory_percent = (
+        min(100.0, max(0.0, (memory_used_bytes / memory_total_bytes) * 100.0))
+        if memory_used_bytes is not None and memory_total_bytes and memory_total_bytes > 0
         else None
     )
-    memory_percent: float | None = None
-    if memory_used_bytes is not None and memory_total_bytes and memory_total_bytes > 0:
-        memory_percent = min(100.0, max(0.0, (memory_used_bytes / memory_total_bytes) * 100.0))
 
     message = ""
     if not detected:
@@ -1714,6 +1744,8 @@ def _build_gpu_sample(adapters: list[_GpuAdapterState]) -> GpuSample:
                 memory_used_bytes=adapter.memory_used_bytes,
                 memory_total_bytes=adapter.memory_total_bytes,
                 temperature_c=adapter.temperature_c,
+                memory_total_is_capacity=adapter.memory_total_is_capacity,
+                memory_kind=adapter.memory_kind,
             )
             for adapter in adapters
         ],
@@ -2013,6 +2045,8 @@ def _merge_gpu_metrics(
     memory_used_bytes: int | None = None,
     memory_total_bytes: int | None = None,
     temperature_c: float | None = None,
+    memory_total_is_capacity: bool = True,
+    memory_kind: str = "",
 ) -> None:
     if name and (not adapter.name or adapter.name.endswith(adapter.id) or adapter.name.endswith(adapter.id.upper())):
         adapter.name = name
@@ -2022,8 +2056,16 @@ def _merge_gpu_metrics(
         adapter.utilization_percent = max(0.0, utilization_percent)
     if memory_used_bytes is not None and adapter.memory_used_bytes is None:
         adapter.memory_used_bytes = max(0, memory_used_bytes)
+    memory_total_was_set = False
     if memory_total_bytes is not None and memory_total_bytes > 0 and adapter.memory_total_bytes is None:
         adapter.memory_total_bytes = max(0, memory_total_bytes)
+        adapter.memory_total_is_capacity = memory_total_is_capacity
+        memory_total_was_set = True
+    if memory_used_bytes is not None or memory_total_bytes is not None:
+        if not memory_total_is_capacity and (adapter.memory_total_bytes is None or memory_total_was_set):
+            adapter.memory_total_is_capacity = False
+        if memory_kind and not adapter.memory_kind:
+            adapter.memory_kind = memory_kind
     if temperature_c is not None and adapter.temperature_c is None:
         adapter.temperature_c = temperature_c
     if backend and not adapter.backend:
@@ -2428,6 +2470,8 @@ def _apply_linux_drm_fdinfo_metrics(
             utilization_percent=utilization_percent,
             memory_used_bytes=sample.memory_used_bytes,
             memory_total_bytes=sample.memory_total_bytes,
+            memory_total_is_capacity=sample.memory_total_is_capacity,
+            memory_kind=sample.memory_kind,
         )
 
 
@@ -2466,6 +2510,8 @@ def _collect_linux_drm_fdinfo_samples(*, proc_root: str | Path = "/proc") -> dic
                 engine_time_ns=sample.engine_time_ns,
                 memory_used_bytes=sample.memory_used_bytes,
                 memory_total_bytes=sample.memory_total_bytes,
+                memory_total_is_capacity=sample.memory_total_is_capacity,
+                memory_kind=sample.memory_kind,
             )
             continue
         aggregated[sample.adapter_id] = _LinuxDrmFdinfoSample(
@@ -2474,6 +2520,8 @@ def _collect_linux_drm_fdinfo_samples(*, proc_root: str | Path = "/proc") -> dic
             engine_time_ns=current.engine_time_ns + sample.engine_time_ns,
             memory_used_bytes=_add_optional_ints(current.memory_used_bytes, sample.memory_used_bytes),
             memory_total_bytes=_add_optional_ints(current.memory_total_bytes, sample.memory_total_bytes),
+            memory_total_is_capacity=current.memory_total_is_capacity and sample.memory_total_is_capacity,
+            memory_kind=_combine_gpu_memory_kinds(current.memory_kind, sample.memory_kind),
         )
     return aggregated
 
@@ -2487,8 +2535,9 @@ def _parse_linux_drm_fdinfo_payload(
     client_id = ""
     driver = ""
     engine_time_ns = 0
-    memory_used_bytes: int | None = None
-    memory_total_bytes: int | None = None
+    memory_consumed_by_region: dict[str, int] = {}
+    memory_resident_by_region: dict[str, int] = {}
+    memory_total_by_region: dict[str, int] = {}
     for raw_line in payload.splitlines():
         if ":" not in raw_line:
             continue
@@ -2501,14 +2550,16 @@ def _parse_linux_drm_fdinfo_payload(
             adapter_id = _normalize_drm_adapter_id(value)
         elif key == "drm-client-id":
             client_id = value
-        elif key.startswith("drm-engine-"):
+        elif key.startswith("drm-engine-") and not key.startswith("drm-engine-capacity-"):
             parsed = _parse_drm_duration_ns(value)
             if parsed is not None:
                 engine_time_ns += parsed
-        elif key.startswith("drm-resident-") or key.startswith("drm-memory-"):
-            memory_used_bytes = _add_optional_ints(memory_used_bytes, _parse_drm_memory_bytes(value))
-        elif key.startswith("drm-total-"):
-            memory_total_bytes = _add_optional_ints(memory_total_bytes, _parse_drm_memory_bytes(value))
+        elif key.startswith("drm-memory-"):
+            _add_drm_region_memory(memory_consumed_by_region, key, "drm-memory-", value)
+        elif key.startswith("drm-resident-"):
+            _add_drm_region_memory(memory_resident_by_region, key, "drm-resident-", value)
+        elif key.startswith("drm-total-") and not key.startswith("drm-total-cycles-"):
+            _add_drm_region_memory(memory_total_by_region, key, "drm-total-", value)
     if driver and driver not in {"i915", "xe"}:
         return None
     if not adapter_id:
@@ -2516,15 +2567,24 @@ def _parse_linux_drm_fdinfo_payload(
             adapter_id = _UNKNOWN_INTEL_DRM_ADAPTER_ID
         else:
             return None
+    memory_used_bytes = (
+        _sum_drm_region_memory(memory_consumed_by_region)
+        or _sum_drm_region_memory(memory_resident_by_region)
+        or _sum_drm_region_memory(memory_total_by_region)
+    )
+    memory_total_bytes = _sum_drm_region_memory(memory_total_by_region)
     if engine_time_ns <= 0 and memory_used_bytes is None and memory_total_bytes is None:
         return None
     client_key = f"{adapter_id}:{client_id}" if client_id else fallback_client_key
+    memory_regions = set(memory_consumed_by_region) | set(memory_resident_by_region) | set(memory_total_by_region)
     return _LinuxDrmFdinfoSample(
         adapter_id=adapter_id,
         client_key=client_key,
         engine_time_ns=engine_time_ns,
         memory_used_bytes=memory_used_bytes,
         memory_total_bytes=memory_total_bytes,
+        memory_total_is_capacity=False if memory_used_bytes is not None or memory_total_bytes is not None else True,
+        memory_kind=_drm_region_memory_kind(memory_regions),
     )
 
 
@@ -2533,6 +2593,50 @@ def _normalize_drm_adapter_id(value: str) -> str:
     if cleaned.startswith("pci:"):
         cleaned = cleaned[4:]
     return cleaned
+
+
+def _add_drm_region_memory(
+    target: dict[str, int],
+    key: str,
+    prefix: str,
+    value: str,
+) -> None:
+    parsed = _parse_drm_memory_bytes(value)
+    if parsed is None:
+        return
+    region = key[len(prefix):].strip().casefold()
+    if not region:
+        region = "memory"
+    target[region] = target.get(region, 0) + parsed
+
+
+def _sum_drm_region_memory(values: dict[str, int]) -> int | None:
+    if not values:
+        return None
+    return sum(max(0, value) for value in values.values())
+
+
+def _drm_region_memory_kind(regions: set[str]) -> str:
+    normalized = {region.strip().casefold() for region in regions if region.strip()}
+    if not normalized:
+        return ""
+    shared_regions = {"gtt", "memory", "stolen", "system"}
+    dedicated_regions = {"local", "vram"}
+    if normalized <= shared_regions:
+        return "shared"
+    if normalized <= dedicated_regions:
+        return "dedicated"
+    if normalized & shared_regions and normalized & dedicated_regions:
+        return "mixed"
+    return "allocated"
+
+
+def _combine_gpu_memory_kinds(left: str, right: str) -> str:
+    if not left:
+        return right
+    if not right or left == right:
+        return left
+    return "mixed"
 
 
 def _parse_drm_duration_ns(value: str) -> int | None:

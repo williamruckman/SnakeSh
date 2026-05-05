@@ -3240,7 +3240,7 @@ class ResourceMonitorDialog(QDialog):
         unavailable_count = 0
         if adapter.utilization_percent is None:
             unavailable_count += 1
-        if _gpu_adapter_memory_percent(adapter) is None:
+        if not _gpu_adapter_has_memory_sample(adapter):
             unavailable_count += 1
         if adapter.temperature_c is None:
             unavailable_count += 1
@@ -3344,11 +3344,7 @@ class ResourceMonitorDialog(QDialog):
                     if adapter.utilization_percent is not None
                     else "Util --"
                 ),
-                (
-                    f"VRAM {memory_percent:.0f}%"
-                    if memory_percent is not None
-                    else "VRAM --"
-                ),
+                _gpu_adapter_memory_overview_text(adapter, memory_percent=memory_percent),
                 f"Temp {_format_temperature(adapter.temperature_c)}",
             ]
             detail_lines.append(self._overview_device_block(name, " ".join(stats_parts)))
@@ -3684,13 +3680,12 @@ class ResourceMonitorDialog(QDialog):
                 )
 
             memory_percent = _gpu_adapter_memory_percent(adapter)
-            if adapter.memory_used_bytes is None or adapter.memory_total_bytes is None or memory_percent is None:
-                section.cards["memory"].set_content("--", "VRAM telemetry unavailable.")
-            else:
-                section.cards["memory"].set_content(
-                    f"{_format_bytes(adapter.memory_used_bytes)} / {_format_bytes(adapter.memory_total_bytes)}",
-                    f"{memory_percent:.1f}% used",
-                )
+            memory_title, memory_value, memory_detail = _gpu_adapter_memory_card_content(
+                adapter,
+                memory_percent=memory_percent,
+            )
+            section.cards["memory"].title_label.setText(memory_title)
+            section.cards["memory"].set_content(memory_value, memory_detail)
 
             if adapter.temperature_c is None:
                 section.cards["temperature"].set_content("--", "Temperature telemetry unavailable.")
@@ -4537,23 +4532,99 @@ def _ordered_gpu_adapters(adapters: list[GpuAdapterSample]) -> list[GpuAdapterSa
 def _gpu_adapter_memory_percent(adapter: GpuAdapterSample | None) -> float | None:
     if adapter is None:
         return None
-    if adapter.memory_used_bytes is None or adapter.memory_total_bytes is None or adapter.memory_total_bytes <= 0:
+    if (
+        adapter.memory_used_bytes is None
+        or adapter.memory_total_bytes is None
+        or adapter.memory_total_bytes <= 0
+        or not adapter.memory_total_is_capacity
+    ):
         return None
     return min(100.0, max(0.0, (adapter.memory_used_bytes / adapter.memory_total_bytes) * 100.0))
+
+
+def _gpu_adapter_has_memory_sample(adapter: GpuAdapterSample | None) -> bool:
+    return adapter is not None and (
+        adapter.memory_used_bytes is not None
+        or _gpu_adapter_memory_percent(adapter) is not None
+    )
+
+
+def _gpu_adapter_memory_overview_text(
+    adapter: GpuAdapterSample,
+    *,
+    memory_percent: float | None = None,
+) -> str:
+    if memory_percent is None:
+        memory_percent = _gpu_adapter_memory_percent(adapter)
+    if memory_percent is not None:
+        return f"VRAM {memory_percent:.0f}%"
+    if adapter.memory_used_bytes is None:
+        return "VRAM --"
+    if adapter.memory_kind == "shared":
+        return f"Shared {_format_bytes(adapter.memory_used_bytes)}"
+    return f"Memory {_format_bytes(adapter.memory_used_bytes)}"
+
+
+def _gpu_adapter_memory_card_content(
+    adapter: GpuAdapterSample,
+    *,
+    memory_percent: float | None = None,
+) -> tuple[str, str, str]:
+    if memory_percent is None:
+        memory_percent = _gpu_adapter_memory_percent(adapter)
+    if adapter.memory_used_bytes is None:
+        return "VRAM", "--", "VRAM telemetry unavailable."
+    if memory_percent is not None and adapter.memory_total_bytes is not None:
+        return (
+            "VRAM",
+            f"{_format_bytes(adapter.memory_used_bytes)} / {_format_bytes(adapter.memory_total_bytes)}",
+            f"{memory_percent:.1f}% used",
+        )
+
+    if adapter.memory_kind == "shared":
+        title = "Shared Memory"
+        subject = "shared GPU memory"
+    elif adapter.memory_kind == "dedicated":
+        title = "VRAM"
+        subject = "VRAM"
+    else:
+        title = "GPU Memory"
+        subject = "GPU memory"
+
+    detail = f"Current {subject} allocation; capacity unavailable."
+    if (
+        adapter.memory_total_bytes is not None
+        and adapter.memory_total_bytes > 0
+        and adapter.memory_total_bytes != adapter.memory_used_bytes
+    ):
+        detail = f"{_format_bytes(adapter.memory_total_bytes)} allocated; capacity unavailable."
+    return title, _format_bytes(adapter.memory_used_bytes), detail
 
 
 def _gpu_adapter_telemetry_status_text(adapter: GpuAdapterSample) -> str:
     unavailable: list[str] = []
     if adapter.utilization_percent is None:
         unavailable.append("utilization")
-    if _gpu_adapter_memory_percent(adapter) is None:
+    memory_percent = _gpu_adapter_memory_percent(adapter)
+    memory_available = _gpu_adapter_has_memory_sample(adapter)
+    if not memory_available:
         unavailable.append("VRAM")
     if adapter.temperature_c is None:
         unavailable.append("temperature")
+    if memory_available and memory_percent is None:
+        memory_note = (
+            "GPU memory is shown as current shared allocation because this adapter "
+            "does not expose a dedicated VRAM capacity."
+            if adapter.memory_kind == "shared"
+            else "GPU memory is shown as current allocation because this adapter does not expose memory capacity."
+        )
+        if not unavailable:
+            return memory_note
+        return f"{', '.join(unavailable)} telemetry is unavailable for this adapter. {memory_note}"
     if (
         adapter.backend == "windows-counters"
         and adapter.utilization_percent is not None
-        and _gpu_adapter_memory_percent(adapter) is None
+        and memory_percent is None
         and adapter.temperature_c is None
     ):
         return "Utilization is coming from Windows GPU counters. VRAM and temperature telemetry remain best-effort for this adapter."

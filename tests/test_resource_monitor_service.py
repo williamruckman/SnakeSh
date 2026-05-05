@@ -254,6 +254,29 @@ class ResourceMonitorServiceTests(unittest.TestCase):
         self.assertEqual(sample.engine_time_ns, 1_250_000_000)
         self.assertEqual(sample.memory_used_bytes, 4_194_304)
         self.assertEqual(sample.memory_total_bytes, 8_388_608)
+        self.assertFalse(sample.memory_total_is_capacity)
+        self.assertEqual(sample.memory_kind, "shared")
+
+    def test_parse_linux_drm_fdinfo_payload_does_not_double_count_memory_stats(self) -> None:
+        payload = "\n".join(
+            [
+                "drm-driver:\ti915",
+                "drm-pdev:\t0000:00:02.0",
+                "drm-client-id:\t7",
+                "drm-engine-render:\t1000000000 ns",
+                "drm-memory-memory:\t1024 KiB",
+                "drm-resident-memory:\t512 KiB",
+                "drm-total-memory:\t2048 KiB",
+            ]
+        )
+
+        sample = resource_monitor._parse_linux_drm_fdinfo_payload(payload, fallback_client_key="123:4")  # noqa: SLF001
+
+        self.assertIsNotNone(sample)
+        assert sample is not None
+        self.assertEqual(sample.memory_used_bytes, 1_048_576)
+        self.assertEqual(sample.memory_total_bytes, 2_097_152)
+        self.assertFalse(sample.memory_total_is_capacity)
 
     def test_apply_linux_drm_fdinfo_metrics_maps_missing_pdev_to_single_intel_adapter(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -317,6 +340,8 @@ class ResourceMonitorServiceTests(unittest.TestCase):
         self.assertEqual(adapters[0].utilization_percent, 50.0)
         self.assertEqual(adapters[0].memory_used_bytes, 2_097_152)
         self.assertEqual(adapters[0].memory_total_bytes, 4_194_304)
+        self.assertFalse(adapters[0].memory_total_is_capacity)
+        self.assertEqual(adapters[0].memory_kind, "shared")
 
     def test_apply_linux_drm_fdinfo_metrics_calculates_rate_across_samples(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -381,7 +406,30 @@ class ResourceMonitorServiceTests(unittest.TestCase):
         self.assertEqual(adapters[0].backend, "linux-drm-fdinfo")
         self.assertEqual(adapters[0].memory_used_bytes, 2_097_152)
         self.assertEqual(adapters[0].memory_total_bytes, 4_194_304)
+        self.assertFalse(adapters[0].memory_total_is_capacity)
         self.assertEqual(adapters[0].utilization_percent, 50.0)
+
+    def test_build_gpu_sample_does_not_treat_fdinfo_total_as_vram_capacity(self) -> None:
+        adapters = [
+            resource_monitor._GpuAdapterState(  # noqa: SLF001
+                id="0000:00:02.0",
+                vendor="Intel",
+                name="Intel UHD Graphics",
+                backend="linux-drm-fdinfo",
+                memory_used_bytes=2_097_152,
+                memory_total_bytes=4_194_304,
+                memory_total_is_capacity=False,
+                memory_kind="shared",
+            )
+        ]
+
+        sample = resource_monitor._build_gpu_sample(adapters)  # noqa: SLF001
+
+        self.assertTrue(sample.has_memory)
+        self.assertEqual(sample.memory_used_bytes, 2_097_152)
+        self.assertIsNone(sample.memory_total_bytes)
+        self.assertIsNone(sample.memory_percent)
+        self.assertFalse(sample.adapters[0].memory_total_is_capacity)
 
     def test_linux_fdinfo_fills_intel_memory_without_replacing_intel_gpu_top_usage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -26,7 +26,11 @@ from snakesh.services.resource_monitor import (
 )
 from snakesh.services.settings_service import AppSettings
 from snakesh.ui import resource_monitor_dialog as resource_monitor_dialog_module
-from snakesh.ui.resource_monitor_dialog import ResourceMonitorDialog, _gpu_adapter_telemetry_status_text
+from snakesh.ui.resource_monitor_dialog import (
+    ResourceMonitorDialog,
+    _gpu_adapter_memory_percent,
+    _gpu_adapter_telemetry_status_text,
+)
 
 
 class ResourceMonitorDialogTests(unittest.TestCase):
@@ -1196,6 +1200,62 @@ class ResourceMonitorDialogTests(unittest.TestCase):
             self.assertEqual(intel_section.activity_chart.chart().title(), "GPU Activity")
             self.assertIn("temperature telemetry is unavailable", intel_section.status_label.text().lower())
             self.assertIn("Intel UHD Graphics\n Util 25% VRAM -- Temp --", dialog._cards["gpu"].detail_label.text())
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_linux_intel_fdinfo_shared_memory_does_not_render_as_vram_percent(self) -> None:
+        with patch("snakesh.ui.resource_monitor_dialog.QTimer.singleShot"):
+            dialog = ResourceMonitorDialog()
+        try:
+            snapshot = self._build_snapshot(gpu_available=False)
+            shared_bytes = 304 * 1024 * 1024
+            gpu = GpuSample(
+                available=True,
+                detected=True,
+                name="Intel UHD Graphics",
+                gpu_count=1,
+                utilization_percent=12.0,
+                memory_used_bytes=shared_bytes,
+                memory_total_bytes=None,
+                memory_percent=None,
+                has_utilization=True,
+                has_memory=True,
+                adapters=[
+                    GpuAdapterSample(
+                        id="0000:00:02.0",
+                        vendor="Intel",
+                        name="Intel UHD Graphics",
+                        adapter_index=0,
+                        backend="linux-drm-fdinfo",
+                        utilization_percent=12.0,
+                        memory_used_bytes=shared_bytes,
+                        memory_total_bytes=shared_bytes,
+                        memory_total_is_capacity=False,
+                        memory_kind="shared",
+                    )
+                ],
+                message="Some GPU metrics are unavailable on this system.",
+            )
+            snapshot = ResourceMonitorSnapshot(
+                sample=snapshot.sample,
+                filesystems=snapshot.filesystems,
+                disk_devices=snapshot.disk_devices,
+                interfaces=snapshot.interfaces,
+                gpu=gpu,
+            )
+
+            dialog._on_sample_ready(snapshot)
+            dialog.tabs.setCurrentWidget(dialog.gpu_page)
+            QApplication.processEvents()
+
+            intel_section = self._gpu_section(dialog, "0000:00:02.0")
+            self.assertIsNone(_gpu_adapter_memory_percent(gpu.adapters[0]))
+            self.assertEqual(intel_section.cards["memory"].title_label.text(), "Shared Memory")
+            self.assertEqual(intel_section.cards["memory"].value_label.text(), "304.0 MB")
+            self.assertIn("capacity unavailable", intel_section.cards["memory"].detail_label.text())
+            self.assertIn("Intel UHD Graphics\n Util 12% Shared 304.0 MB Temp --", dialog._cards["gpu"].detail_label.text())
+            self.assertEqual(self._series_names(dialog, intel_section.activity_chart), ["GPU"])
         finally:
             dialog.deleteLater()
             QApplication.processEvents()
@@ -2510,6 +2570,26 @@ class ResourceMonitorDialogTests(unittest.TestCase):
 
         self.assertIn("Windows GPU counters", message)
         self.assertIn("best-effort", message)
+
+    def test_gpu_adapter_status_text_explains_shared_gpu_memory_allocation(self) -> None:
+        adapter = GpuAdapterSample(
+            id="0000:00:02.0",
+            vendor="Intel",
+            name="Intel HD Graphics 5500",
+            adapter_index=0,
+            backend="linux-drm-fdinfo",
+            utilization_percent=27.5,
+            memory_used_bytes=304 * 1024 * 1024,
+            memory_total_bytes=304 * 1024 * 1024,
+            memory_total_is_capacity=False,
+            memory_kind="shared",
+            temperature_c=None,
+        )
+
+        message = _gpu_adapter_telemetry_status_text(adapter)
+
+        self.assertIn("shared allocation", message)
+        self.assertIn("dedicated VRAM capacity", message)
 
 
 if __name__ == "__main__":
