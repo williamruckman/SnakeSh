@@ -60,6 +60,8 @@ class PackagingSpecTests(unittest.TestCase):
 
         self.assertIn("release:", build_text)
         self.assertIn("- published", build_text)
+        self.assertIn("pull_request:", build_text)
+        self.assertNotIn("push:", build_text)
         self.assertNotIn("startsWith(github.ref, 'refs/tags/v')", build_text)
         self.assertIn("github.event.release.tag_name", build_text)
         self.assertIn("name: Check Release Version", build_text)
