@@ -62,6 +62,11 @@ class PackagingSpecTests(unittest.TestCase):
         self.assertIn("- published", build_text)
         self.assertNotIn("startsWith(github.ref, 'refs/tags/v')", build_text)
         self.assertIn("github.event.release.tag_name", build_text)
+        self.assertIn("name: Check Release Version", build_text)
+        self.assertIn("should_build:", build_text)
+        self.assertIn("VERSION does not match release tag", build_text)
+        self.assertIn("${RELEASE_TAG} does not contain a VERSION file.", build_text)
+        self.assertIn("needs.release-version.outputs.should_build == 'true'", build_text)
         self.assertIn("overwrite_files: false", build_text)
         self.assertIn("fail_on_unmatched_files: true", build_text)
         self.assertIn(

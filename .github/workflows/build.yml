@@ -14,9 +14,48 @@ env:
   QT_QPA_PLATFORM: offscreen
 
 jobs:
+  release-version:
+    name: Check Release Version
+    runs-on: ubuntu-22.04
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+
+      - name: Check release tag against VERSION
+        id: check
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ "${EVENT_NAME}" != "release" ]]; then
+            echo "should_build=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ ! -f VERSION ]]; then
+            echo "::notice title=Release build skipped::${RELEASE_TAG} does not contain a VERSION file."
+            echo "should_build=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          version="$(tr -d '[:space:]' < VERSION)"
+          expected_tag="v${version}"
+          if [[ -z "${version}" || "${RELEASE_TAG}" != "${expected_tag}" ]]; then
+            echo "::notice title=Release build skipped::VERSION does not match release tag (${version:-empty} != ${RELEASE_TAG})."
+            echo "should_build=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "should_build=true" >> "${GITHUB_OUTPUT}"
+
   tests:
     name: Test Suite
     runs-on: ubuntu-22.04
+    needs:
+      - release-version
+    if: github.event_name != 'release' || needs.release-version.outputs.should_build == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,7 +83,8 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - tests
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+      - release-version
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,7 +138,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     needs:
       - tests
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+      - release-version
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -217,7 +258,8 @@ jobs:
     runs-on: windows-latest
     needs:
       - tests
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+      - release-version
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -257,10 +299,11 @@ jobs:
     name: Attach GitHub Release Assets
     runs-on: ubuntu-22.04
     needs:
+      - release-version
       - linux-x64
       - macos
       - windows-x64
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: always() && github.event_name == 'release' && github.event.action == 'published' && needs.release-version.outputs.should_build == 'true' && needs.linux-x64.result == 'success' && needs.macos.result == 'success' && needs.windows-x64.result == 'success'
     permissions:
       contents: write
     steps:
