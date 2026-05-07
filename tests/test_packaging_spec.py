@@ -76,9 +76,18 @@ class PackagingSpecTests(unittest.TestCase):
             build_text,
         )
         self.assertIn('tags:\n      - "v*"', draft_text)
+        self.assertIn("name: Check draft tag against VERSION", draft_text)
+        self.assertIn("should_create=false", draft_text)
+        self.assertIn("should_create=true", draft_text)
+        self.assertIn("VERSION does not match tag", draft_text)
+        self.assertIn("${GITHUB_REF_NAME} does not contain a VERSION file.", draft_text)
         self.assertIn("gh release view", draft_text)
         self.assertIn("exists=true", draft_text)
-        self.assertIn("if: steps.release.outputs.exists == 'false'", draft_text)
+        self.assertIn("if: steps.version.outputs.should_create == 'true'", draft_text)
+        self.assertIn(
+            "if: steps.version.outputs.should_create == 'true' && steps.release.outputs.exists == 'false'",
+            draft_text,
+        )
         self.assertIn("draft: true", draft_text)
         self.assertIn("generate_release_notes: true", draft_text)
 

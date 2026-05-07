@@ -16,8 +16,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check draft tag against VERSION
+        id: version
+        shell: bash
+        run: |
+          if [[ ! -f VERSION ]]; then
+            echo "::notice title=Draft release skipped::${GITHUB_REF_NAME} does not contain a VERSION file."
+            echo "should_create=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          version="$(tr -d '[:space:]' < VERSION)"
+          expected_tag="v${version}"
+          if [[ -z "${version}" || "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
+            echo "::notice title=Draft release skipped::VERSION does not match tag (${version:-empty} != ${GITHUB_REF_NAME})."
+            echo "should_create=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "should_create=true" >> "${GITHUB_OUTPUT}"
+
       - name: Check for existing release
         id: release
+        if: steps.version.outputs.should_create == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -28,7 +47,7 @@ jobs:
           fi
 
       - name: Create draft release
-        if: steps.release.outputs.exists == 'false'
+        if: steps.version.outputs.should_create == 'true' && steps.release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
