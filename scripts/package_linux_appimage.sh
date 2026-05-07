@@ -293,7 +293,11 @@ PY
 )"
 fi
 
-VERSION="$(${PYTHON_BIN} -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")"
+VERSION="$(tr -d '[:space:]' < "${ROOT_DIR}/VERSION")"
+if [[ -z "${VERSION}" ]]; then
+    echo "VERSION is empty." >&2
+    exit 1
+fi
 APPDIR="build/AppDir"
 OUTPUT_APPIMAGE="dist/SnakeSh-${VERSION}-x86_64.AppImage"
 OUTPUT_APPIMAGE_STEM="$(basename "${OUTPUT_APPIMAGE%.AppImage}")"

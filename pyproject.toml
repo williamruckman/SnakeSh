@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snakesh"
-version = "1.6"
+dynamic = ["version"]
 description = "SnakeSh: cross-platform remote access workspace in Python."
 readme = "README.md"
 license = "Apache-2.0"
@@ -35,6 +35,9 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
 
 [tool.setuptools.package-data]
 snakesh = [

@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "1.6"
+  #error MyAppVersion must be passed from VERSION.
 #endif
 
 #define MyAppName "SnakeSh"

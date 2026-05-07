@@ -1,3 +1,3 @@
-__all__ = ["__version__"]
+from snakesh._version import __version__, read_version
 
-__version__ = "1.6"
+__all__ = ["__version__", "read_version"]

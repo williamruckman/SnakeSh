@@ -30,6 +30,18 @@ function Assert-LastExitCode {
     }
 }
 
+function Get-AppVersion {
+    $versionPath = Join-Path $RootDir "VERSION"
+    if (-not (Test-Path $versionPath)) {
+        throw "Missing VERSION file at $versionPath."
+    }
+    $version = (Get-Content -Raw $versionPath).Trim()
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        throw "VERSION file is empty."
+    }
+    return $version
+}
+
 function Resolve-ExecutablePath {
     param(
         [string]$Candidate
@@ -382,8 +394,7 @@ Assert-LastExitCode "PyInstaller build"
 if (-not $SkipInstaller) {
     $IsccExe = Resolve-Iscc
     Write-Host "Using Inno Setup at $IsccExe"
-    $version = (& $ResolvedPythonExe -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])").Trim()
-    Assert-LastExitCode "version lookup"
+    $version = Get-AppVersion
     & $IsccExe "/DMyAppVersion=$version" "packaging\windows\SnakeSh.iss"
     Assert-LastExitCode "Inno Setup build"
     $latestSetup = Get-ChildItem "dist" -Filter "SnakeSh-*-Setup.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1

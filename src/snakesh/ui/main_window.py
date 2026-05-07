@@ -12435,6 +12435,7 @@ class MainWindow(QMainWindow):
         self._apply_session_details_style()
         self.tabs.addTab(self.details, "Session Details")
         self._sync_host_tab_close_buttons(self.tabs)
+        self._apply_tab_styles()
 
         self._main_splitter.addWidget(left)
         self._main_splitter.addWidget(right)
@@ -13864,6 +13865,7 @@ class MainWindow(QMainWindow):
         target_host.setCurrentIndex(target_index)
         self._sync_host_tab_close_buttons(source_host)
         self._sync_host_tab_close_buttons(target_host)
+        self._apply_tab_styles()
         self._refresh_detached_window_title(source_host)
         self._refresh_detached_window_title(target_host)
 
@@ -19729,6 +19731,7 @@ class MainWindow(QMainWindow):
         self._sync_host_tab_close_buttons(host)
         host.setCurrentIndex(index)
         self._set_active_tab_host(host)
+        self._apply_tab_styles()
         self._refresh_session_instance_titles()
         self._focus_new_session_tab(widget)
 

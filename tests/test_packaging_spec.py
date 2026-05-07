@@ -6,6 +6,18 @@ import unittest
 
 
 class PackagingSpecTests(unittest.TestCase):
+    def test_project_version_source_is_root_version_file(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        version_text = (project_root / "VERSION").read_text(encoding="utf-8").strip()
+        pyproject_text = (project_root / "pyproject.toml").read_text(encoding="utf-8")
+        manifest_text = (project_root / "MANIFEST.in").read_text(encoding="utf-8")
+
+        self.assertRegex(version_text, re.compile(r"^[0-9]+([.][0-9]+)*$"))
+        self.assertIn('dynamic = ["version"]', pyproject_text)
+        self.assertIn('version = {file = "VERSION"}', pyproject_text)
+        self.assertNotRegex(pyproject_text, re.compile(r'^version = "', re.MULTILINE))
+        self.assertIn("include VERSION", manifest_text)
+
     def test_qt_runtime_hook_targets_bundled_qt_plugin_directory(self) -> None:
         hook_path = Path(__file__).resolve().parents[1] / "packaging" / "pyinstaller" / "runtime_hook_qt.py"
         hook_text = hook_path.read_text(encoding="utf-8")
@@ -25,6 +37,52 @@ class PackagingSpecTests(unittest.TestCase):
         self.assertNotIn("PySide6/Qt/plugins/platformthemes", spec_text)
         self.assertIn("_filter_duplicate_private_qt_binaries", spec_text)
         self.assertIn("a.binaries = _filter_duplicate_private_qt_binaries(a.binaries)", spec_text)
+        self.assertIn('(str(PROJECT_ROOT / "VERSION"), ".")', spec_text)
+
+    def test_packaging_scripts_read_root_version_file(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        linux_package_text = (project_root / "scripts" / "package_linux_appimage.sh").read_text(encoding="utf-8")
+        windows_build_text = (project_root / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
+        installer_text = (project_root / "packaging" / "windows" / "SnakeSh.iss").read_text(encoding="utf-8")
+
+        self.assertIn('tr -d \'[:space:]\' < "${ROOT_DIR}/VERSION"', linux_package_text)
+        self.assertIn('Join-Path $RootDir "VERSION"', windows_build_text)
+        self.assertIn("Get-AppVersion", windows_build_text)
+        self.assertIn("#error MyAppVersion must be passed from VERSION.", installer_text)
+        self.assertNotIn('#define MyAppVersion "1.6"', installer_text)
+
+    def test_github_release_workflows_split_draft_creation_from_asset_build(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        build_text = (project_root / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8")
+        draft_text = (project_root / ".github" / "workflows" / "prepare-release-draft.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("release:", build_text)
+        self.assertIn("- published", build_text)
+        self.assertNotIn("startsWith(github.ref, 'refs/tags/v')", build_text)
+        self.assertIn("github.event.release.tag_name", build_text)
+        self.assertIn("overwrite_files: false", build_text)
+        self.assertIn("fail_on_unmatched_files: true", build_text)
+        self.assertIn(
+            "ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}",
+            build_text,
+        )
+        self.assertIn('tags:\n      - "v*"', draft_text)
+        self.assertIn("draft: true", draft_text)
+        self.assertIn("generate_release_notes: true", draft_text)
+
+    def test_gitlab_release_tag_job_uses_version_without_moving_existing_tags(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        gitlab_text = (project_root / ".gitlab-ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("changes:\n        - VERSION", gitlab_text)
+        self.assertIn("VERSION_VALUE=", gitlab_text)
+        self.assertIn("TAG_NAME=\"v${VERSION_VALUE}\"", gitlab_text)
+        self.assertIn("git ls-remote --exit-code --tags origin", gitlab_text)
+        self.assertIn("GITLAB_RELEASE_TOKEN", gitlab_text)
+        self.assertIn("git tag -a", gitlab_text)
+        self.assertIn("git push", gitlab_text)
 
     def test_linux_build_script_requires_python_311_and_portable_glibc_baseline(self) -> None:
         script_path = Path(__file__).resolve().parents[1] / "scripts" / "build_linux.sh"

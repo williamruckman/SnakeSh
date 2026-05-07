@@ -68,6 +68,7 @@ datas.extend(
         (str(PROJECT_ROOT / "LICENSE"), "."),
         (str(PROJECT_ROOT / "NOTICE"), "."),
         (str(PROJECT_ROOT / "THIRD_PARTY_NOTICES.md"), "."),
+        (str(PROJECT_ROOT / "VERSION"), "."),
     ]
 )
 hiddenimports = [
