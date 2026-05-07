@@ -69,6 +69,9 @@ class PackagingSpecTests(unittest.TestCase):
             build_text,
         )
         self.assertIn('tags:\n      - "v*"', draft_text)
+        self.assertIn("gh release view", draft_text)
+        self.assertIn("exists=true", draft_text)
+        self.assertIn("if: steps.release.outputs.exists == 'false'", draft_text)
         self.assertIn("draft: true", draft_text)
         self.assertIn("generate_release_notes: true", draft_text)
 
