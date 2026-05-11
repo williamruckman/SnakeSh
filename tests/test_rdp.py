@@ -8,7 +8,13 @@ from unittest.mock import Mock, patch
 
 from snakesh.core.models import Protocol, Session
 from snakesh.protocols.base import ProtocolError
-from snakesh.protocols.rdp import build_rdp_command, build_rdp_stdin_payload, clear_linux_rdp_known_host, launch_rdp
+from snakesh.protocols.rdp import (
+    build_rdp_command,
+    build_rdp_stdin_payload,
+    clear_linux_rdp_known_host,
+    launch_rdp,
+    prepare_rdp_launch_environment,
+)
 
 
 def _build_session() -> Session:
@@ -229,6 +235,35 @@ class RDPLauncherTests(unittest.TestCase):
         self.assertEqual(cmd[0], str(executable))
         self.assertIn("/from-stdin:force", cmd)
         self.assertIn("/v:rdp.example.com", cmd)
+
+    def test_macos_prepare_launch_environment_uses_launchctl_display(self) -> None:
+        with (
+            patch("snakesh.protocols.rdp.platform.system", return_value="Darwin"),
+            patch.dict("snakesh.protocols.rdp.os.environ", {"PATH": "/usr/bin"}, clear=True),
+            patch("snakesh.protocols.rdp._macos_launchctl_getenv", return_value="/private/tmp/xquartz:0"),
+            patch("snakesh.protocols.rdp._launch_macos_xquartz") as mock_launch,
+        ):
+            env = prepare_rdp_launch_environment()
+
+        self.assertIsNotNone(env)
+        assert env is not None
+        self.assertEqual(env["DISPLAY"], "/private/tmp/xquartz:0")
+        mock_launch.assert_not_called()
+
+    def test_macos_prepare_launch_environment_starts_xquartz_and_falls_back_to_display_zero(self) -> None:
+        with (
+            patch("snakesh.protocols.rdp.platform.system", return_value="Darwin"),
+            patch.dict("snakesh.protocols.rdp.os.environ", {"PATH": "/usr/bin"}, clear=True),
+            patch("snakesh.protocols.rdp._macos_launchctl_getenv", return_value=""),
+            patch("snakesh.protocols.rdp._launch_macos_xquartz") as mock_launch,
+            patch("snakesh.protocols.rdp._wait_for_macos_x11_display", return_value=":0"),
+        ):
+            env = prepare_rdp_launch_environment()
+
+        self.assertIsNotNone(env)
+        assert env is not None
+        self.assertEqual(env["DISPLAY"], ":0")
+        mock_launch.assert_called_once_with()
 
     def test_macos_rejects_embedded_parent_window(self) -> None:
         session = _build_session()

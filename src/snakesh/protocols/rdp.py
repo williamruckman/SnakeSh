@@ -5,6 +5,7 @@ import platform
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from snakesh.core.models import Session, is_auto_resolution, normalize_rdp_audio_mode, parse_resolution
@@ -13,6 +14,7 @@ from snakesh.services.external_tools import resolve_executable
 
 
 _FREERDP_EXECUTABLE_CANDIDATES: tuple[str, ...] = ("xfreerdp",)
+_MACOS_XQUARTZ_DISPLAY_FALLBACK = ":0"
 
 
 def clear_linux_rdp_known_host(session: Session, *, known_hosts_path: Path | None = None) -> bool:
@@ -145,7 +147,10 @@ def launch_rdp(
         session,
         password=password,
     )
-    popen_kwargs: dict[str, int] = {}
+    popen_kwargs: dict[str, object] = {}
+    launch_env = prepare_rdp_launch_environment()
+    if launch_env is not None:
+        popen_kwargs["env"] = launch_env
     if platform.system().lower() == "windows":
         creationflags = int(getattr(subprocess, "DETACHED_PROCESS", 0)) | int(
             getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -153,6 +158,19 @@ def launch_rdp(
         if creationflags:
             popen_kwargs["creationflags"] = creationflags
     _launch_rdp_process(cmd, stdin_payload=stdin_payload, **popen_kwargs)
+
+
+def prepare_rdp_launch_environment() -> dict[str, str] | None:
+    if platform.system().lower() != "darwin":
+        return None
+
+    env = os.environ.copy()
+    display = (env.get("DISPLAY") or "").strip() or _macos_launchctl_getenv("DISPLAY")
+    if not display:
+        _launch_macos_xquartz()
+        display = _wait_for_macos_x11_display()
+    env["DISPLAY"] = display or _MACOS_XQUARTZ_DISPLAY_FALLBACK
+    return env
 
 
 def build_rdp_stdin_payload(
@@ -190,11 +208,58 @@ def _freerdp_executable(system: str | None = None) -> str | None:
     return None
 
 
+def _launch_macos_xquartz() -> None:
+    try:
+        subprocess.run(
+            ["open", "-gja", "XQuartz"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+    except Exception:
+        return
+
+
+def _wait_for_macos_x11_display(timeout_seconds: float = 5.0) -> str:
+    deadline = time.monotonic() + max(0.1, timeout_seconds)
+    while time.monotonic() < deadline:
+        display = _macos_launchctl_getenv("DISPLAY")
+        if display:
+            return display
+        if _macos_x11_socket_ready():
+            return _MACOS_XQUARTZ_DISPLAY_FALLBACK
+        time.sleep(0.1)
+    if _macos_x11_socket_ready():
+        return _MACOS_XQUARTZ_DISPLAY_FALLBACK
+    return ""
+
+
+def _macos_launchctl_getenv(name: str) -> str:
+    try:
+        result = subprocess.run(
+            ["launchctl", "getenv", name],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=1,
+        )
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return (result.stdout or "").strip()
+
+
+def _macos_x11_socket_ready() -> bool:
+    return Path("/tmp/.X11-unix/X0").exists() or Path("/private/tmp/.X11-unix/X0").exists()
+
+
 def _launch_rdp_process(
     command: list[str],
     *,
     stdin_payload: str | None = None,
-    **popen_kwargs: int,
+    **popen_kwargs: object,
 ) -> subprocess.Popen[bytes] | subprocess.Popen[str]:
     launch_kwargs: dict[str, object] = dict(popen_kwargs)
     if stdin_payload is not None:

@@ -126,7 +126,13 @@ from snakesh.core.tool_registry import (
     profile_startup_tool_entries,
 )
 from snakesh.protocols.nomachine import build_nomachine_launch, launch_nomachine
-from snakesh.protocols.rdp import build_rdp_command, build_rdp_stdin_payload, clear_linux_rdp_known_host, launch_rdp
+from snakesh.protocols.rdp import (
+    build_rdp_command,
+    build_rdp_stdin_payload,
+    clear_linux_rdp_known_host,
+    launch_rdp,
+    prepare_rdp_launch_environment,
+)
 from snakesh.protocols.sftp_client import (
     OverwriteConflict,
     SFTPClient,
@@ -15118,7 +15124,7 @@ class MainWindow(QMainWindow):
                     linux_trust_certificate=linux_trust_certificate,
                 )
                 stdin_payload = build_rdp_stdin_payload(session, password=password)
-                return cmd, "RDP Client", None, stdin_payload
+                return cmd, "RDP Client", prepare_rdp_launch_environment(), stdin_payload
 
             self._open_remote_viewer_tab(
                 session,
@@ -15228,7 +15234,7 @@ class MainWindow(QMainWindow):
                     else (self._credential_service.load_password(session) if session.save_password else None)
                 )
                 system = platform.system().lower()
-                if system == "linux":
+                if system in {"linux", "darwin"}:
                     if not self._confirm_linux_rdp_certificate_trust(session):
                         self.statusBar().showMessage(
                             "RDP launch cancelled: certificate was not accepted.",

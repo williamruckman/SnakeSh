@@ -614,6 +614,27 @@ class VNCOpenTabTests(unittest.TestCase):
             linux_trust_certificate=True,
         )
 
+    def test_connect_session_macos_rdp_uses_freerdp_tab_launch(self) -> None:
+        session = _build_rdp_session()
+        with (
+            patch("snakesh.ui.main_window.platform.system", return_value="Darwin"),
+            patch.object(self.window, "_ensure_protocol_dependency", return_value=True),
+            patch.object(self.window, "_confirm_linux_rdp_certificate_trust", return_value=True),
+            patch.object(self.window, "_resolve_linux_rdp_password", return_value=("secret", True)),
+            patch("snakesh.ui.main_window.clear_linux_rdp_known_host") as mock_clear,
+            patch.object(self.window, "_open_rdp_tab") as mock_open,
+            patch("snakesh.ui.main_window.launch_rdp") as mock_launch,
+        ):
+            self.window._connect_session(session)
+
+        mock_clear.assert_called_once_with(session)
+        mock_launch.assert_not_called()
+        mock_open.assert_called_once_with(
+            session,
+            password="secret",
+            linux_trust_certificate=True,
+        )
+
     def test_open_rdp_tab_on_windows_uses_detached_only(self) -> None:
         session = _build_rdp_session()
 
@@ -633,6 +654,32 @@ class VNCOpenTabTests(unittest.TestCase):
         self.assertFalse(kwargs.get("windows_reparent_embed", False))
         self.assertFalse(kwargs.get("linux_x11_reparent_embed", False))
         self.assertIsNone(kwargs.get("embedded_command_builder"))
+
+    def test_open_rdp_tab_on_macos_supplies_xquartz_launch_environment(self) -> None:
+        session = _build_rdp_session()
+        launch_env = {"DISPLAY": ":0"}
+
+        with (
+            patch("snakesh.ui.main_window.platform.system", return_value="Darwin"),
+            patch("snakesh.ui.main_window.prepare_rdp_launch_environment", return_value=launch_env),
+            patch("snakesh.ui.main_window.build_rdp_command", return_value=["xfreerdp", "/v:192.0.2.75"]),
+            patch("snakesh.ui.main_window.build_rdp_stdin_payload", return_value="secret\n"),
+            patch.object(self.window, "_open_remote_viewer_tab") as mock_open_remote_viewer_tab,
+        ):
+            self.window._open_rdp_tab(
+                session,
+                password="secret",
+                linux_trust_certificate=True,
+            )
+            kwargs = mock_open_remote_viewer_tab.call_args.kwargs
+            self.assertTrue(kwargs.get("start_detached", False))
+            detached_builder = kwargs["detached_command_builder"]
+            command, viewer_name, env, stdin_payload = detached_builder()
+
+        self.assertEqual(command, ["xfreerdp", "/v:192.0.2.75"])
+        self.assertEqual(viewer_name, "RDP Client")
+        self.assertEqual(env, launch_env)
+        self.assertEqual(stdin_payload, "secret\n")
 
     def test_open_rdp_tab_on_linux_allows_in_tab_mode_when_selected(self) -> None:
         session = _build_rdp_session()
