@@ -1389,13 +1389,12 @@ def _build_traceroute_command(
     platform_name: str | None = None,
 ) -> list[str]:
     system = _platform_name(platform_name)
-    timeout_seconds = max(1.0, request.timeout_ms / 1000.0)
     command = [
         "traceroute",
         "-m",
         str(request.max_hops),
         "-w",
-        f"{timeout_seconds:.1f}",
+        _traceroute_wait_value(request, platform_name=system),
         "-q",
         "1",
     ]
@@ -1409,6 +1408,13 @@ def _build_traceroute_command(
         command.append("-I")
     command.append(target)
     return command
+
+
+def _traceroute_wait_value(request: MTRTraceRequest, *, platform_name: str | None = None) -> str:
+    timeout_seconds = max(1.0, request.timeout_ms / 1000.0)
+    if _platform_name(platform_name) == "darwin":
+        return str(max(1, int(math.ceil(timeout_seconds))))
+    return f"{timeout_seconds:.1f}"
 
 
 def _build_tracepath_command(request: MTRTraceRequest, *, target: str) -> list[str]:

@@ -462,6 +462,22 @@ class MTRTraceTests(unittest.TestCase):
         self.assertEqual(effective_protocol, MTR_PROTOCOL_UDP)
         self.assertEqual(note, "")
 
+    def test_build_trace_cycle_command_darwin_uses_integer_traceroute_wait(self) -> None:
+        request = MTRTraceRequest(target="8.8.8.8", timeout_ms=3000, protocol=MTR_PROTOCOL_AUTO).normalized()
+        with patch(
+            "snakesh.services.mtr_trace.shutil.which",
+            side_effect=lambda name: f"/usr/bin/{name}" if name in {"tracepath", "traceroute"} else None,
+        ):
+            command, parser_kind, _effective_protocol, _note = build_trace_cycle_command(
+                request,
+                platform_name="darwin",
+            )
+
+        self.assertEqual(command[0], "traceroute")
+        self.assertEqual(parser_kind, "traceroute")
+        self.assertEqual(command[command.index("-w") + 1], "3")
+        self.assertNotIn("3.0", command)
+
     def test_build_trace_cycle_commands_linux_icmp_tries_native_then_udp_then_tracepath(self) -> None:
         request = MTRTraceRequest(target="8.8.8.8", protocol=MTR_PROTOCOL_ICMP).normalized()
         with patch(

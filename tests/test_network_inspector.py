@@ -18,6 +18,7 @@ from snakesh.services.network_inspector import (
     parse_linux_ip_route,
     parse_linux_resolv_conf_dns,
     parse_macos_arp_table,
+    parse_macos_lsof_listening_ports,
     parse_macos_netstat_routes,
     parse_macos_scutil_dns,
     parse_windows_arp_table,
@@ -121,6 +122,73 @@ default                                 fe80::1%en0                    UGcIg    
         self.assertEqual(linux_dns.search_domains, ["lab.example", "corp.example"])
         self.assertEqual(windows_dns.nameservers, ["8.8.8.8", "8.8.4.4"])
         self.assertEqual(macos_dns.search_domains, ["lab.example"])
+
+    def test_parse_macos_lsof_listening_ports(self) -> None:
+        output = (
+            "p123\n"
+            "cpython\n"
+            "PTCP\n"
+            "n127.0.0.1:8443\n"
+            "TST=LISTEN\n"
+            "p124\n"
+            "cmDNSResponder\n"
+            "PUDP\n"
+            "n*:5353\n"
+            "p125\n"
+            "cclient\n"
+            "PTCP\n"
+            "n127.0.0.1:50000->127.0.0.1:443\n"
+            "TST=ESTABLISHED\n"
+        )
+
+        entries = parse_macos_lsof_listening_ports(output)
+
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(entries[0].protocol, "TCP")
+        self.assertEqual(entries[0].local_address, "127.0.0.1:8443")
+        self.assertEqual(entries[0].pid, 123)
+        self.assertEqual(entries[0].process_name, "python")
+        self.assertEqual(entries[1].protocol, "UDP")
+        self.assertEqual(entries[1].local_address, "*:5353")
+        self.assertEqual(entries[1].process_name, "mDNSResponder")
+
+    def test_collect_listening_ports_darwin_falls_back_to_lsof_when_psutil_denied(self) -> None:
+        fallback_entries = [
+            ListeningPortEntry(
+                family="IPv4",
+                protocol="TCP",
+                local_address="127.0.0.1:8443",
+                pid=4321,
+                process_name="python",
+            )
+        ]
+
+        with (
+            patch("snakesh.services.network_inspector._collect_listening_ports_psutil", side_effect=RuntimeError("denied")),
+            patch("snakesh.services.network_inspector.collect_macos_lsof_listening_ports", return_value=fallback_entries),
+        ):
+            entries = network_inspector.collect_listening_ports(platform_name="darwin")
+
+        self.assertEqual(entries, fallback_entries)
+
+    def test_collect_listening_ports_darwin_falls_back_to_lsof_when_psutil_empty(self) -> None:
+        fallback_entries = [
+            ListeningPortEntry(
+                family="IPv4",
+                protocol="UDP",
+                local_address="*:5353",
+                pid=124,
+                process_name="mDNSResponder",
+            )
+        ]
+
+        with (
+            patch("snakesh.services.network_inspector._collect_listening_ports_psutil", return_value=[]),
+            patch("snakesh.services.network_inspector.collect_macos_lsof_listening_ports", return_value=fallback_entries),
+        ):
+            entries = network_inspector.collect_listening_ports(platform_name="darwin")
+
+        self.assertEqual(entries, fallback_entries)
 
     def test_run_capture_hides_windows_console(self) -> None:
         completed = unittest.mock.Mock(returncode=0, stdout="ok\n", stderr="")

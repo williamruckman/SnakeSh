@@ -5,7 +5,6 @@ from pathlib import Path
 import os
 import platform
 import re
-import shutil
 import subprocess
 from typing import Any
 import xml.etree.ElementTree as ET
@@ -13,6 +12,7 @@ import xml.etree.ElementTree as ET
 from snakesh.core.models import Session
 from snakesh.core.paths import data_dir
 from snakesh.protocols.base import ProtocolError
+from snakesh.services.external_tools import resolve_executable
 
 _DEFAULT_NOMACHINE_PORT = 4000
 
@@ -66,13 +66,7 @@ def has_supported_nomachine_client() -> bool:
 
 
 def _resolve_executable(system: str) -> str | None:
-    for candidate in _candidates_for_system(system):
-        resolved = shutil.which(candidate)
-        if resolved:
-            return resolved
-        if Path(candidate).exists():
-            return candidate
-    return None
+    return resolve_executable(_candidates_for_system(system), platform_name=system)
 
 
 def _candidates_for_system(system: str) -> tuple[str, ...]:

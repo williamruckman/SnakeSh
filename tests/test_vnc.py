@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -119,6 +121,44 @@ class VNCLauncherTests(unittest.TestCase):
 
         self.assertIn("-RemoteResize=1", command)
         self.assertNotIn("-RemoteResize=0", command)
+
+    def test_macos_build_vnc_command_finds_homebrew_tigervnc(self) -> None:
+        session = _build_session()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            homebrew_bin = Path(temp_dir) / "bin"
+            homebrew_bin.mkdir()
+            executable = homebrew_bin / "vncviewer"
+            executable.write_text("", encoding="utf-8")
+            with (
+                patch("snakesh.protocols.vnc.platform.system", return_value="Darwin"),
+                patch("snakesh.services.external_tools.MACOS_EXECUTABLE_DIRS", (homebrew_bin,)),
+                patch("snakesh.services.external_tools.shutil.which", return_value=None),
+            ):
+                command, provider_name = vnc.build_vnc_command(session)
+
+        self.assertEqual(provider_name, "TigerVNC Viewer")
+        self.assertEqual(command[0], str(executable))
+
+    def test_macos_build_vnc_command_finds_tigervnc_app_bundle(self) -> None:
+        session = _build_session()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            executable = Path(temp_dir) / "TigerVNC Viewer.app" / "Contents" / "MacOS" / "TigerVNC Viewer"
+            executable.parent.mkdir(parents=True)
+            executable.write_text("", encoding="utf-8")
+            provider = vnc._VNCProvider(
+                name="TigerVNC Viewer",
+                executable_candidates=(str(executable),),
+                color_mode=vnc._COLOR_MODE_TIGERVNC,
+            )
+            with (
+                patch("snakesh.protocols.vnc.platform.system", return_value="Darwin"),
+                patch("snakesh.protocols.vnc._MACOS_PROVIDERS", (provider,)),
+                patch("snakesh.services.external_tools.shutil.which", return_value=None),
+            ):
+                command, provider_name = vnc.build_vnc_command(session)
+
+        self.assertEqual(provider_name, "TigerVNC Viewer")
+        self.assertEqual(command[0], str(executable))
 
 
 if __name__ == "__main__":

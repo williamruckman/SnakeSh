@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from pathlib import Path
 import platform
 import shutil
 import subprocess
 
 from snakesh.core.models import Session, parse_resolution
 from snakesh.protocols.base import ProtocolError
+from snakesh.services.external_tools import resolve_executable
 from snakesh.services.privilege_service import run_command
 
 _COLOR_MODE_NONE = "none"
@@ -98,6 +98,24 @@ _LINUX_PROVIDERS: tuple[_VNCProvider, ...] = (
     ),
 )
 
+_MACOS_PROVIDERS: tuple[_VNCProvider, ...] = (
+    _VNCProvider(
+        name="TigerVNC Viewer",
+        executable_candidates=(
+            "vncviewer",
+            "/Applications/TigerVNC Viewer.app/Contents/MacOS/TigerVNC Viewer",
+            "/Applications/TigerVNC Viewer.app/Contents/MacOS/vncviewer",
+            "/Applications/TigerVNC.app/Contents/MacOS/TigerVNC",
+            "/Applications/TigerVNC.app/Contents/MacOS/vncviewer",
+        ),
+        fullscreen_flag=("-FullScreen",),
+        geometry_flag=("-geometry",),
+        auto_resize_flag=("-RemoteResize=1",),
+        color_mode=_COLOR_MODE_TIGERVNC,
+        password_mode=_PASSWORD_MODE_TIGERVNC_ENV,
+    ),
+)
+
 _WINDOWS_WINGET_IDS: tuple[str, ...] = ("TigerVNC.TigerVNC",)
 _LINUX_PACKAGE_CANDIDATES: tuple[str, ...] = ("tigervnc-viewer", "tigervnc", "gvncviewer", "remmina")
 
@@ -175,7 +193,7 @@ def has_supported_vnc_client() -> bool:
 
 def _resolve_provider(system: str) -> tuple[_VNCProvider, str] | None:
     for provider in _providers_for_system(system):
-        executable = _find_executable(provider)
+        executable = _find_executable(provider, system=system)
         if executable:
             return provider, executable
     return None
@@ -186,6 +204,8 @@ def _providers_for_system(system: str) -> tuple[_VNCProvider, ...]:
         return _WINDOWS_PROVIDERS
     if system == "linux":
         return _LINUX_PROVIDERS
+    if system == "darwin":
+        return _MACOS_PROVIDERS
     return _LINUX_PROVIDERS
 
 
@@ -363,12 +383,5 @@ def _linux_install_command(package_name: str) -> list[str] | None:
     return None
 
 
-def _find_executable(provider: _VNCProvider) -> str | None:
-    for candidate in provider.executable_candidates:
-        path_hit = shutil.which(candidate)
-        if path_hit:
-            return path_hit
-        expanded = os.path.expandvars(candidate)
-        if Path(expanded).exists():
-            return expanded
-    return None
+def _find_executable(provider: _VNCProvider, *, system: str) -> str | None:
+    return resolve_executable(provider.executable_candidates, platform_name=system)

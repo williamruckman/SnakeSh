@@ -30,11 +30,11 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - SFTP delete and overwrite actions can prompt for confirmation before replacing or removing files
 - Right-click SSH/SFTP session action to open an SFTP tab reusing the same session credentials
 - SSH/SFTP sessions support default SFTP local and remote start folders
-- RDP launcher integration (`mstsc` on Windows, `xfreerdp` on Linux)
-- RDP launcher uses saved session credentials when available (Windows via `cmdkey`, Linux via `xfreerdp` stdin credential handoff)
+- RDP launcher integration (`mstsc` on Windows, `xfreerdp` on Linux/macOS)
+- RDP launcher uses saved session credentials when available (Windows via `cmdkey`, Linux/macOS via `xfreerdp` stdin credential handoff)
 - Linux RDP sessions can run inside SnakeSh tabs (Open Mode: In tab) or detached; VNC, NoMachine, and non-Linux RDP use detached window mode only
 - Linux RDP launches ask certificate trust in a GUI confirmation dialog before starting `xfreerdp` (no hidden terminal prompt)
-- VNC launcher integration with client auto-detection on Windows/Linux and optional default viewer auto-install (TigerVNC)
+- VNC launcher integration with client auto-detection on Windows/Linux/macOS and optional default viewer auto-install where supported (TigerVNC)
 - NoMachine launcher integration (`nxplayer`) with detached-window workflow
 - RDP sessions support a dedicated domain field; X11 forwarding is only exposed for SSH/SFTP sessions
 - RDP and VNC sessions support per-session resolution, fullscreen, and color depth preferences
@@ -252,6 +252,7 @@ SnakeSh requires Python 3.11+.
 
 - Missing protocol tools:
 SnakeSh checks protocol dependencies on demand (for example `xfreerdp`, `mstsc`, `vncviewer`, `nxplayer`, `xauth`, `ssh-keygen`, and the Python SNMP runtime used by the Syslog / SNMP Monitor) and shows an in-app prompt if installation is needed.
+On macOS, automatic dependency installation is not offered; SnakeSh detects standard Homebrew paths such as `/opt/homebrew/bin` and `/usr/local/bin` plus supported app bundles.
 
 - Permission prompts:
 When a dependency install or privileged listener port needs elevated privileges, SnakeSh will ask for admin/root confirmation through the OS prompt.
@@ -266,7 +267,7 @@ Open `Settings` and use `Install/Repair Desktop Integration` or `Remove Desktop 
 Open `Settings` and use `Manage Tool Launchers...` to install or remove per-user launcher entries for standalone tools. `snakesh --remove-tool-launchers` removes all managed standalone tool launchers without changing app data.
 
 - RDP support on macOS:
-RDP launcher support is currently Windows/Linux only. Use SSH/SFTP, VNC, NoMachine, Telnet, or Serial sessions on macOS.
+RDP launcher support requires an installed FreeRDP `xfreerdp` client, for example from Homebrew, and runs detached only. In-tab RDP remains Linux-only.
 
 - Fast Commands on remote desktops:
 When the active tab is RDP, VNC, or NoMachine, Fast Commands copy the saved text to the clipboard instead of trying to inject keystrokes into the viewer. Paste manually inside the remote desktop session.
@@ -366,7 +367,7 @@ Bundled third-party components keep their own licenses, permissions, and notices
 - SSH/SFTP/Telnet tabs can run in the main workspace or be detached into independent windows, then reattached later.
 - Local Shell tabs use the same terminal workspace and detach/reattach flow.
 - SSH/SFTP auth: key auth is supported, and password prompt fallback appears on auth failure.
-- RDP: Supported on Windows (`mstsc`) and Linux (`xfreerdp`) only. In-tab mode is supported on Linux only.
+- RDP: Supported on Windows (`mstsc`) and Linux/macOS (`xfreerdp`). In-tab mode is supported on Linux only; macOS launches detached external FreeRDP windows.
 - VNC: Launched through installed platform viewers (TigerVNC/compatible clients, Remmina/gvncviewer where available); authentication prompts are handled by the selected viewer. Display options are applied when supported by the selected viewer.
 - NoMachine: Launched through installed NoMachine Player (`nxplayer`) in detached mode (Windows/Linux/macOS).
 - Telnet: Native in-app terminal client with option negotiation (terminal type + window resize), optional TLS, and optional certificate verification.

@@ -391,7 +391,23 @@ def collect_interface_info() -> list[InterfaceInfo]:
     return results
 
 
-def collect_listening_ports() -> list[ListeningPortEntry]:
+def collect_listening_ports(*, platform_name: str | None = None) -> list[ListeningPortEntry]:
+    system = _platform_name(platform_name)
+    if system == "darwin":
+        try:
+            entries = _collect_listening_ports_psutil()
+        except Exception:
+            return collect_macos_lsof_listening_ports()
+        if entries:
+            return entries
+        try:
+            return collect_macos_lsof_listening_ports()
+        except Exception:
+            return entries
+    return _collect_listening_ports_psutil()
+
+
+def _collect_listening_ports_psutil() -> list[ListeningPortEntry]:
     psutil = _psutil()
     process_name_cache: dict[int, str] = {}
     entries: list[ListeningPortEntry] = []
@@ -439,6 +455,128 @@ def collect_listening_ports() -> list[ListeningPortEntry]:
         )
     entries.sort(key=lambda item: (item.protocol, item.local_address))
     return entries
+
+
+def collect_macos_lsof_listening_ports(raw_text: str | None = None) -> list[ListeningPortEntry]:
+    output = raw_text
+    if output is None:
+        output = _run_capture(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-iUDP", "-FpcPnT"])
+    return parse_macos_lsof_listening_ports(output)
+
+
+def parse_macos_lsof_listening_ports(raw_text: str) -> list[ListeningPortEntry]:
+    entries: list[ListeningPortEntry] = []
+    seen: set[tuple[str, str, str, int | None, str]] = set()
+    pid: int | None = None
+    process_name = ""
+    protocol = ""
+    state = ""
+    address = ""
+
+    def flush_record() -> None:
+        nonlocal state, address
+        entry = _macos_lsof_listening_port_entry(
+            pid=pid,
+            process_name=process_name,
+            protocol=protocol,
+            local_address=address,
+            state=state,
+        )
+        state = ""
+        address = ""
+        if entry is None:
+            return
+        key = (entry.family, entry.protocol, entry.local_address, entry.pid, entry.process_name)
+        if key in seen:
+            return
+        seen.add(key)
+        entries.append(entry)
+
+    for line in raw_text.splitlines():
+        if not line:
+            continue
+        field = line[0]
+        value = line[1:].strip()
+        if field == "p":
+            flush_record()
+            pid = _normalize_pid(value)
+            process_name = ""
+            protocol = ""
+            state = ""
+            continue
+        if field == "c":
+            process_name = value
+            continue
+        if field == "P":
+            if address and protocol:
+                flush_record()
+            protocol = value.upper()
+            continue
+        if field == "n":
+            flush_record()
+            address = value
+            continue
+        if field == "T":
+            if value.upper().startswith("ST="):
+                state = value[3:].strip().upper()
+            continue
+    flush_record()
+    entries.sort(key=lambda item: (item.protocol, item.local_address, item.pid or 0, item.process_name))
+    return entries
+
+
+def _macos_lsof_listening_port_entry(
+    *,
+    pid: int | None,
+    process_name: str,
+    protocol: str,
+    local_address: str,
+    state: str,
+) -> ListeningPortEntry | None:
+    normalized_protocol = protocol.strip().upper()
+    if normalized_protocol.startswith("TCP"):
+        normalized_protocol = "TCP"
+    elif normalized_protocol.startswith("UDP"):
+        normalized_protocol = "UDP"
+    else:
+        return None
+
+    normalized_state = state.strip().upper()
+    if normalized_protocol == "TCP" and normalized_state not in {"", "LISTEN"}:
+        return None
+
+    address = _clean_macos_lsof_local_address(local_address)
+    if not address or ":" not in address:
+        return None
+
+    return ListeningPortEntry(
+        family=_macos_lsof_address_family(address),
+        protocol=normalized_protocol,
+        local_address=address,
+        pid=pid,
+        process_name=process_name.strip(),
+    )
+
+
+def _clean_macos_lsof_local_address(value: str) -> str:
+    address = value.strip()
+    if "->" in address:
+        address = address.split("->", 1)[0].strip()
+    for prefix in ("TCP ", "UDP "):
+        if address.upper().startswith(prefix):
+            address = address[len(prefix):].strip()
+    if " (" in address:
+        address = address.split(" (", 1)[0].strip()
+    return address
+
+
+def _macos_lsof_address_family(local_address: str) -> str:
+    if local_address.startswith("["):
+        return "IPv6"
+    host = local_address.rsplit(":", 1)[0]
+    if ":" in host:
+        return "IPv6"
+    return "IPv4"
 
 
 def collect_listening_ports_result(

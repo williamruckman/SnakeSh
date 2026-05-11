@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from snakesh.core.models import Protocol, Session
 from snakesh.protocols.base import ProtocolError
+from snakesh.protocols import nomachine
 from snakesh.protocols.nomachine import build_nomachine_command, launch_nomachine
 
 
@@ -185,6 +186,33 @@ class NoMachineLauncherTests(unittest.TestCase):
         ):
             with self.assertRaises(ProtocolError):
                 build_nomachine_command(session)
+
+    def test_macos_resolves_homebrew_nomachine_client(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            homebrew_bin = Path(temp_dir) / "bin"
+            homebrew_bin.mkdir()
+            executable = homebrew_bin / "nxplayer"
+            executable.write_text("", encoding="utf-8")
+            with (
+                patch("snakesh.services.external_tools.MACOS_EXECUTABLE_DIRS", (homebrew_bin,)),
+                patch("snakesh.services.external_tools.shutil.which", return_value=None),
+            ):
+                resolved = nomachine._resolve_executable("darwin")
+
+        self.assertEqual(resolved, str(executable))
+
+    def test_macos_resolves_nomachine_app_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            executable = Path(temp_dir) / "NoMachine.app" / "Contents" / "MacOS" / "nxplayer"
+            executable.parent.mkdir(parents=True)
+            executable.write_text("", encoding="utf-8")
+            with (
+                patch("snakesh.protocols.nomachine._MACOS_EXECUTABLE_CANDIDATES", (str(executable),)),
+                patch("snakesh.services.external_tools.shutil.which", return_value=None),
+            ):
+                resolved = nomachine._resolve_executable("darwin")
+
+        self.assertEqual(resolved, str(executable))
 
     def test_launch_nomachine_starts_subprocess(self) -> None:
         session = _build_session()

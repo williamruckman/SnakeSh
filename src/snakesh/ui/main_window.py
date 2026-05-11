@@ -10665,11 +10665,13 @@ class RemoteViewerTab(QWidget):
     def _should_treat_detached_exit_as_external_handoff(self, exit_code: int) -> bool:
         if exit_code != 0:
             return False
-        if platform.system().lower() != "windows":
-            return False
+        system = platform.system().lower()
         protocol = self._protocol_name.strip().upper()
         if protocol == "NOMACHINE":
-            return self._is_windows_process_name_running("nxplayer.exe")
+            if system == "windows":
+                return self._is_windows_process_name_running("nxplayer.exe")
+            if system == "darwin":
+                return True
         return False
 
     @staticmethod
@@ -13921,13 +13923,25 @@ class MainWindow(QMainWindow):
         self._applying_tab_styles = True
         try:
             s = self._settings
+            host_style = (
+                "QTabWidget::pane {"
+                f"border: 1px solid {s.field_border};"
+                f"background-color: {s.field_bg};"
+                "border-radius: 6px;"
+                "top: -1px;"
+                "}"
+                "QTabWidget::tab-bar { left: 0px; }"
+            )
             style = (
                 "QTabBar::tab {"
                 f"background-color: {s.tab_inactive_bg};"
                 f"color: {s.tab_inactive_fg};"
+                f"border: 1px solid {s.field_border};"
+                "border-bottom: none;"
                 "padding: 6px 16px 6px 12px;"
                 "min-height: 24px;"
                 "margin-right: 2px;"
+                "margin-bottom: -1px;"
                 "border-top-left-radius: 4px;"
                 "border-top-right-radius: 4px;"
                 "}"
@@ -13945,12 +13959,7 @@ class MainWindow(QMainWindow):
             for host in self._tab_hosts:
                 tab_bar = host.tabBar()
                 tab_bar.setProperty("workspace_active", "true" if host == self._active_tab_host else "false")
-                details_widget = getattr(self, "details", None)
-                has_details_tab = details_widget is not None and host.indexOf(details_widget) >= 0
-                if has_details_tab:
-                    host.setStyleSheet("QTabWidget::tab-bar { left: 12px; }")
-                else:
-                    host.setStyleSheet("")
+                host.setStyleSheet(host_style)
                 tab_bar.setContentsMargins(0, 0, 0, 0)
                 tab_bar.setStyleSheet(style)
                 self._sync_host_tab_close_buttons(host)

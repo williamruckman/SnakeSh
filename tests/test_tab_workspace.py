@@ -414,8 +414,11 @@ class TabWorkspaceTests(unittest.TestCase):
         self._launch_standalone_tool_patch.stop()
         self._has_active_tool_instance_patch.stop()
 
-    def test_initial_workspace_tab_bar_is_left_offset_for_session_details(self) -> None:
-        self.assertIn("QTabWidget::tab-bar { left: 12px; }", self.window.tabs.styleSheet())
+    def test_initial_workspace_tab_style_uses_pane_without_fixed_tab_bar_offset(self) -> None:
+        style = self.window.tabs.styleSheet()
+        self.assertIn("QTabWidget::pane", style)
+        self.assertIn("QTabWidget::tab-bar { left: 0px; }", style)
+        self.assertNotIn("left: 12px", style)
 
     def _launch_standalone_tool(self, tool_key: str, *, arguments=None, cwd=None, env=None):
         _ = cwd, env

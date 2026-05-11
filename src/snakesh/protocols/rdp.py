@@ -9,6 +9,10 @@ from pathlib import Path
 
 from snakesh.core.models import Session, is_auto_resolution, normalize_rdp_audio_mode, parse_resolution
 from snakesh.protocols.base import ProtocolError
+from snakesh.services.external_tools import resolve_executable
+
+
+_FREERDP_EXECUTABLE_CANDIDATES: tuple[str, ...] = ("xfreerdp",)
 
 
 def clear_linux_rdp_known_host(session: Session, *, known_hosts_path: Path | None = None) -> bool:
@@ -86,10 +90,15 @@ def build_rdp_command(
             return [mstsc_executable, str(rdp_file)]
         return [mstsc_executable, f"/v:{target}"]
 
-    if system == "linux":
+    if system in {"linux", "darwin"}:
+        freerdp_executable = _freerdp_executable(system)
+        if freerdp_executable is None:
+            raise ProtocolError("FreeRDP client was not found. Install FreeRDP to launch RDP sessions.")
         user = session.username or os.getenv("USER", "")
         embedded_parent = linux_parent_window_id is not None
-        cmd = ["xfreerdp", f"/v:{target}"]
+        if embedded_parent and system != "linux":
+            raise ProtocolError("Embedded RDP tabs are only supported on Linux.")
+        cmd = [freerdp_executable, f"/v:{target}"]
         if linux_trust_certificate:
             # Avoids interactive certificate prompts by using trust-on-first-use.
             cmd.append("/cert:tofu")
@@ -151,11 +160,34 @@ def build_rdp_stdin_payload(
     *,
     password: str | None = None,
 ) -> str | None:
-    if platform.system().lower() != "linux":
+    if platform.system().lower() not in {"linux", "darwin"}:
         return None
     if not password:
         return None
     return f"{password}\n"
+
+
+def has_supported_rdp_client() -> bool:
+    system = platform.system().lower()
+    if system == "windows":
+        return (
+            _windows_mstsc_executable() != "mstsc"
+            or shutil.which("mstsc.exe") is not None
+            or shutil.which("mstsc") is not None
+        )
+    if system in {"linux", "darwin"}:
+        return resolve_executable(_FREERDP_EXECUTABLE_CANDIDATES, platform_name=system) is not None
+    return False
+
+
+def _freerdp_executable(system: str | None = None) -> str | None:
+    platform_name = (system or platform.system()).strip().lower()
+    resolved = resolve_executable(_FREERDP_EXECUTABLE_CANDIDATES, platform_name=platform_name)
+    if resolved:
+        return resolved
+    if platform_name == "linux":
+        return "xfreerdp"
+    return None
 
 
 def _launch_rdp_process(

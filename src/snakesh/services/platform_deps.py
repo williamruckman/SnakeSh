@@ -57,6 +57,7 @@ def _windows_install_command(package_id: str) -> list[str] | None:
 
 def required_dependencies() -> list[PlatformDependency]:
     from snakesh.protocols.nomachine import has_supported_nomachine_client
+    from snakesh.protocols.rdp import has_supported_rdp_client
     from snakesh.protocols.vnc import has_supported_vnc_client
 
     system = platform.system().lower()
@@ -119,6 +120,7 @@ def required_dependencies() -> list[PlatformDependency]:
                 command="xfreerdp",
                 required_for="RDP sessions",
                 can_auto_install=False,
+                is_available=has_supported_rdp_client,
             )
         )
         deps.append(
@@ -169,6 +171,39 @@ def required_dependencies() -> list[PlatformDependency]:
             if dep.id == "ssh-keygen" and sshkey_cmd:
                 dep.install_command = sshkey_cmd
                 dep.can_auto_install = True
+        return deps
+
+    if system == "darwin":
+        deps.append(
+            PlatformDependency(
+                id="xfreerdp",
+                display_name="FreeRDP client (xfreerdp)",
+                command="xfreerdp",
+                required_for="RDP sessions",
+                can_auto_install=False,
+                is_available=has_supported_rdp_client,
+            )
+        )
+        deps.append(
+            PlatformDependency(
+                id="vncviewer",
+                display_name="VNC Viewer (TigerVNC or compatible)",
+                command="vncviewer",
+                required_for="VNC sessions",
+                can_auto_install=False,
+                is_available=has_supported_vnc_client,
+            )
+        )
+        deps.append(
+            PlatformDependency(
+                id="nxplayer",
+                display_name="NoMachine Player (nxplayer)",
+                command="nxplayer",
+                required_for="NoMachine sessions",
+                can_auto_install=False,
+                is_available=has_supported_nomachine_client,
+            )
+        )
         return deps
 
     # Other platforms: keep checks but no auto-install assumptions.

@@ -449,6 +449,7 @@ class StandaloneToolHostTests(unittest.TestCase):
             ),
             patch("snakesh.ui.standalone_tool_host._unlock_with_master_password", return_value=True),
             patch("snakesh.ui.standalone_tool_host.StandaloneToolController", return_value=fake_controller),
+            patch("snakesh.ui.standalone_tool_host._set_macos_tool_dock_icon") as mock_dock_icon,
         ):
             exit_code = run_standalone_tool("ping", ping_packet_size=1400, ping_ipv6=True)
 
@@ -466,6 +467,7 @@ class StandaloneToolHostTests(unittest.TestCase):
         fake_dialog.show.assert_called_once_with()
         fake_lease.release.assert_called_once_with()
         fake_app.exec.assert_called_once_with()
+        mock_dock_icon.assert_called_once_with("ping")
 
     def test_tool_process_identity_names_are_per_tool(self) -> None:
         self.assertEqual(_tool_desktop_file_name("ping"), "snakesh-tool-ping")

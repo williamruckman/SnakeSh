@@ -193,6 +193,34 @@ class RemoteViewerTabTests(unittest.TestCase):
         self.assertIn("external client process", tab._hint_label.text().lower())
         tab.deleteLater()
 
+    def test_macos_nomachine_detached_handoff_does_not_mark_closed(self) -> None:
+        session = _build_nomachine_session()
+
+        def detached_builder() -> tuple[list[str], str, dict[str, str] | None]:
+            return ["/Applications/NoMachine.app/Contents/MacOS/nxplayer", "--session", "dummy.nxs"], "NoMachine Player", None
+
+        with patch("snakesh.ui.main_window.platform.system", return_value="Darwin"):
+            tab = RemoteViewerTab(
+                session=session,
+                protocol_name="NoMachine",
+                detached_command_builder=detached_builder,
+            )
+
+        fake_process = unittest.mock.Mock()
+        fake_process.poll.return_value = 0
+        tab._mode = "detached"
+        tab._viewer_name = "NoMachine Player"
+        tab._detached_process = fake_process
+
+        with patch("snakesh.ui.main_window.platform.system", return_value="Darwin"):
+            tab._watch_process_state()
+
+        self.assertEqual(tab._mode, "detached")
+        self.assertIsNone(tab._detached_process)
+        self.assertFalse(bool(tab.property("remote_viewer_closed")))
+        self.assertIn("external client process", tab._hint_label.text().lower())
+        tab.deleteLater()
+
     def test_linux_support_status_mentions_xdotool_when_missing(self) -> None:
         tab = self._build_tab()
         with (

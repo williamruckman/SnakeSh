@@ -134,9 +134,11 @@ class RDPLauncherTests(unittest.TestCase):
         self.assertIn("/sound", cmd)
         self.assertIn("/audio-mode:0", cmd)
 
-    def test_build_rdp_stdin_payload_returns_password_only_for_linux(self) -> None:
+    def test_build_rdp_stdin_payload_returns_password_only_for_freerdp_platforms(self) -> None:
         session = _build_session()
         with patch("snakesh.protocols.rdp.platform.system", return_value="Linux"):
+            self.assertEqual(build_rdp_stdin_payload(session, password="secret"), "secret\n")
+        with patch("snakesh.protocols.rdp.platform.system", return_value="Darwin"):
             self.assertEqual(build_rdp_stdin_payload(session, password="secret"), "secret\n")
         with patch("snakesh.protocols.rdp.platform.system", return_value="Windows"):
             self.assertIsNone(build_rdp_stdin_payload(session, password="secret"))
@@ -210,9 +212,33 @@ class RDPLauncherTests(unittest.TestCase):
 
         self.assertEqual(cmd, ["mstsc", str(expected_file)])
 
-    def test_unsupported_platform_raises_protocol_error(self) -> None:
+    def test_macos_build_command_uses_homebrew_freerdp(self) -> None:
+        session = _build_session()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            homebrew_bin = Path(temp_dir) / "bin"
+            homebrew_bin.mkdir()
+            executable = homebrew_bin / "xfreerdp"
+            executable.write_text("", encoding="utf-8")
+            with (
+                patch("snakesh.protocols.rdp.platform.system", return_value="Darwin"),
+                patch("snakesh.services.external_tools.MACOS_EXECUTABLE_DIRS", (homebrew_bin,)),
+                patch("snakesh.services.external_tools.shutil.which", return_value=None),
+            ):
+                cmd = build_rdp_command(session, password="secret")
+
+        self.assertEqual(cmd[0], str(executable))
+        self.assertIn("/from-stdin:force", cmd)
+        self.assertIn("/v:rdp.example.com", cmd)
+
+    def test_macos_rejects_embedded_parent_window(self) -> None:
         session = _build_session()
         with patch("snakesh.protocols.rdp.platform.system", return_value="Darwin"):
+            with self.assertRaises(ProtocolError):
+                build_rdp_command(session, linux_parent_window_id=1234)
+
+    def test_unsupported_platform_raises_protocol_error(self) -> None:
+        session = _build_session()
+        with patch("snakesh.protocols.rdp.platform.system", return_value="FreeBSD"):
             with self.assertRaises(ProtocolError):
                 launch_rdp(session)
 

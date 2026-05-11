@@ -658,6 +658,7 @@ def run_standalone_tool(
         icon = _load_tool_window_icon(tool_key)
         if not icon.isNull():
             app.setWindowIcon(icon)
+        _set_macos_tool_dock_icon(tool_key)
         apply_theme(app, settings)
         dialog: QDialog | None = None
         controller: StandaloneToolController | None = None
@@ -787,6 +788,58 @@ def _set_platform_tool_process_identity(tool_key: str) -> None:
             setter(_tool_app_user_model_id(tool_key))
     except Exception:
         return
+
+
+def _set_macos_tool_dock_icon(tool_key: str) -> bool:
+    if sys.platform != "darwin":
+        return False
+    icon_path = tool_icon_path(tool_key, "icns")
+    if not icon_path.exists():
+        icon_path = tool_icon_path(tool_key, "png")
+    if not icon_path.exists():
+        return False
+    try:
+        import ctypes
+
+        ctypes.CDLL("/System/Library/Frameworks/AppKit.framework/AppKit")
+        objc = ctypes.CDLL("/usr/lib/libobjc.A.dylib")
+        objc.objc_getClass.restype = ctypes.c_void_p
+        objc.objc_getClass.argtypes = [ctypes.c_char_p]
+        objc.sel_registerName.restype = ctypes.c_void_p
+        objc.sel_registerName.argtypes = [ctypes.c_char_p]
+        objc_msg_send = objc.objc_msgSend
+        objc_msg_send.restype = ctypes.c_void_p
+
+        ns_application = objc.objc_getClass(b"NSApplication")
+        ns_string = objc.objc_getClass(b"NSString")
+        ns_image_class = objc.objc_getClass(b"NSImage")
+        if not ns_application or not ns_string or not ns_image_class:
+            return False
+
+        shared_application = objc.sel_registerName(b"sharedApplication")
+        string_with_utf8 = objc.sel_registerName(b"stringWithUTF8String:")
+        alloc = objc.sel_registerName(b"alloc")
+        init_with_contents = objc.sel_registerName(b"initWithContentsOfFile:")
+        set_application_icon = objc.sel_registerName(b"setApplicationIconImage:")
+
+        app = objc_msg_send(ctypes.c_void_p(ns_application), ctypes.c_void_p(shared_application))
+        path_string = objc_msg_send(
+            ctypes.c_void_p(ns_string),
+            ctypes.c_void_p(string_with_utf8),
+            ctypes.c_char_p(str(icon_path).encode("utf-8")),
+        )
+        image_alloc = objc_msg_send(ctypes.c_void_p(ns_image_class), ctypes.c_void_p(alloc))
+        image = objc_msg_send(
+            ctypes.c_void_p(image_alloc),
+            ctypes.c_void_p(init_with_contents),
+            ctypes.c_void_p(path_string),
+        )
+        if not app or not image:
+            return False
+        objc_msg_send(ctypes.c_void_p(app), ctypes.c_void_p(set_application_icon), ctypes.c_void_p(image))
+        return True
+    except Exception:
+        return False
 
 
 def _load_tool_window_icon(tool_key: str) -> QIcon:
