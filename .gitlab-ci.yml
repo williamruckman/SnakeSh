@@ -4,6 +4,7 @@ stages:
 create_release_tag:
   stage: release
   rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $SYNC_RELEASE_TAG == "1"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes:
         - VERSION
@@ -19,16 +20,30 @@ create_release_tag:
       fi
       TAG_NAME="v${VERSION_VALUE}"
       if git rev-parse -q --verify "refs/tags/${TAG_NAME}" >/dev/null; then
-        echo "Tag ${TAG_NAME} already exists locally; leaving it unchanged."
-        exit 0
+        echo "Tag ${TAG_NAME} already exists locally."
+      elif git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+        echo "Tag ${TAG_NAME} already exists on GitLab; fetching it for GitHub mirror."
+        git fetch origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+      else
+        if [ -z "${GITLAB_RELEASE_TOKEN:-}" ]; then
+          echo "GITLAB_RELEASE_TOKEN must be set with write_repository permission to create ${TAG_NAME}." >&2
+          exit 1
+        fi
+        git tag -a "${TAG_NAME}" "${CI_COMMIT_SHA}" -m "SnakeSh ${TAG_NAME}"
+        git push "${CI_SERVER_PROTOCOL}://oauth2:${GITLAB_RELEASE_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "refs/tags/${TAG_NAME}"
       fi
-      if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
-        echo "Tag ${TAG_NAME} already exists on GitLab; leaving it unchanged."
-        exit 0
-      fi
-      if [ -z "${GITLAB_RELEASE_TOKEN:-}" ]; then
-        echo "GITLAB_RELEASE_TOKEN must be set with write_repository permission to create ${TAG_NAME}." >&2
+      if [ -z "${GITHUB_RELEASE_TOKEN:-}" ]; then
+        echo "GITHUB_RELEASE_TOKEN must be set to push ${TAG_NAME} to GitHub." >&2
         exit 1
       fi
-      git tag -a "${TAG_NAME}" "${CI_COMMIT_SHA}" -m "SnakeSh ${TAG_NAME}"
-      git push "${CI_SERVER_PROTOCOL}://oauth2:${GITLAB_RELEASE_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "refs/tags/${TAG_NAME}"
+      GITHUB_TARGET_REPOSITORY="${GITHUB_REPOSITORY:-${CI_PROJECT_PATH}}"
+      if ! printf '%s\n' "${GITHUB_TARGET_REPOSITORY}" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+        echo "GITHUB_REPOSITORY must be owner/repo, got: ${GITHUB_TARGET_REPOSITORY}" >&2
+        exit 1
+      fi
+      GITHUB_REMOTE_URL="https://x-access-token:${GITHUB_RELEASE_TOKEN}@github.com/${GITHUB_TARGET_REPOSITORY}.git"
+      if git ls-remote --exit-code --tags "${GITHUB_REMOTE_URL}" "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+        echo "Tag ${TAG_NAME} already exists on GitHub; leaving it unchanged."
+        exit 0
+      fi
+      git push "${GITHUB_REMOTE_URL}" "refs/tags/${TAG_NAME}"
