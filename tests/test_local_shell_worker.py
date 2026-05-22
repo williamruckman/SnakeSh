@@ -496,6 +496,10 @@ class LocalShellWorkerTests(unittest.TestCase):
 
         self.assertIn("encoding", create_process_kwargs)
         self.assertIsNone(create_process_kwargs["encoding"])
+        self.assertEqual(
+            create_process_kwargs.get("term_modes"),
+            {main_window.asyncssh.PTY_VERASE: 0x7F},
+        )
 
     def test_capture_mode_records_output_input_and_resize_without_changing_emitted_text(self) -> None:
         worker = _build_worker()

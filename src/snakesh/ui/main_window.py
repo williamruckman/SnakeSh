@@ -1500,7 +1500,7 @@ class TerminalTab(QWidget):
         self._bell_parse_state = self._BELL_PARSE_NORMAL
         self._reset_terminal_query_probe_tail()
         self._reset_backspace_adaptation()
-        self._emulator.set_terminal_type("auto")
+        self._emulator.set_terminal_type("xterm-256color")
         self._session_id = session.id
         self._configure_automation(session)
         self._thread = QThread(self)
@@ -4272,6 +4272,7 @@ class SSHShellWorker(QObject):
         self._proc = await self._conn.create_process(
             term_type="xterm-256color",
             term_size=(self._cols, self._rows),
+            term_modes={asyncssh.PTY_VERASE: 0x7F},
             encoding=None,
         )
         try:
@@ -16718,22 +16719,38 @@ class MainWindow(QMainWindow):
         message = str(exc).lower()
         return "permission denied" in message or "authentication failed" in message
 
-    def _prompt_password(self, session: Session, *, allow_save: bool = True) -> tuple[str | None, bool]:
+    def _build_password_prompt_dialog(
+        self,
+        session: Session,
+        *,
+        allow_save: bool = True,
+    ) -> tuple[QDialog, QLineEdit, QCheckBox]:
         dialog = QDialog(self)
         dialog.setWindowTitle("Password Required")
         dialog.setModal(True)
-        dialog.resize(420, 160)
+        dialog.setMinimumWidth(460)
 
         layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel(f"Enter password for {session.username or 'user'}@{session.host}:"))
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        prompt = QLabel(f"Enter password for {session.username or 'user'}@{session.host}:", dialog)
+        prompt.setWordWrap(True)
+        prompt.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(prompt)
 
         password_input = QLineEdit(dialog)
+        password_input.setObjectName("passwordPromptInput")
         password_input.setEchoMode(QLineEdit.Password)
         password_input.setPlaceholderText("Password")
+        password_input.setMinimumWidth(320)
+        password_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         layout.addWidget(password_input)
 
         remember_check = QCheckBox("Save password for this session", dialog)
+        remember_check.setObjectName("passwordPromptSavePassword")
         remember_check.setChecked(session.save_password and allow_save)
+        remember_check.setVisible(allow_save)
         if allow_save:
             layout.addWidget(remember_check)
 
@@ -16747,6 +16764,14 @@ class MainWindow(QMainWindow):
 
         password_input.returnPressed.connect(dialog.accept)
         password_input.setFocus(Qt.ActiveWindowFocusReason)
+        dialog.adjustSize()
+        return dialog, password_input, remember_check
+
+    def _prompt_password(self, session: Session, *, allow_save: bool = True) -> tuple[str | None, bool]:
+        dialog, password_input, remember_check = self._build_password_prompt_dialog(
+            session,
+            allow_save=allow_save,
+        )
 
         if dialog.exec() != QDialog.Accepted:
             return None, False

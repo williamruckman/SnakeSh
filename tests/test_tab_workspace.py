@@ -20,13 +20,16 @@ from PySide6.QtGui import QKeyEvent, QPainter, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QDialog,
+    QDialogButtonBox,
     QMessageBox,
     QPushButton,
     QSplitter,
     QStyle,
     QTabBar,
     QToolButton,
+    QLineEdit,
     QWidget,
 )
 
@@ -2087,6 +2090,28 @@ class TabWorkspaceTests(unittest.TestCase):
 
             worker.send_text.assert_called_once_with("\x1b[?6c")
             self.assertFalse(tab._pending_output_chunks)
+        finally:
+            tab.shutdown()
+            tab.deleteLater()
+            QApplication.processEvents()
+
+    def test_ssh_shell_reports_xterm_device_attributes(self) -> None:
+        session = _build_session("SSH Xterm", "ssh-xterm-device-attributes")
+        tab = TerminalTab(settings=self.window._settings)
+        try:
+            with patch("snakesh.ui.main_window.QThread.start", autospec=True):
+                tab.start_shell(
+                    session=session,
+                    password=None,
+                    trust_unknown=False,
+                    x11_forwarding=False,
+                )
+            assert tab._worker is not None
+            tab._worker.send_text = MagicMock()  # type: ignore[method-assign]
+
+            tab.append("\x1b[c")
+
+            tab._worker.send_text.assert_called_once_with("\x1b[?62;1;2;6;7;8;9;15;18;21;22c")
         finally:
             tab.shutdown()
             tab.deleteLater()
@@ -5125,6 +5150,49 @@ class TabWorkspaceTests(unittest.TestCase):
             password_override="temp-secret",
             runtime_only=True,
         )
+
+    def test_password_prompt_layout_keeps_controls_visible_at_minimum_size(self) -> None:
+        session = Session(
+            id="quick-connect-password-retry",
+            name="",
+            host="192.168.225.112",
+            protocol=Protocol.SSH,
+            port=22,
+            username="bwadmin",
+            save_password=True,
+        )
+        dialog, password_input, remember_check = self.window._build_password_prompt_dialog(
+            session,
+            allow_save=True,
+        )
+        try:
+            dialog.resize(dialog.minimumSizeHint())
+            dialog.show()
+            QApplication.processEvents()
+
+            self.assertIsInstance(password_input, QLineEdit)
+            self.assertIsInstance(remember_check, QCheckBox)
+            self.assertTrue(password_input.isVisible())
+            self.assertTrue(remember_check.isVisible())
+            button_box = dialog.findChild(QDialogButtonBox)
+            self.assertIsNotNone(button_box)
+            assert button_box is not None
+
+            contents = dialog.contentsRect()
+            for widget in (password_input, remember_check, button_box):
+                top_left = widget.mapTo(dialog, widget.rect().topLeft())
+                bottom_right = widget.mapTo(dialog, widget.rect().bottomRight())
+                self.assertGreater(widget.width(), 0)
+                self.assertGreater(widget.height(), 0)
+                self.assertGreaterEqual(top_left.x(), contents.left())
+                self.assertGreaterEqual(top_left.y(), contents.top())
+                self.assertLessEqual(bottom_right.x(), contents.right())
+                self.assertLessEqual(bottom_right.y(), contents.bottom())
+            self.assertGreaterEqual(password_input.width(), 320)
+        finally:
+            dialog.close()
+            dialog.deleteLater()
+            QApplication.processEvents()
 
     def test_close_tab_defers_when_terminal_shutdown_not_complete(self) -> None:
         session = _build_session("Slow Shutdown", "sess-slow-shutdown")
