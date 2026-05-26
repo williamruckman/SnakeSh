@@ -214,6 +214,7 @@ LEGACY_REMOTE_VIEWER_DEBUG_ENV = "snakesh_REMOTE_DEBUG"
 REMOTE_VIEWER_DEBUG_ENV = "SNAKESH_REMOTE_DEBUG"
 REMOTE_VIEWER_DEBUG_LOG = Path(tempfile.gettempdir()) / "snakesh-remote-viewer.log"
 LOCAL_PTY_CAPTURE_DIR_ENV = "SNAKESH_LOCAL_PTY_CAPTURE_DIR"
+TERMINAL_CAPTURE_DIR_ENV = "SNAKESH_TERMINAL_CAPTURE_DIR"
 TERMINAL_DEBUG_UNKNOWN_SEQUENCES_ENV = "SNAKESH_TERMINAL_DEBUG_UNKNOWN_SEQUENCES"
 TERMINAL_RENDER_MODE_ENV = "SNAKESH_TERMINAL_RENDER_MODE"
 _TERMINAL_BELL_WAV = Path(tempfile.gettempdir()) / "snakesh-terminal-bell.wav"
@@ -2794,8 +2795,15 @@ class _LocalPTYCaptureRecorder:
         cols: int,
         rows: int,
         child_pid: int | None,
+        directory_env_vars: tuple[str, ...] = (LOCAL_PTY_CAPTURE_DIR_ENV, TERMINAL_CAPTURE_DIR_ENV),
+        file_stem: str = "local-pty",
+        metadata_extra: dict[str, object] | None = None,
     ) -> "_LocalPTYCaptureRecorder | None":
-        directory_raw = os.getenv(LOCAL_PTY_CAPTURE_DIR_ENV, "").strip()
+        directory_raw = ""
+        for env_var in directory_env_vars:
+            directory_raw = os.getenv(env_var, "").strip()
+            if directory_raw:
+                break
         if not directory_raw:
             return None
         try:
@@ -2803,27 +2811,29 @@ class _LocalPTYCaptureRecorder:
             directory.mkdir(parents=True, exist_ok=True)
             timestamp = time.strftime("%Y%m%d-%H%M%S")
             pid_label = child_pid if child_pid is not None else os.getpid()
-            path = directory / f"local-pty-{timestamp}-{pid_label}.jsonl"
+            safe_stem = re.sub(r"[^A-Za-z0-9_.-]+", "-", file_stem.strip() or "terminal")
+            path = directory / f"{safe_stem}-{timestamp}-{pid_label}.jsonl"
             stream = path.open("a", encoding="utf-8", newline="\n")
         except Exception as exc:
-            _LOGGER.warning("Failed to start local PTY capture in %s: %s", directory_raw, exc)
+            _LOGGER.warning("Failed to start terminal capture in %s: %s", directory_raw, exc)
             return None
 
         recorder = cls(path=path, stream=stream)
-        recorder._write_record(
-            {
-                "type": "meta",
-                "schema_version": cls._SCHEMA_VERSION,
-                "program": program,
-                "argv": [program, *arguments],
-                "cwd": working_directory or "",
-                "term": term,
-                "cols": cols,
-                "rows": rows,
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "child_pid": child_pid,
-            }
-        )
+        meta = {
+            "type": "meta",
+            "schema_version": cls._SCHEMA_VERSION,
+            "program": program,
+            "argv": [program, *arguments],
+            "cwd": working_directory or "",
+            "term": term,
+            "cols": cols,
+            "rows": rows,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "child_pid": child_pid,
+        }
+        if metadata_extra:
+            meta.update(metadata_extra)
+        recorder._write_record(meta)
         return recorder
 
     @property
@@ -4224,6 +4234,7 @@ class SSHShellWorker(QObject):
         self._output_paused = False
         self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
         self._decoder_flushed = False
+        self._capture_recorder: _LocalPTYCaptureRecorder | None = None
 
     @Slot()
     def start(self) -> None:
@@ -4242,6 +4253,7 @@ class SSHShellWorker(QObject):
             except Exception:
                 pass
             self._flush_decoder()
+            self._close_capture_recorder()
             self._main_task = None
             self._queue = None
             if self._loop.is_running():
@@ -4274,6 +4286,18 @@ class SSHShellWorker(QObject):
             term_size=(self._cols, self._rows),
             term_modes={asyncssh.PTY_VERASE: 0x7F},
             encoding=None,
+        )
+        self._capture_recorder = _LocalPTYCaptureRecorder.create(
+            program="ssh",
+            arguments=[],
+            working_directory=None,
+            term="xterm-256color",
+            cols=self._cols,
+            rows=self._rows,
+            child_pid=None,
+            directory_env_vars=(TERMINAL_CAPTURE_DIR_ENV,),
+            file_stem="ssh-terminal",
+            metadata_extra={"protocol": "ssh"},
         )
         try:
             self._proc.channel.change_terminal_size(self._cols, self._rows)
@@ -4310,6 +4334,7 @@ class SSHShellWorker(QObject):
                     continue
                 except Exception as exc:
                     self.error.emit(str(exc))
+            self._close_capture_recorder()
 
     async def _read_stream(self) -> None:
         assert self._proc is not None
@@ -4321,6 +4346,9 @@ class SSHShellWorker(QObject):
             chunk = await self._proc.stdout.read(16384)
             if not chunk:
                 break
+            recorder = self._capture_recorder
+            if recorder is not None:
+                recorder.record_output(chunk)
             self._emit_decoded_output(chunk)
 
     async def _write_stream(self) -> None:
@@ -4331,6 +4359,9 @@ class SSHShellWorker(QObject):
             if payload is None:
                 break
             self._proc.stdin.write(payload)
+            recorder = self._capture_recorder
+            if recorder is not None:
+                recorder.record_input(payload)
 
     def _emit_decoded_output(self, payload: bytes) -> None:
         text = self._decoder.decode(payload, final=False)
@@ -4379,8 +4410,18 @@ class SSHShellWorker(QObject):
         try:
             # Resize remote PTY through the underlying SSH channel.
             self._proc.channel.change_terminal_size(self._cols, self._rows)
+            recorder = self._capture_recorder
+            if recorder is not None:
+                recorder.record_resize(cols=self._cols, rows=self._rows)
         except Exception as exc:
             self.error.emit(f"Terminal resize failed: {exc}")
+
+    def _close_capture_recorder(self) -> None:
+        recorder = self._capture_recorder
+        self._capture_recorder = None
+        if recorder is None:
+            return
+        recorder.close()
 
     def stop(self) -> None:
         self._stop_requested = True
@@ -6932,6 +6973,12 @@ class _SnakeShHistoryScreen(HistoryScreen):
         repeat_count = max(1, count or 1)
         self.draw(last_graphic * min(repeat_count, 65535))
 
+    def cursor_backward_tab(self, count: Optional[int] = None) -> None:
+        for _index in range(max(1, count or 1)):
+            previous_stops = [stop for stop in sorted(self.tabstops) if stop < self.cursor.x]
+            self.cursor.x = previous_stops[-1] if previous_stops else 0
+        self.ensure_hbounds()
+
     def _draw_ascii_text(self, data: str) -> None:
         cursor = self.cursor
         columns = self.columns
@@ -7083,6 +7130,7 @@ class _SnakeShStream(pyte.Stream):
     csi = dict(pyte.Stream.csi)
     csi["S"] = "scroll_up_lines"
     csi["T"] = "scroll_down_lines"
+    csi["Z"] = "cursor_backward_tab"
     csi["b"] = "repeat_last_character"
     _ESC = pyte.control.ESC
     _CSI_C1 = pyte.control.CSI_C1

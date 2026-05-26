@@ -1957,6 +1957,30 @@ class TabWorkspaceTests(unittest.TestCase):
 
         self.assertEqual(emulator.screen.display[0][:8], "┌──────┐")
 
+    def test_vt100_emulator_supports_cursor_backward_tab(self) -> None:
+        for enable_fast_parser in (True, False):
+            with self.subTest(enable_fast_parser=enable_fast_parser):
+                emulator = VT100Emulator(
+                    cols=40,
+                    rows=5,
+                    history=100,
+                    enable_fast_parser=enable_fast_parser,
+                )
+                line = "value=alpha.beta.gamma/xy"
+                emulator.feed(line)
+
+                for ch in "\x1b[Z":
+                    emulator.feed(ch)
+                self.assertEqual(emulator.screen.cursor.x, 24)
+
+                emulator.feed("\b\b\x1b[1P")
+                expected = "value=alpha.beta.gammaxy"
+                self.assertEqual(emulator.screen.display[0][: len(expected)], expected)
+                self.assertEqual(emulator.screen.cursor.x, 22)
+
+                emulator.feed("\x1b[2Z")
+                self.assertEqual(emulator.screen.cursor.x, 8)
+
     def test_vt100_emulator_ignores_private_sgr_sequences_without_crashing(self) -> None:
         emulator = VT100Emulator(cols=20, rows=5, history=100)
         emulator.feed("\x1b[?4mA")

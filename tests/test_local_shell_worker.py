@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 import signal
 import struct
 import subprocess
@@ -500,6 +501,66 @@ class LocalShellWorkerTests(unittest.TestCase):
             create_process_kwargs.get("term_modes"),
             {main_window.asyncssh.PTY_VERASE: 0x7F},
         )
+
+    def test_ssh_capture_mode_records_generic_output_without_session_details(self) -> None:
+        worker = _build_ssh_worker()
+
+        class _FakeStdout:
+            def __init__(self) -> None:
+                self._payloads = [b"OK", b""]
+
+            async def read(self, _size: int) -> bytes:
+                return self._payloads.pop(0)
+
+        class _FakeStdin:
+            def write(self, _payload: bytes) -> None:
+                return None
+
+        class _FakeChannel:
+            def change_terminal_size(self, _cols: int, _rows: int) -> None:
+                return None
+
+        class _FakeProc:
+            def __init__(self) -> None:
+                self.stdout = _FakeStdout()
+                self.stdin = _FakeStdin()
+                self.channel = _FakeChannel()
+
+        class _FakeConn:
+            async def create_process(self, **_kwargs):
+                return _FakeProc()
+
+        async def _fake_connect(**_kwargs):
+            return _FakeConn()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with (
+                patch.dict(
+                    "snakesh.ui.main_window.os.environ",
+                    {main_window.TERMINAL_CAPTURE_DIR_ENV: tmp},
+                    clear=False,
+                ),
+                patch("snakesh.ui.main_window.SSHClient._connect_kwargs", return_value={"host": "unused"}),
+                patch("snakesh.ui.main_window.asyncssh.connect", side_effect=_fake_connect),
+                patch.object(worker, "_start_configured_tunnels", AsyncMock()),
+            ):
+                asyncio.run(worker._run())
+
+            paths = list(Path(tmp).glob("ssh-terminal-*.jsonl"))
+            self.assertEqual(len(paths), 1)
+            rows = [
+                json.loads(line)
+                for line in paths[0].read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+        self.assertEqual(rows[0]["type"], "meta")
+        self.assertEqual(rows[0]["program"], "ssh")
+        self.assertEqual(rows[0]["argv"], ["ssh"])
+        self.assertEqual(rows[0]["protocol"], "ssh")
+        self.assertNotIn("host", rows[0])
+        self.assertEqual(rows[1], {"type": "output", "data_b64": "T0s="})
+        self.assertEqual(rows[-1], {"type": "close"})
 
     def test_capture_mode_records_output_input_and_resize_without_changing_emitted_text(self) -> None:
         worker = _build_worker()
