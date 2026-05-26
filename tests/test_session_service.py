@@ -92,6 +92,24 @@ class SessionServiceRenameTests(unittest.TestCase):
 
         self.assertEqual(store.save_calls, 0)
 
+    def test_add_or_update_persists_same_object_mutation(self) -> None:
+        store = _StubStore()
+        store.sessions = [_session("sess-1", "Host A", "Default")]
+        service = SessionService(store=store)
+
+        session = service.by_id("sess-1")
+        self.assertIsNotNone(session)
+        assert session is not None
+        session.save_password = True
+
+        service.add_or_update(session)
+
+        self.assertEqual(store.save_calls, 1)
+        reloaded = SessionService(store=store).by_id("sess-1")
+        self.assertIsNotNone(reloaded)
+        assert reloaded is not None
+        self.assertTrue(reloaded.save_password)
+
     def test_delete_skips_save_when_session_is_missing(self) -> None:
         store = _StubStore()
         store.sessions = [_session("sess-1", "Host A", "Default")]

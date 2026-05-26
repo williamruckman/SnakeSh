@@ -27,6 +27,9 @@ class SessionService:
         for idx, existing in enumerate(self._sessions):
             if existing.id == session.id:
                 if existing.to_dict() == session.to_dict():
+                    if existing is session:
+                        self._ensure_folder_path(session.folder)
+                        self._save()
                     return
                 self._sessions[idx] = session
                 self._ensure_folder_path(session.folder)
