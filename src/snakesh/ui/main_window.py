@@ -221,6 +221,8 @@ _TERMINAL_BELL_WAV = Path(tempfile.gettempdir()) / "snakesh-terminal-bell.wav"
 _SNAKESH_IMPORT_SUFFIXES = {".ssx"}
 _TOOL_LAUNCH_PLACEMENT_ENV = "SNAKESH_TOOL_LAUNCH_PLACEMENT"
 _UI_SETTINGS_SAVE_COALESCE_MS = 150
+_SESSION_LIST_MIN_VISIBLE_WIDTH = 220
+_SESSION_WORKSPACE_MIN_WIDTH = 280
 _LOGGER = logging.getLogger(__name__)
 _WINDOWS_EXTERNAL_TERMINAL_HOSTS = {
     "conhost",
@@ -4230,6 +4232,7 @@ class SSHShellWorker(QObject):
         self._queue: asyncio.Queue[bytes | None] | None = None
         self._tunnel_listeners: list[object] = []
         self._main_task: asyncio.Task[None] | None = None
+        self._connect_task: asyncio.Future[asyncssh.SSHClientConnection] | None = None
         self._stop_requested = False
         self._output_paused = False
         self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
@@ -4256,6 +4259,10 @@ class SSHShellWorker(QObject):
             self._close_capture_recorder()
             self._main_task = None
             self._queue = None
+            try:
+                self._loop.run_until_complete(self._cancel_pending_tasks())
+            except Exception:
+                pass
             if self._loop.is_running():
                 self._loop.stop()
             self._loop.close()
@@ -4268,15 +4275,19 @@ class SSHShellWorker(QObject):
 
         if self._session.ssh_legacy_compatibility:
             self.output.emit("SSH compatibility mode enabled for this session.\r\n")
-            self._conn = await asyncssh.connect(**SSHClient.apply_legacy_algorithm_overrides(connect_kwargs))
+            self._conn = await self._connect_once(SSHClient.apply_legacy_algorithm_overrides(connect_kwargs))
         else:
             try:
-                self._conn = await asyncssh.connect(**connect_kwargs)
+                self._conn = await self._connect_once(connect_kwargs)
             except Exception as exc:
                 if not SSHClient.is_legacy_negotiation_error(exc):
                     raise
                 self.output.emit("SSH compatibility mode enabled: retrying with legacy algorithms...\r\n")
-                self._conn = await asyncssh.connect(**SSHClient.apply_legacy_algorithm_overrides(connect_kwargs))
+                self._conn = await self._connect_once(SSHClient.apply_legacy_algorithm_overrides(connect_kwargs))
+        if self._stop_requested:
+            self._abort_asyncssh_resource(self._conn)
+            self._conn = None
+            raise asyncio.CancelledError
         if self._trust_unknown:
             trust_host_key(self._session, self._conn.get_server_host_key())
 
@@ -4335,6 +4346,15 @@ class SSHShellWorker(QObject):
                 except Exception as exc:
                     self.error.emit(str(exc))
             self._close_capture_recorder()
+
+    async def _connect_once(self, connect_kwargs: dict[str, object]) -> asyncssh.SSHClientConnection:
+        task = asyncio.ensure_future(asyncssh.connect(**connect_kwargs))
+        self._connect_task = task
+        try:
+            return await task
+        finally:
+            if self._connect_task is task:
+                self._connect_task = None
 
     async def _read_stream(self) -> None:
         assert self._proc is not None
@@ -4445,6 +4465,9 @@ class SSHShellWorker(QObject):
         conn = self._conn
         if conn is not None:
             self._abort_asyncssh_resource(conn)
+        connect_task = self._connect_task
+        if connect_task is not None and not connect_task.done():
+            connect_task.cancel()
         main_task = self._main_task
         if main_task is not None and not main_task.done():
             main_task.cancel()
@@ -4528,6 +4551,16 @@ class SSHShellWorker(QObject):
 
     async def _cleanup_remote_session(self) -> None:
         deadline = time.monotonic() + self._CLEANUP_DEADLINE_SECONDS
+        connect_task = self._connect_task
+        self._connect_task = None
+        if connect_task is not None and not connect_task.done():
+            connect_task.cancel()
+            timeout = max(0.0, deadline - time.monotonic())
+            if timeout > 0:
+                try:
+                    await asyncio.wait_for(asyncio.gather(connect_task, return_exceptions=True), timeout=timeout)
+                except Exception:
+                    pass
         proc = self._proc
         self._proc = None
         if proc is not None:
@@ -4542,6 +4575,22 @@ class SSHShellWorker(QObject):
             else:
                 self._close_asyncssh_resource(conn)
             await self._wait_closed_with_deadline(conn, deadline=deadline, abort_targets=(conn,))
+
+    async def _cancel_pending_tasks(self) -> None:
+        loop = asyncio.get_running_loop()
+        current = asyncio.current_task(loop)
+        pending = [task for task in asyncio.all_tasks(loop) if task is not current and not task.done()]
+        if not pending:
+            return
+        for task in pending:
+            task.cancel()
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*pending, return_exceptions=True),
+                timeout=self._CLEANUP_DEADLINE_SECONDS,
+            )
+        except Exception:
+            pass
 
     async def _wait_closed_with_deadline(
         self,
@@ -12370,8 +12419,15 @@ class MainWindow(QMainWindow):
         self._last_session_log_cleanup_monotonic = 0.0
         self._last_web_server_log_cleanup_monotonic = 0.0
         self._session_list_mode = self._normalized_session_list_mode(self._settings.session_list_visibility_mode)
-        self._session_list_last_width = 370
+        configured_session_list_width = int(getattr(self._settings, "session_list_last_width", 0) or 0)
+        self._session_list_width_has_explicit_setting = configured_session_list_width > 0
+        self._session_list_last_width = (
+            max(_SESSION_LIST_MIN_VISIBLE_WIDTH, configured_session_list_width)
+            if self._session_list_width_has_explicit_setting
+            else 370
+        )
         self._session_list_docked_splitter_b64 = self._settings.main_window_splitter_b64.strip()
+        self._applying_main_splitter_sizes = False
         self._session_list_window: SessionListWindow | None = None
         self._next_status_progress_id = 1
         self._active_status_progress: StatusProgressOperation | None = None
@@ -12496,7 +12552,7 @@ class MainWindow(QMainWindow):
 
         self._main_splitter.addWidget(left)
         self._main_splitter.addWidget(right)
-        self._main_splitter.setSizes([370, 950])
+        self._set_main_splitter_sizes([370, 950])
         self._update_session_list_splitter_handle_tooltip()
 
         self._bottom_command_widget = QWidget()
@@ -12537,7 +12593,8 @@ class MainWindow(QMainWindow):
         self._update_main_fullscreen_shortcut()
         self._restore_saved_window_geometry()
         self._restore_saved_main_splitter_state()
-        self._remember_session_list_width_from_splitter()
+        if not self._session_list_width_has_explicit_setting:
+            self._remember_session_list_width_from_splitter()
         self._sync_session_list_mode_actions()
         self._apply_session_list_mode(self._session_list_mode, persist=False)
         self._sync_main_fullscreen_control_visibility()
@@ -13317,7 +13374,7 @@ class MainWindow(QMainWindow):
         return kind in {"SSH", "SFTP", "TELNET", "LOCAL"}
 
     def _create_detached_tab_window(self) -> tuple[DetachedTabWindow, WorkspaceTabWidget]:
-        window = DetachedTabWindow(owner=self, parent=self)
+        window = DetachedTabWindow(owner=self, parent=None)
         container = QWidget(window)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -16350,6 +16407,35 @@ class MainWindow(QMainWindow):
         thread.start()
         watchdog.start((SSHProbeWorker.PROBE_TIMEOUT_SECONDS + 5) * 1000)
 
+    def _cancel_ssh_probes_for_tab(self, tab: TerminalTab) -> None:
+        probe_ids = [
+            probe_id
+            for probe_id, context in list(self._ssh_probe_contexts.items())
+            if context.tab is tab
+        ]
+        for probe_id in probe_ids:
+            self._ssh_probe_contexts.pop(probe_id, None)
+            watchdog = self._ssh_probe_watchdogs_by_id.pop(probe_id, None)
+            if watchdog is not None:
+                try:
+                    watchdog.stop()
+                    watchdog.deleteLater()
+                except RuntimeError:
+                    pass
+            worker = self._ssh_probe_workers_by_id.get(probe_id)
+            if worker is not None:
+                try:
+                    worker.cancel()
+                except Exception:
+                    pass
+            thread = self._ssh_probe_threads_by_id.get(probe_id)
+            if thread is not None:
+                try:
+                    if thread.isRunning():
+                        thread.quit()
+                except RuntimeError:
+                    pass
+
     def _on_ssh_probe_watchdog_timeout(self, probe_id: int) -> None:
         if probe_id not in self._ssh_probe_contexts:
             return
@@ -17240,6 +17326,40 @@ class MainWindow(QMainWindow):
     def _is_session_list_floating(self) -> bool:
         return self._session_list_window is not None
 
+    def _set_main_splitter_sizes(self, sizes: list[int]) -> None:
+        if not hasattr(self, "_main_splitter"):
+            return
+        self._applying_main_splitter_sizes = True
+        try:
+            self._main_splitter.setSizes(sizes)
+        finally:
+            self._applying_main_splitter_sizes = False
+
+    def _session_list_width_for_total(self, total: int) -> int:
+        if total <= 0:
+            return _SESSION_LIST_MIN_VISIBLE_WIDTH
+        preferred = max(_SESSION_LIST_MIN_VISIBLE_WIDTH, int(self._session_list_last_width))
+        maximum = max(0, total - _SESSION_WORKSPACE_MIN_WIDTH)
+        return max(0, min(preferred, maximum))
+
+    def _apply_fixed_session_list_width(self) -> None:
+        if not hasattr(self, "_main_splitter") or self._is_session_list_floating():
+            return
+        sizes = self._main_splitter.sizes()
+        if len(sizes) < 2:
+            return
+        total = sum(sizes)
+        if total <= 0:
+            return
+        if not self._is_session_list_visible():
+            target = [0, max(1, total)]
+        else:
+            left_width = self._session_list_width_for_total(total)
+            target = [left_width, max(1, total - left_width)]
+        if sizes[:2] == target:
+            return
+        self._set_main_splitter_sizes(target)
+
     def _remember_session_list_width_from_splitter(self) -> None:
         if self._is_session_list_floating():
             return
@@ -17247,7 +17367,8 @@ class MainWindow(QMainWindow):
         if len(sizes) < 2:
             return
         if sizes[0] > 24:
-            self._session_list_last_width = sizes[0]
+            self._session_list_last_width = max(_SESSION_LIST_MIN_VISIBLE_WIDTH, sizes[0])
+            self._session_list_width_has_explicit_setting = True
 
     def _capture_current_main_splitter_state(self) -> str:
         try:
@@ -17275,9 +17396,14 @@ class MainWindow(QMainWindow):
         if state.isEmpty():
             return False
         try:
-            return bool(self._main_splitter.restoreState(state))
+            restored = bool(self._main_splitter.restoreState(state))
         except Exception:
             return False
+        if restored:
+            if not self._session_list_width_has_explicit_setting:
+                self._remember_session_list_width_from_splitter()
+            self._apply_fixed_session_list_width()
+        return restored
 
     def _session_list_window_placement_from_settings(self) -> _WindowPlacement | None:
         return _window_placement_from_payload(
@@ -17303,7 +17429,7 @@ class MainWindow(QMainWindow):
         self._session_list_panel.setVisible(True)
         self._main_splitter.replaceWidget(0, self._session_list_placeholder)
         window.setCentralWidget(self._session_list_panel)
-        self._main_splitter.setSizes([0, max(1, total)])
+        self._set_main_splitter_sizes([0, max(1, total)])
 
     def _take_session_list_panel_from_window(self, window: SessionListWindow) -> QWidget:
         panel = window.takeCentralWidget()
@@ -17390,13 +17516,13 @@ class MainWindow(QMainWindow):
         if visible:
             self._session_list_panel.setMaximumWidth(16777215)
             self._session_list_panel.setVisible(True)
-            left_width = max(220, min(self._session_list_last_width, max(220, total - 280)))
-            self._main_splitter.setSizes([left_width, max(1, total - left_width)])
+            left_width = self._session_list_width_for_total(total)
+            self._set_main_splitter_sizes([left_width, max(1, total - left_width)])
         else:
             self._remember_session_list_width_from_splitter()
             self._session_list_panel.setVisible(True)
             self._session_list_panel.setMaximumWidth(0)
-            self._main_splitter.setSizes([0, max(1, total)])
+            self._set_main_splitter_sizes([0, max(1, total)])
 
     def _apply_session_list_mode(
         self,
@@ -17418,9 +17544,13 @@ class MainWindow(QMainWindow):
             self._settings_service.save(self._settings)
 
     def _on_main_splitter_moved(self, _pos: int, _index: int) -> None:
-        if self._is_session_list_floating():
+        if self._is_session_list_floating() or self._applying_main_splitter_sizes:
             return
         self._remember_session_list_width_from_splitter()
+        remembered_width = int(max(_SESSION_LIST_MIN_VISIBLE_WIDTH, self._session_list_last_width))
+        if self._settings.session_list_last_width != remembered_width:
+            self._settings.session_list_last_width = remembered_width
+            self._schedule_ui_settings_save()
 
     def _session_list_splitter_handle(self) -> QWidget | None:
         try:
@@ -18757,6 +18887,7 @@ class MainWindow(QMainWindow):
             self._session_list_last_width = max(220, int(snapshot.get("session_list_last_width", self._session_list_last_width)))
         except (TypeError, ValueError):
             self._session_list_last_width = max(220, self._session_list_last_width)
+        self._session_list_width_has_explicit_setting = True
 
         if self._is_session_list_floating():
             self._dock_session_list_panel("shown", persist=False, close_window=True)
@@ -18777,7 +18908,10 @@ class MainWindow(QMainWindow):
             except Exception:
                 splitter = QByteArray()
             if not splitter.isEmpty():
-                self._main_splitter.restoreState(splitter)
+                if self._main_splitter.restoreState(splitter):
+                    if not self._session_list_width_has_explicit_setting:
+                        self._remember_session_list_width_from_splitter()
+                    self._apply_fixed_session_list_width()
 
         profile_mode = self._normalized_session_list_mode(str(snapshot.get("session_list_mode", self._session_list_mode)))
         float_placement = _window_placement_from_payload(
@@ -19902,6 +20036,7 @@ class MainWindow(QMainWindow):
             self._refresh_status_progress(close_progress, message=f"Closing {title}...")
             self._pump_ui()
         if isinstance(widget, TerminalTab):
+            self._cancel_ssh_probes_for_tab(widget)
             if not widget.shutdown():
                 self._finish_status_progress(close_progress)
                 self.statusBar().showMessage("Session is still shutting down. Try closing the tab again shortly.", 5000)
@@ -19979,18 +20114,32 @@ class MainWindow(QMainWindow):
             return
         if state.isEmpty():
             return
-        self._main_splitter.restoreState(state)
+        if self._main_splitter.restoreState(state):
+            if not self._session_list_width_has_explicit_setting:
+                self._remember_session_list_width_from_splitter()
+            self._apply_fixed_session_list_width()
 
     def _persist_main_splitter_state(self) -> None:
         encoded = self._remember_docked_main_splitter_state()
-        if not encoded or encoded == self._settings.main_window_splitter_b64:
-            return
-        self._settings.main_window_splitter_b64 = encoded
-        self._settings_service.save(self._settings)
+        changed = False
+        if encoded and encoded != self._settings.main_window_splitter_b64:
+            self._settings.main_window_splitter_b64 = encoded
+            changed = True
+        remembered_width = int(max(_SESSION_LIST_MIN_VISIBLE_WIDTH, self._session_list_last_width))
+        if self._settings.session_list_last_width != remembered_width:
+            self._settings.session_list_last_width = remembered_width
+            changed = True
+        if changed:
+            self._settings_service.save(self._settings)
 
     def showEvent(self, event) -> None:  # noqa: N802
         super().showEvent(event)
         _apply_pending_window_placement(self)
+        self._apply_fixed_session_list_width()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._apply_fixed_session_list_width()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if not self._confirm_application_close_with_connected_tabs():

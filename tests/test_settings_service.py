@@ -628,6 +628,7 @@ class SettingsServiceTests(unittest.TestCase):
         settings.main_window_screen_serial = "SERIAL-42"
         settings.main_window_frame_rect = [120, 80, 1440, 900]
         settings.main_window_splitter_b64 = "BBB"
+        settings.session_list_last_width = 520
         settings.session_list_window_geometry_b64 = "FLOAT"
         settings.session_list_window_screen_name = "Session Secondary"
         settings.session_list_window_screen_serial = "SESSION-2"
@@ -681,6 +682,7 @@ class SettingsServiceTests(unittest.TestCase):
         self.assertEqual(sanitized.main_window_screen_serial, "")
         self.assertEqual(sanitized.main_window_frame_rect, [])
         self.assertEqual(sanitized.main_window_splitter_b64, "")
+        self.assertEqual(sanitized.session_list_last_width, 0)
         self.assertEqual(sanitized.session_list_window_geometry_b64, "")
         self.assertEqual(sanitized.session_list_window_screen_name, "")
         self.assertEqual(sanitized.session_list_window_screen_serial, "")
@@ -718,6 +720,7 @@ class SettingsServiceTests(unittest.TestCase):
         settings.main_window_screen_serial = "SERIAL-42"
         settings.main_window_frame_rect = [120, 80, 1440, 900]
         settings.main_window_splitter_b64 = "BBB"
+        settings.session_list_last_width = 540
         settings.session_list_window_geometry_b64 = "FLOAT"
         settings.session_list_window_screen_name = "Session Secondary"
         settings.session_list_window_screen_serial = "SESSION-2"
@@ -766,6 +769,7 @@ class SettingsServiceTests(unittest.TestCase):
         self.assertEqual(sanitized.main_window_screen_serial, "SERIAL-42")
         self.assertEqual(sanitized.main_window_frame_rect, [120, 80, 1440, 900])
         self.assertEqual(sanitized.main_window_splitter_b64, "BBB")
+        self.assertEqual(sanitized.session_list_last_width, 540)
         self.assertEqual(sanitized.session_list_window_geometry_b64, "FLOAT")
         self.assertEqual(sanitized.session_list_window_screen_name, "Session Secondary")
         self.assertEqual(sanitized.session_list_window_screen_serial, "SESSION-2")
@@ -853,6 +857,30 @@ class SettingsServiceTests(unittest.TestCase):
         restored = AppSettings.from_dict(settings.to_dict())
 
         self.assertEqual(restored.main_window_splitter_b64, "AQABAAIA")
+
+    def test_roundtrip_preserves_session_list_last_width(self) -> None:
+        settings = AppSettings.defaults()
+        settings.session_list_last_width = 512
+
+        restored = AppSettings.from_dict(settings.to_dict())
+
+        self.assertEqual(restored.session_list_last_width, 512)
+
+    def test_sanitize_clamps_session_list_last_width(self) -> None:
+        settings = AppSettings.defaults()
+        settings.session_list_last_width = 120
+
+        sanitized = SettingsService._sanitize(settings)
+
+        self.assertEqual(sanitized.session_list_last_width, 220)
+
+    def test_sanitize_keeps_absent_session_list_last_width_unset(self) -> None:
+        settings = AppSettings.defaults()
+        settings.session_list_last_width = 0
+
+        sanitized = SettingsService._sanitize(settings)
+
+        self.assertEqual(sanitized.session_list_last_width, 0)
 
     def test_roundtrip_preserves_linux_desktop_prompt_preference(self) -> None:
         settings = AppSettings.defaults()

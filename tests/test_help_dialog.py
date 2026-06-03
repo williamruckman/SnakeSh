@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 from snakesh.ui import help_dialog as help_dialog_module
@@ -28,9 +31,38 @@ class HelpDialogTests(unittest.TestCase):
 
     def setUp(self) -> None:
         help_dialog_module._HELP_MANIFEST_CACHE.clear()
+        help_dialog_module._HELP_PAGE_TEXT_CACHE.clear()
 
     def tearDown(self) -> None:
         help_dialog_module._HELP_MANIFEST_CACHE.clear()
+        help_dialog_module._HELP_PAGE_TEXT_CACHE.clear()
+
+    def _write_temp_help_tree(self, root: Path) -> None:
+        help_dir = root / "help"
+        help_dir.mkdir(parents=True)
+        (help_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "pages": [
+                        {"id": "first", "title": "First Topic", "file": "first.html"},
+                        {"id": "second", "title": "Second Topic", "file": "second.html"},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (help_dir / "first.html").write_text(
+            "<html><body><h1>First Topic</h1><p>needle starts here.</p></body></html>",
+            encoding="utf-8",
+        )
+        (help_dir / "second.html").write_text(
+            "<html><body><h1>Second Topic</h1><p>deep-only text and needle finish here.</p></body></html>",
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _temp_asset_path(root: Path, relative_path: str) -> Path:
+        return root / relative_path
 
     def test_dialog_loads_bundled_manifest(self) -> None:
         dialog = HelpDialog()
@@ -54,6 +86,116 @@ class HelpDialogTests(unittest.TestCase):
         finally:
             dialog.deleteLater()
             QApplication.processEvents()
+
+    def test_header_prompts_for_find_shortcut(self) -> None:
+        with patch("snakesh.ui.help_dialog.sys.platform", "linux"):
+            dialog = HelpDialog()
+        try:
+            self.assertEqual(dialog._intro_label.text(), "Press CNTL-F to search help")
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_header_uses_command_find_on_macos(self) -> None:
+        with patch("snakesh.ui.help_dialog.sys.platform", "darwin"):
+            dialog = HelpDialog()
+        try:
+            self.assertEqual(dialog._intro_label.text(), "Press Command-F to search help")
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_ctrl_f_opens_find_bar_and_focuses_input(self) -> None:
+        dialog = HelpDialog()
+        try:
+            dialog.show()
+            QApplication.processEvents()
+            self.assertFalse(dialog._find_bar.isVisible())
+
+            QTest.keyClick(dialog, Qt.Key_F, Qt.ControlModifier)
+            QApplication.processEvents()
+
+            self.assertTrue(dialog._find_bar.isVisible())
+            self.assertTrue(dialog._find_input.hasFocus())
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_global_find_searches_body_text_from_non_current_page(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_temp_help_tree(root)
+            with patch("snakesh.ui.help_dialog.runtime.asset_path", side_effect=lambda path: self._temp_asset_path(root, path)):
+                dialog = HelpDialog()
+                try:
+                    QApplication.processEvents()
+                    self.assertIn("First Topic", dialog.browser.toPlainText())
+
+                    dialog._show_find_bar()
+                    dialog._find_input.setText("deep-only")
+                    QApplication.processEvents()
+
+                    self.assertIn("Second Topic", dialog.browser.toPlainText())
+                    self.assertEqual(dialog._find_match_label.text(), "1/1")
+                    self.assertEqual(dialog.index_list.currentItem().text(), "Second Topic")
+                finally:
+                    dialog.deleteLater()
+                    QApplication.processEvents()
+
+    def test_global_find_next_previous_navigate_across_pages(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_temp_help_tree(root)
+            with patch("snakesh.ui.help_dialog.runtime.asset_path", side_effect=lambda path: self._temp_asset_path(root, path)):
+                dialog = HelpDialog()
+                try:
+                    QApplication.processEvents()
+                    dialog._show_find_bar()
+                    dialog._find_input.setText("needle")
+                    QApplication.processEvents()
+
+                    self.assertIn("First Topic", dialog.browser.toPlainText())
+                    self.assertEqual(dialog._find_match_label.text(), "1/2")
+
+                    dialog._find_next_btn.click()
+                    QApplication.processEvents()
+
+                    self.assertIn("Second Topic", dialog.browser.toPlainText())
+                    self.assertEqual(dialog._find_match_label.text(), "2/2")
+
+                    dialog._find_previous_btn.click()
+                    QApplication.processEvents()
+
+                    self.assertIn("First Topic", dialog.browser.toPlainText())
+                    self.assertEqual(dialog._find_match_label.text(), "1/2")
+                finally:
+                    dialog.deleteLater()
+                    QApplication.processEvents()
+
+    def test_closing_find_clears_matches_without_changing_current_topic(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_temp_help_tree(root)
+            with patch("snakesh.ui.help_dialog.runtime.asset_path", side_effect=lambda path: self._temp_asset_path(root, path)):
+                dialog = HelpDialog()
+                try:
+                    QApplication.processEvents()
+                    dialog._show_find_bar()
+                    dialog._find_input.setText("deep-only")
+                    QApplication.processEvents()
+                    self.assertIn("Second Topic", dialog.browser.toPlainText())
+
+                    dialog._find_close_btn.click()
+                    QApplication.processEvents()
+
+                    self.assertFalse(dialog._find_bar.isVisible())
+                    self.assertEqual(dialog._find_input.text(), "")
+                    self.assertEqual(dialog._find_match_label.text(), "0/0")
+                    self.assertEqual(dialog._search_matches, [])
+                    self.assertIn("Second Topic", dialog.browser.toPlainText())
+                finally:
+                    dialog.deleteLater()
+                    QApplication.processEvents()
 
     def test_syslog_snmp_monitor_help_mentions_profiles_and_retention(self) -> None:
         dialog = HelpDialog()

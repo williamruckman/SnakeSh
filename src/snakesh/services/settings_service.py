@@ -300,6 +300,7 @@ class AppSettings:
     web_server_dialog_splitter_b64: str = ""
     syslog_snmp_monitor_dialog_splitter_b64: str = ""
     session_list_visibility_mode: str = "shown"
+    session_list_last_width: int = 0
     session_list_window_geometry_b64: str = ""
     session_list_window_screen_name: str = ""
     session_list_window_screen_serial: str = ""
@@ -412,6 +413,7 @@ class AppSettings:
             "web_server_dialog_splitter_b64": self.web_server_dialog_splitter_b64,
             "syslog_snmp_monitor_dialog_splitter_b64": self.syslog_snmp_monitor_dialog_splitter_b64,
             "session_list_visibility_mode": self.session_list_visibility_mode,
+            "session_list_last_width": self.session_list_last_width,
             "session_list_window_geometry_b64": self.session_list_window_geometry_b64,
             "session_list_window_screen_name": self.session_list_window_screen_name,
             "session_list_window_screen_serial": self.session_list_window_screen_serial,
@@ -547,6 +549,7 @@ class AppSettings:
             web_server_dialog_splitter_b64=str(payload["web_server_dialog_splitter_b64"]),
             syslog_snmp_monitor_dialog_splitter_b64=str(payload["syslog_snmp_monitor_dialog_splitter_b64"]),
             session_list_visibility_mode=str(payload["session_list_visibility_mode"]),
+            session_list_last_width=int(payload["session_list_last_width"]),
             session_list_window_geometry_b64=str(payload["session_list_window_geometry_b64"]),
             session_list_window_screen_name=str(payload["session_list_window_screen_name"]),
             session_list_window_screen_serial=str(payload["session_list_window_screen_serial"]),
@@ -864,6 +867,10 @@ class SettingsService:
         if visibility_mode not in {"shown", "auto", "float"}:
             visibility_mode = "shown"
         settings.session_list_visibility_mode = visibility_mode
+        if settings.session_list_last_width <= 0:
+            settings.session_list_last_width = 0
+        else:
+            settings.session_list_last_width = max(220, min(4000, int(settings.session_list_last_width)))
         normalized_rdp_hosts = sorted(
             {
                 token
@@ -983,6 +990,7 @@ class SettingsService:
         settings.main_window_screen_serial = ""
         settings.main_window_frame_rect = []
         settings.main_window_splitter_b64 = ""
+        settings.session_list_last_width = 0
         settings.session_list_window_geometry_b64 = ""
         settings.session_list_window_screen_name = ""
         settings.session_list_window_screen_serial = ""

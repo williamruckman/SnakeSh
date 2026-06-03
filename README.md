@@ -47,6 +47,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - Saved Fast Commands are protocol-aware: they type into terminal tabs and copy to the clipboard when the active tab is an RDP, VNC, or NoMachine viewer
 - Multiple tabs to the same host are automatically numbered (for example `DatacenterSSH(1)`, `DatacenterSSH(2)`)
 - SSH/SFTP session tabs support horizontal/vertical split workspace layouts with drag-drop tab movement across panes
+- Docked session list width stays fixed while the main window resizes; drag the middle divider to choose a new width
 - SSH/SFTP/Telnet tabs can be detached into independent non-modal windows and reattached back to the main workspace
 - Local Shell tabs can also be detached into independent non-modal windows and reattached later
 - Main window supports borderless fullscreen with a configurable shortcut and optional hiding of the top action bar and bottom command bar while fullscreen is active
@@ -103,7 +104,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 | <img src="src/snakesh/assets/subnet_calculator.png" alt="Subnet Calculator logo" width="36"> | Subnet Calculator | CIDR and mask planning utility for summarizing networks and splitting address ranges into planned subnets. |
 | <img src="src/snakesh/assets/password_generator.png" alt="Password Generator logo" width="36"> | Password Generator | Local OS CSPRNG-backed password generator with complexity presets, required/excluded characters, batch generation, copy actions, and remembered last-used options. |
 | <img src="src/snakesh/assets/diff.png" alt="Diff Tool logo" width="36"> | Diff Tool | Side-by-side text or file comparison with synchronized scrolling, per-change and apply-all copy actions, line and inline highlights, and a shared find bar with case-sensitive or regex search. |
-| <img src="src/snakesh/assets/help.png" alt="Help logo" width="36"> | Help | In-depth standalone guide with a clickable index on the left and selected documentation on the right. |
+| <img src="src/snakesh/assets/help.png" alt="Help logo" width="36"> | Help | In-depth standalone guide with a clickable index, selected documentation, and global find across all bundled help pages. |
 
 ## Security Model
 
@@ -276,7 +277,7 @@ When the active tab is RDP, VNC, or NoMachine, Fast Commands copy the saved text
 Use `Copy Selected`, `Copy All`, or `Ctrl+C` on the focused Network Inspector tab to copy the visible data as tab-delimited text with headers.
 
 - Session list seems missing:
-Use the `Show` / `Auto` / `Float` dropdown beside the session search box. In `Auto` mode the list collapses until you hover the main splitter handle. In `Float` mode the search box, session tree, and mode dropdown move into a separate always-on-top window, and closing that window returns the list to `Show`.
+Use the `Show` / `Auto` / `Float` dropdown beside the session search box. In docked `Show` mode, the session list keeps the width you chose with the middle divider while the tab workspace absorbs main-window resizing. In `Auto` mode the list collapses until you hover the main splitter handle. In `Float` mode the search box, session tree, and mode dropdown move into a separate always-on-top window, and closing that window returns the list to `Show`.
 
 - Imported settings/sessions are missing saved passwords:
 First-party exports intentionally omit passwords and backend auth tokens stored in the OS keyring or external secrets backend. Syslog / SNMP monitor history archives also stay local instead of being packed into the export. Re-enter secrets or reconnect the backend on the destination machine.

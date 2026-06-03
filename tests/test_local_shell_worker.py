@@ -502,6 +502,40 @@ class LocalShellWorkerTests(unittest.TestCase):
             {main_window.asyncssh.PTY_VERASE: 0x7F},
         )
 
+    def test_ssh_worker_stop_cancels_pending_connect(self) -> None:
+        worker = _build_ssh_worker()
+        connect_started = asyncio.Event()
+        connect_cancelled = False
+
+        async def _fake_connect(**_kwargs):
+            nonlocal connect_cancelled
+            connect_started.set()
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                connect_cancelled = True
+                raise
+
+        async def _run_and_stop() -> None:
+            loop = asyncio.get_running_loop()
+            worker._loop = loop
+            worker._main_task = loop.create_task(worker._run())
+            await asyncio.wait_for(connect_started.wait(), timeout=1.0)
+
+            worker.stop()
+
+            with self.assertRaises(asyncio.CancelledError):
+                await worker._main_task
+
+        with (
+            patch("snakesh.ui.main_window.SSHClient._connect_kwargs", return_value={"host": "example.invalid"}),
+            patch("snakesh.ui.main_window.asyncssh.connect", side_effect=_fake_connect),
+        ):
+            asyncio.run(_run_and_stop())
+
+        self.assertTrue(connect_cancelled)
+        self.assertIsNone(worker._connect_task)
+
     def test_ssh_capture_mode_records_generic_output_without_session_details(self) -> None:
         worker = _build_ssh_worker()
 

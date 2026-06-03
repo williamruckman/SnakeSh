@@ -776,6 +776,46 @@ class TabWorkspaceTests(unittest.TestCase):
         for tab in placeholder_tabs:
             self.assertIn("Connecting to", tab.scrollback_text())
 
+    def test_closing_ssh_tab_cancels_pending_probe_and_ignores_late_finish(self) -> None:
+        session = _build_session("Pending Probe", "sess-pending-probe")
+        tab = TerminalTab(settings=self.window._settings)
+        self.window._add_session_tab(session, tab, "SSH")
+        probe_id = 9001
+        worker = MagicMock()
+        thread = MagicMock()
+        thread.isRunning.return_value = True
+        watchdog = MagicMock()
+        self.window._ssh_probe_contexts[probe_id] = main_window.SSHProbeContext(
+            session=session,
+            password=None,
+            trust_unknown=False,
+            x11_forwarding=False,
+            tab=tab,
+            save_password_on_success=False,
+            allow_password_save=True,
+        )
+        self.window._ssh_probe_workers_by_id[probe_id] = worker
+        self.window._ssh_probe_threads_by_id[probe_id] = thread
+        self.window._ssh_probe_watchdogs_by_id[probe_id] = watchdog
+        location = self.window._find_widget_location(tab)
+        self.assertIsNotNone(location)
+        assert location is not None
+
+        with (
+            patch.object(tab, "shutdown", return_value=True) as mock_shutdown,
+            patch.object(tab, "start_shell") as mock_start_shell,
+        ):
+            self.window._close_tab_in_host(location[0], location[1])
+            self.window._handle_ssh_probe_finished(probe_id, True, "connected", "", False, False)
+
+        mock_shutdown.assert_called_once()
+        worker.cancel.assert_called_once()
+        watchdog.stop.assert_called_once()
+        watchdog.deleteLater.assert_called_once()
+        thread.quit.assert_called()
+        mock_start_shell.assert_not_called()
+        self.assertNotIn(probe_id, self.window._ssh_probe_contexts)
+
     def test_add_session_tab_focuses_newest_terminal_tab(self) -> None:
         first = _build_session("Host A", "sess-focus-a")
         second = _build_session("Host B", "sess-focus-b")
@@ -3683,6 +3723,87 @@ class TabWorkspaceTests(unittest.TestCase):
             ["Show", "Auto", "Float"],
         )
 
+    def test_docked_session_list_width_stays_fixed_when_main_window_resizes(self) -> None:
+        self.window._set_session_list_mode("shown")
+        self.window._session_list_last_width = 340
+        self.window._set_session_list_visible(True)
+        QApplication.processEvents()
+        before = self.window._main_splitter.sizes()[0]
+
+        self.window.resize(self.window.width() + 260, self.window.height())
+        QApplication.processEvents()
+
+        self.assertEqual(self.window._main_splitter.sizes()[0], before)
+
+    def test_manual_main_splitter_drag_updates_remembered_session_list_width(self) -> None:
+        self.window._set_session_list_mode("shown")
+        self.window._set_main_splitter_sizes([430, 900])
+        self.window._on_main_splitter_moved(430, 1)
+        QApplication.processEvents()
+        remembered_width = self.window._main_splitter.sizes()[0]
+
+        self.assertEqual(self.window._session_list_last_width, remembered_width)
+
+        self.window.resize(self.window.width() + 180, self.window.height())
+        QApplication.processEvents()
+
+        self.assertEqual(self.window._main_splitter.sizes()[0], remembered_width)
+
+    def test_session_list_width_is_persisted_across_main_window_reopen(self) -> None:
+        self.window._set_session_list_mode("shown")
+        self.window._set_main_splitter_sizes([455, 900])
+        self.window._on_main_splitter_moved(455, 1)
+        QApplication.processEvents()
+        remembered_width = self.window._main_splitter.sizes()[0]
+
+        self.window.close()
+        QApplication.processEvents()
+
+        self.assertEqual(self.settings_service._settings.session_list_last_width, remembered_width)
+
+        restored = MainWindow(self.session_service, self.settings_service)
+        restored.show()
+        QApplication.processEvents()
+        try:
+            self.assertEqual(restored._session_list_last_width, remembered_width)
+            self.assertEqual(restored._main_splitter.sizes()[0], remembered_width)
+        finally:
+            restored.close()
+            restored.deleteLater()
+            QApplication.processEvents()
+
+    def test_narrow_main_window_shrinks_session_list_to_preserve_workspace_width(self) -> None:
+        self.window._set_session_list_mode("shown")
+        self.window._session_list_last_width = 500
+
+        left_width = self.window._session_list_width_for_total(600)
+
+        self.assertLess(left_width, 500)
+        self.assertGreaterEqual(600 - left_width, main_window._SESSION_WORKSPACE_MIN_WIDTH)
+
+    def test_hidden_auto_session_list_stays_hidden_during_fixed_width_resize_sync(self) -> None:
+        self.window._set_session_list_mode("auto")
+        QApplication.processEvents()
+        self.assertFalse(self.window._is_session_list_visible())
+
+        self.window._session_list_last_width = 360
+        self.window._apply_fixed_session_list_width()
+        QApplication.processEvents()
+
+        self.assertEqual(self.window._main_splitter.sizes()[0], 0)
+
+    def test_floating_session_list_does_not_force_docked_splitter_width(self) -> None:
+        self.window._set_main_splitter_sizes([410, 900])
+        self.window._on_main_splitter_moved(410, 1)
+        self.window._set_session_list_mode("float")
+        QApplication.processEvents()
+        floated_sizes = list(self.window._main_splitter.sizes())
+
+        self.window._apply_fixed_session_list_width()
+        QApplication.processEvents()
+
+        self.assertEqual(self.window._main_splitter.sizes(), floated_sizes)
+
     def test_session_list_float_mode_moves_panel_into_separate_window(self) -> None:
         self.window._set_session_list_mode("float")
         QApplication.processEvents()
@@ -4631,6 +4752,22 @@ class TabWorkspaceTests(unittest.TestCase):
         assert reattached_location is not None
         self.assertIs(reattached_location[0], self.window.tabs)
         self.assertEqual(len(self.window._detached_window_by_host), 0)
+
+    def test_detached_tab_window_is_unparented_regular_window(self) -> None:
+        session = _build_session("Detached Parent", "sess-detached-parent")
+        self.session_service._sessions = [session]
+        widget = QWidget()
+        self.window._add_session_tab(session, widget, "SSH")
+        location = self.window._find_widget_location(widget)
+        self.assertIsNotNone(location)
+        assert location is not None
+
+        self.window._detach_session_tab(widget, location[0], location[1])
+        QApplication.processEvents()
+
+        detached_window = next(iter(self.window._detached_window_by_host.values()))
+        self.assertIsNone(detached_window.parent())
+        self.assertEqual(detached_window.windowType(), Qt.Window)
 
     def test_detach_and_reattach_local_terminal_tab(self) -> None:
         session = _build_session("Local Shell", "sess-detach-local")
