@@ -4004,6 +4004,202 @@ class TabWorkspaceTests(unittest.TestCase):
             "Ctrl+Shift+F11",
         )
 
+    def test_apply_app_settings_rebuilds_workspace_tab_shortcuts(self) -> None:
+        self.assertEqual(len(self.window._workspace_tab_shortcuts), 14)
+
+        updated = AppSettings.from_dict(self.window._settings.to_dict())
+        updated.workspace_next_tab_shortcut = "Ctrl+Alt+Right"
+        updated.workspace_previous_tab_shortcut = ""
+        updated.workspace_tab_jump_shortcuts = [""] * 12
+        updated.workspace_split_vertical_shortcut = ""
+        updated.workspace_split_horizontal_shortcut = ""
+
+        self.window._apply_app_settings(
+            updated,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+
+        self.assertEqual(len(self.window._workspace_tab_shortcuts), 1)
+        self.assertEqual(self.window._workspace_tab_shortcuts[0].key().toString(), "Ctrl+Alt+Right")
+        self.assertEqual(self.window._workspace_tab_shortcuts[0].context(), Qt.WindowShortcut)
+        self.assertFalse(self.window._workspace_tab_shortcuts[0].autoRepeat())
+
+    def test_apply_app_settings_rebuilds_workspace_split_shortcuts(self) -> None:
+        updated = AppSettings.from_dict(self.window._settings.to_dict())
+        updated.workspace_next_tab_shortcut = ""
+        updated.workspace_previous_tab_shortcut = ""
+        updated.workspace_tab_jump_shortcuts = [""] * 12
+        updated.workspace_split_vertical_shortcut = "Ctrl+Alt+V"
+        updated.workspace_split_horizontal_shortcut = "Ctrl+Alt+H"
+
+        self.window._apply_app_settings(
+            updated,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+
+        keys = [shortcut.key().toString() for shortcut in self.window._workspace_tab_shortcuts]
+        self.assertEqual(keys, ["Ctrl+Alt+V", "Ctrl+Alt+H"])
+        for shortcut in self.window._workspace_tab_shortcuts:
+            self.assertEqual(shortcut.context(), Qt.WindowShortcut)
+            self.assertFalse(shortcut.autoRepeat())
+
+    def test_workspace_tab_shortcuts_cycle_as_ring(self) -> None:
+        first = _build_session("Host A", "sess-shortcut-ring-a")
+        second = _build_session("Host B", "sess-shortcut-ring-b")
+        first_widget = QWidget()
+        second_widget = QWidget()
+        self.window._add_session_tab(first, first_widget, "SSH")
+        self.window._add_session_tab(second, second_widget, "SSH")
+
+        self.window.tabs.setCurrentWidget(second_widget)
+        self.window._cycle_workspace_tab(None, 1)
+        self.assertIs(self.window.tabs.currentWidget(), first_widget)
+
+        self.window._cycle_workspace_tab(None, -1)
+        self.assertIs(self.window.tabs.currentWidget(), second_widget)
+
+    def test_workspace_tab_shortcuts_skip_session_details_when_cycling_from_details(self) -> None:
+        first = _build_session("Host A", "sess-shortcut-details-a")
+        second = _build_session("Host B", "sess-shortcut-details-b")
+        first_widget = QWidget()
+        second_widget = QWidget()
+        self.window._add_session_tab(first, first_widget, "SSH")
+        self.window._add_session_tab(second, second_widget, "SSH")
+
+        self.window.tabs.setCurrentWidget(self.window.details)
+        self.window._cycle_workspace_tab(None, 1)
+        self.assertIs(self.window.tabs.currentWidget(), first_widget)
+
+        self.window.tabs.setCurrentWidget(self.window.details)
+        self.window._cycle_workspace_tab(None, -1)
+        self.assertIs(self.window.tabs.currentWidget(), second_widget)
+
+    def test_workspace_tab_shortcuts_ignore_session_details_when_no_session_tabs_exist(self) -> None:
+        self.window.tabs.setCurrentWidget(self.window.details)
+
+        self.window._cycle_workspace_tab(None, 1)
+
+        self.assertIs(self.window.tabs.currentWidget(), self.window.details)
+        self.assertIn("No selectable tabs", self.window.statusBar().currentMessage())
+
+        self.window._cycle_workspace_tab(None, -1)
+
+        self.assertIs(self.window.tabs.currentWidget(), self.window.details)
+        self.assertIn("No selectable tabs", self.window.statusBar().currentMessage())
+
+    def test_workspace_tab_direct_jump_uses_visible_tab_order_without_wrapping(self) -> None:
+        widgets: list[QWidget] = []
+        for index in range(1, 11):
+            session = _build_session(f"Host {index}", f"sess-shortcut-jump-{index}")
+            widget = QWidget()
+            widgets.append(widget)
+            self.window._add_session_tab(session, widget, "SSH")
+
+        self.window._jump_to_workspace_tab(None, 0)
+        self.assertIs(self.window.tabs.currentWidget(), widgets[0])
+
+        self.window._jump_to_workspace_tab(None, 8)
+        self.assertIs(self.window.tabs.currentWidget(), widgets[8])
+
+        self.window._jump_to_workspace_tab(None, 9)
+        self.assertIs(self.window.tabs.currentWidget(), widgets[9])
+
+        self.window._jump_to_workspace_tab(None, 10)
+        self.assertIs(self.window.tabs.currentWidget(), widgets[9])
+        self.assertIn("Tab 11 is not open", self.window.statusBar().currentMessage())
+
+    def test_workspace_tab_shortcuts_target_active_split_pane(self) -> None:
+        first = _build_session("Host A", "sess-shortcut-split-a")
+        second = _build_session("Host B", "sess-shortcut-split-b")
+        third = _build_session("Host C", "sess-shortcut-split-c")
+        first_widget = QWidget()
+        second_widget = QWidget()
+        third_widget = QWidget()
+        self.window._add_session_tab(first, first_widget, "SSH")
+        self.window._add_session_tab(second, second_widget, "SSH")
+        self.window._add_session_tab(third, third_widget, "SSH")
+
+        self.window._split_tab(self.window.tabs, self.window.tabs.indexOf(first_widget), Qt.Horizontal)
+        split_host = [host for host in self.window._tab_hosts if host is not self.window.tabs][0]
+        second_index = self.window.tabs.indexOf(second_widget)
+        self.window._move_tab_between_hosts(self.window.tabs, second_index, split_host, split_host.count())
+        self.window.tabs.setCurrentWidget(third_widget)
+        split_host.setCurrentWidget(second_widget)
+        self.window._set_active_tab_host(split_host)
+
+        self.window._cycle_workspace_tab(None, 1)
+
+        self.assertIs(split_host.currentWidget(), first_widget)
+        self.assertIs(self.window.tabs.currentWidget(), third_widget)
+
+    def test_workspace_tab_shortcuts_target_detached_window_host(self) -> None:
+        first = _build_session("Host A", "sess-shortcut-detached-a")
+        second = _build_session("Host B", "sess-shortcut-detached-b")
+        first_widget = QWidget()
+        second_widget = QWidget()
+        self.window._add_session_tab(first, first_widget, "SSH")
+        self.window._add_session_tab(second, second_widget, "SSH")
+        _window, detached_host = self.window._create_detached_tab_window()
+        self.window._move_tab_between_hosts(
+            self.window.tabs,
+            self.window.tabs.indexOf(first_widget),
+            detached_host,
+            detached_host.count(),
+        )
+        self.window._move_tab_between_hosts(
+            self.window.tabs,
+            self.window.tabs.indexOf(second_widget),
+            detached_host,
+            detached_host.count(),
+        )
+
+        detached_host.setCurrentWidget(second_widget)
+        self.window._cycle_workspace_tab(detached_host, 1)
+
+        self.assertIs(detached_host.currentWidget(), first_widget)
+
+    def test_workspace_split_vertical_shortcut_splits_active_tab_side_by_side(self) -> None:
+        session = _build_session("Host A", "sess-shortcut-split-vertical")
+        widget = QWidget()
+        self.window._add_session_tab(session, widget, "SSH")
+
+        self.window._split_workspace_tab_from_shortcut(None, Qt.Horizontal)
+
+        root = self.window._workspace_root_widget()
+        self.assertIsInstance(root, QSplitter)
+        assert isinstance(root, QSplitter)
+        self.assertEqual(root.orientation(), Qt.Horizontal)
+        self.assertEqual(len(self.window._tab_hosts), 2)
+        split_host = [host for host in self.window._tab_hosts if host is not self.window.tabs][0]
+        self.assertIs(split_host.currentWidget(), widget)
+
+    def test_workspace_split_horizontal_shortcut_splits_active_tab_top_bottom(self) -> None:
+        session = _build_session("Host A", "sess-shortcut-split-horizontal")
+        widget = QWidget()
+        self.window._add_session_tab(session, widget, "SSH")
+
+        self.window._split_workspace_tab_from_shortcut(None, Qt.Vertical)
+
+        root = self.window._workspace_root_widget()
+        self.assertIsInstance(root, QSplitter)
+        assert isinstance(root, QSplitter)
+        self.assertEqual(root.orientation(), Qt.Vertical)
+        self.assertEqual(len(self.window._tab_hosts), 2)
+        split_host = [host for host in self.window._tab_hosts if host is not self.window.tabs][0]
+        self.assertIs(split_host.currentWidget(), widget)
+
+    def test_workspace_split_shortcut_ignores_session_details(self) -> None:
+        self.window.tabs.setCurrentWidget(self.window.details)
+
+        self.window._split_workspace_tab_from_shortcut(None, Qt.Horizontal)
+
+        self.assertIs(self.window._workspace_root_widget(), self.window.tabs)
+        self.assertIn("Select a workspace tab to split", self.window.statusBar().currentMessage())
+
     def test_apply_imported_cross_platform_settings_strips_workspace_profile_geometry(self) -> None:
         updated = AppSettings.from_dict(self.window._settings.to_dict())
         updated.workspace_profiles = [

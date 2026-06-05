@@ -168,6 +168,54 @@ class SettingsDialogTests(unittest.TestCase):
             dialog.deleteLater()
             QApplication.processEvents()
 
+    def test_build_settings_preserves_workspace_tab_shortcuts(self) -> None:
+        settings = AppSettings.defaults()
+        dialog = SettingsDialog(settings=settings)
+        try:
+            dialog.workspace_next_tab_shortcut.set_shortcut_text("Ctrl+Alt+Right")
+            dialog.workspace_previous_tab_shortcut.set_shortcut_text("")
+            dialog.workspace_tab_jump_shortcuts[10].set_shortcut_text("Ctrl+Alt+1")
+            dialog.workspace_split_vertical_shortcut.set_shortcut_text("Ctrl+Alt+V")
+            dialog.workspace_split_horizontal_shortcut.set_shortcut_text("")
+            saved = dialog.build_settings()
+            self.assertEqual(saved.workspace_next_tab_shortcut, "Ctrl+Alt+Right")
+            self.assertEqual(saved.workspace_previous_tab_shortcut, "")
+            self.assertEqual(saved.workspace_tab_jump_shortcuts[0], "Ctrl+1")
+            self.assertEqual(saved.workspace_tab_jump_shortcuts[9], "Ctrl+0")
+            self.assertEqual(saved.workspace_tab_jump_shortcuts[10], "Ctrl+Alt+1")
+            self.assertEqual(saved.workspace_tab_jump_shortcuts[11], "")
+            self.assertEqual(saved.workspace_split_vertical_shortcut, "Ctrl+Alt+V")
+            self.assertEqual(saved.workspace_split_horizontal_shortcut, "")
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_workspace_tab_shortcut_duplicate_validation_rejects_save(self) -> None:
+        settings = AppSettings.defaults()
+        dialog = SettingsDialog(settings=settings)
+        try:
+            dialog.workspace_next_tab_shortcut.set_shortcut_text("F11")
+            with patch("snakesh.ui.settings_dialog.QMessageBox.warning") as mock_warning:
+                dialog._validate_and_accept()
+            self.assertTrue(mock_warning.called)
+            self.assertEqual(dialog.result(), 0)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_workspace_split_shortcut_duplicate_validation_rejects_save(self) -> None:
+        settings = AppSettings.defaults()
+        dialog = SettingsDialog(settings=settings)
+        try:
+            dialog.workspace_split_vertical_shortcut.set_shortcut_text("Ctrl+Tab")
+            with patch("snakesh.ui.settings_dialog.QMessageBox.warning") as mock_warning:
+                dialog._validate_and_accept()
+            self.assertTrue(mock_warning.called)
+            self.assertEqual(dialog.result(), 0)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
     def test_build_settings_preserves_hide_controls_in_fullscreen(self) -> None:
         settings = AppSettings.defaults()
         dialog = SettingsDialog(settings=settings)

@@ -187,6 +187,7 @@ from snakesh.services.tool_process_service import (
 )
 from snakesh.services.x11_service import X11Service
 from snakesh.ui.settings_dialog import SettingsDialog
+from snakesh.ui.shortcut_preferences import normalize_shortcut_text
 from snakesh.ui.terminal_scrollback_dialog import TerminalScrollbackDialog
 from snakesh.ui.terminal_scrollback_store import TerminalScrollbackStore
 from snakesh.ui.third_party_io_dialog import ThirdPartyImportExportDialog
@@ -12395,6 +12396,7 @@ class MainWindow(QMainWindow):
         self._is_shutting_down = False
         self._safe_mode = safe_mode
         self._main_fullscreen_shortcut: QShortcut | None = None
+        self._workspace_tab_shortcuts: list[QShortcut] = []
         self._pending_window_placement: _WindowPlacement | None = None
         self._frameless_fullscreen_active = False
         self._fullscreen_restore_geometry: QByteArray | None = None
@@ -12591,6 +12593,7 @@ class MainWindow(QMainWindow):
             app.focusChanged.connect(self._on_focus_changed)
 
         self._update_main_fullscreen_shortcut()
+        self._update_workspace_tab_shortcuts()
         self._restore_saved_window_geometry()
         self._restore_saved_main_splitter_state()
         if not self._session_list_width_has_explicit_setting:
@@ -12704,6 +12707,173 @@ class MainWindow(QMainWindow):
         shortcut.setAutoRepeat(False)
         shortcut.activated.connect(self._toggle_main_window_fullscreen)
         self._main_fullscreen_shortcut = shortcut
+
+    def _clear_workspace_tab_shortcuts(self) -> None:
+        for shortcut in self._workspace_tab_shortcuts:
+            try:
+                shortcut.setEnabled(False)
+                shortcut.deleteLater()
+            except RuntimeError:
+                pass
+        self._workspace_tab_shortcuts = []
+
+    def _update_workspace_tab_shortcuts(self) -> None:
+        self._clear_workspace_tab_shortcuts()
+
+        next_shortcut = normalize_shortcut_text(self._settings.workspace_next_tab_shortcut)
+        previous_shortcut = normalize_shortcut_text(self._settings.workspace_previous_tab_shortcut)
+        split_vertical_shortcut = normalize_shortcut_text(self._settings.workspace_split_vertical_shortcut)
+        split_horizontal_shortcut = normalize_shortcut_text(self._settings.workspace_split_horizontal_shortcut)
+        jump_shortcuts = [
+            normalize_shortcut_text(shortcut)
+            for shortcut in list(self._settings.workspace_tab_jump_shortcuts)[:12]
+        ]
+        if len(jump_shortcuts) < 12:
+            jump_shortcuts.extend([""] * (12 - len(jump_shortcuts)))
+        self._settings.workspace_next_tab_shortcut = next_shortcut
+        self._settings.workspace_previous_tab_shortcut = previous_shortcut
+        self._settings.workspace_split_vertical_shortcut = split_vertical_shortcut
+        self._settings.workspace_split_horizontal_shortcut = split_horizontal_shortcut
+        self._settings.workspace_tab_jump_shortcuts = jump_shortcuts
+
+        self._register_workspace_tab_shortcuts_for_window(
+            self,
+            None,
+            next_shortcut,
+            previous_shortcut,
+            jump_shortcuts,
+            split_vertical_shortcut,
+            split_horizontal_shortcut,
+        )
+        for host, window in list(self._detached_window_by_host.items()):
+            self._register_workspace_tab_shortcuts_for_window(
+                window,
+                host,
+                next_shortcut,
+                previous_shortcut,
+                jump_shortcuts,
+                split_vertical_shortcut,
+                split_horizontal_shortcut,
+            )
+
+    def _register_workspace_tab_shortcuts_for_window(
+        self,
+        window: QWidget,
+        host: WorkspaceTabWidget | None,
+        next_shortcut: str,
+        previous_shortcut: str,
+        jump_shortcuts: list[str],
+        split_vertical_shortcut: str,
+        split_horizontal_shortcut: str,
+    ) -> None:
+        if next_shortcut:
+            self._register_workspace_tab_shortcut(
+                window,
+                next_shortcut,
+                lambda h=host: self._cycle_workspace_tab(h, 1),
+            )
+        if previous_shortcut:
+            self._register_workspace_tab_shortcut(
+                window,
+                previous_shortcut,
+                lambda h=host: self._cycle_workspace_tab(h, -1),
+            )
+        for index, shortcut_text in enumerate(jump_shortcuts[:12]):
+            if not shortcut_text:
+                continue
+            self._register_workspace_tab_shortcut(
+                window,
+                shortcut_text,
+                lambda h=host, i=index: self._jump_to_workspace_tab(h, i),
+            )
+        if split_vertical_shortcut:
+            self._register_workspace_tab_shortcut(
+                window,
+                split_vertical_shortcut,
+                lambda h=host: self._split_workspace_tab_from_shortcut(h, Qt.Horizontal),
+            )
+        if split_horizontal_shortcut:
+            self._register_workspace_tab_shortcut(
+                window,
+                split_horizontal_shortcut,
+                lambda h=host: self._split_workspace_tab_from_shortcut(h, Qt.Vertical),
+            )
+
+    def _register_workspace_tab_shortcut(
+        self,
+        window: QWidget,
+        shortcut_text: str,
+        callback: Callable[[], None],
+    ) -> None:
+        shortcut = QShortcut(QKeySequence.fromString(shortcut_text, QKeySequence.PortableText), window)
+        shortcut.setContext(Qt.WindowShortcut)
+        shortcut.setAutoRepeat(False)
+        shortcut.activated.connect(callback)
+        self._workspace_tab_shortcuts.append(shortcut)
+
+    def _workspace_tab_host_for_shortcut(self, preferred_host: WorkspaceTabWidget | None) -> WorkspaceTabWidget:
+        if preferred_host is not None and preferred_host in self._tab_hosts:
+            return preferred_host
+        if (
+            self._active_tab_host is not None
+            and self._active_tab_host in self._tab_hosts
+            and not bool(self._active_tab_host.property("is_detached_host"))
+        ):
+            return self._active_tab_host
+        return self.tabs
+
+    def _selectable_workspace_tab_indexes(self, host: WorkspaceTabWidget) -> list[int]:
+        details_widget = getattr(self, "details", None)
+        indexes: list[int] = []
+        for index in range(host.count()):
+            widget = host.widget(index)
+            if widget is None or widget == details_widget:
+                continue
+            indexes.append(index)
+        return indexes
+
+    def _cycle_workspace_tab(self, preferred_host: WorkspaceTabWidget | None, direction: int) -> None:
+        host = self._workspace_tab_host_for_shortcut(preferred_host)
+        selectable_indexes = self._selectable_workspace_tab_indexes(host)
+        if not selectable_indexes:
+            self.statusBar().showMessage("No selectable tabs are open in the active tab pane.", 4000)
+            return
+        current_index = host.currentIndex()
+        if current_index in selectable_indexes:
+            current_position = selectable_indexes.index(current_index)
+            target_index = selectable_indexes[(current_position + direction) % len(selectable_indexes)]
+        else:
+            target_index = selectable_indexes[0] if direction >= 0 else selectable_indexes[-1]
+        self._activate_workspace_tab_in_host(host, target_index)
+
+    def _jump_to_workspace_tab(self, preferred_host: WorkspaceTabWidget | None, tab_index: int) -> None:
+        host = self._workspace_tab_host_for_shortcut(preferred_host)
+        selectable_indexes = self._selectable_workspace_tab_indexes(host)
+        if not 0 <= tab_index < len(selectable_indexes):
+            self.statusBar().showMessage(f"Tab {tab_index + 1} is not open in the active tab pane.", 4000)
+            return
+        self._activate_workspace_tab_in_host(host, selectable_indexes[tab_index])
+
+    def _activate_workspace_tab_in_host(self, host: WorkspaceTabWidget, index: int) -> None:
+        widget = host.widget(index)
+        if widget is None:
+            return
+        host.setCurrentIndex(index)
+        self._set_active_tab_host(host)
+        self._focus_new_session_tab(widget)
+
+    def _split_workspace_tab_from_shortcut(
+        self,
+        preferred_host: WorkspaceTabWidget | None,
+        orientation: Qt.Orientation,
+    ) -> None:
+        host = self._workspace_tab_host_for_shortcut(preferred_host)
+        current_index = host.currentIndex()
+        widget = host.widget(current_index)
+        if current_index < 0 or widget is None or widget == getattr(self, "details", None):
+            self.statusBar().showMessage("Select a workspace tab to split.", 4000)
+            return
+        self._split_tab(host, current_index, orientation)
 
     def _toggle_main_window_fullscreen(self) -> None:
         if self._frameless_fullscreen_active:
@@ -13386,12 +13556,14 @@ class MainWindow(QMainWindow):
         self._detached_window_by_host[host] = window
         self._detached_host_by_window[window] = host
         host.currentChanged.connect(lambda _index, h=host: self._refresh_detached_window_title(h))
+        self._update_workspace_tab_shortcuts()
         return window, host
 
     def _remove_detached_host(self, host: WorkspaceTabWidget, *, close_window: bool) -> None:
         window = self._detached_window_by_host.pop(host, None)
         if window is not None:
             self._detached_host_by_window.pop(window, None)
+        self._update_workspace_tab_shortcuts()
 
         if host in self._tab_hosts:
             self._tab_hosts.remove(host)
@@ -19450,6 +19622,7 @@ class MainWindow(QMainWindow):
                 AppSettings.defaults().main_window_fullscreen_shortcut
             )
         self._settings.main_window_fullscreen_shortcut = normalized_shortcut
+        self._update_workspace_tab_shortcuts()
         if persist:
             self._settings_service.save(self._settings)
         self._update_main_fullscreen_shortcut()

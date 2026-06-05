@@ -46,7 +46,8 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - SSH/SFTP uses a single global command bar (bottom of workspace); commands target the active terminal tab or its group. Grouped tabs show `*` and can be managed/renamed from a Group Manager dialog
 - Saved Fast Commands are protocol-aware: they type into terminal tabs and copy to the clipboard when the active tab is an RDP, VNC, or NoMachine viewer
 - Multiple tabs to the same host are automatically numbered (for example `DatacenterSSH(1)`, `DatacenterSSH(2)`)
-- SSH/SFTP session tabs support horizontal/vertical split workspace layouts with drag-drop tab movement across panes
+- SSH/SFTP session tabs support horizontal/vertical split workspace layouts from the tab context menu or configurable shortcuts, with drag-drop tab movement across panes
+- Configurable workspace shortcuts cover next/previous tab cycling, direct tab jumps, and vertical/horizontal split actions; tab navigation and split shortcut targets skip `Session Details`
 - Docked session list width stays fixed while the main window resizes; drag the middle divider to choose a new width
 - SSH/SFTP/Telnet tabs can be detached into independent non-modal windows and reattached back to the main workspace
 - Local Shell tabs can also be detached into independent non-modal windows and reattached later
@@ -66,7 +67,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - Tools menu launches registered standalone GUI processes so a busy tool cannot stall the main console UI
 - Standalone tool CLI exposes full `--help` output, every registered tool key, and supported prefill flags through `snakesh tool`
 - Settings includes per-user launcher management for individual tools on Linux, Windows, and macOS in addition to the main-app Linux desktop integration controls
-- Settings dialog covers appearance presets, terminal colors/font/scrollback, main-window fullscreen controls, session and tool log retention, fatal crash logging, BEL/visual bell behavior, Local Shell defaults, and restore defaults
+- Settings dialog covers appearance presets, terminal colors/font/scrollback, main-window fullscreen controls, workspace keyboard shortcuts, session and tool log retention, fatal crash logging, BEL/visual bell behavior, Local Shell defaults, and restore defaults
 - Default theme preset is Onyx Blue
 - Session editor supports per-session terminal background/foreground color overrides and password reveal for saved credentials
 - Profiles system can save/restore workspace state (split layout, open sessions, tab labels, detached windows with geometry), and a default startup profile can be set

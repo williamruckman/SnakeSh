@@ -344,6 +344,35 @@ class SettingsServiceTests(unittest.TestCase):
 
         self.assertEqual(restored.main_window_fullscreen_shortcut, "Ctrl+Shift+F11")
 
+    def test_roundtrip_preserves_workspace_tab_shortcuts(self) -> None:
+        settings = AppSettings.defaults()
+        settings.workspace_next_tab_shortcut = "Ctrl+Alt+Right"
+        settings.workspace_previous_tab_shortcut = ""
+        settings.workspace_tab_jump_shortcuts = ["Alt+1", "", "Alt+3", *[""] * 9]
+        settings.workspace_split_vertical_shortcut = "Ctrl+Alt+V"
+        settings.workspace_split_horizontal_shortcut = ""
+
+        restored = AppSettings.from_dict(settings.to_dict())
+
+        self.assertEqual(restored.workspace_next_tab_shortcut, "Ctrl+Alt+Right")
+        self.assertEqual(restored.workspace_previous_tab_shortcut, "")
+        self.assertEqual(restored.workspace_tab_jump_shortcuts, ["Alt+1", "", "Alt+3", *[""] * 9])
+        self.assertEqual(restored.workspace_split_vertical_shortcut, "Ctrl+Alt+V")
+        self.assertEqual(restored.workspace_split_horizontal_shortcut, "")
+
+    def test_workspace_tab_shortcut_defaults_include_direct_jumps_to_ten(self) -> None:
+        settings = AppSettings.defaults()
+
+        self.assertEqual(settings.workspace_next_tab_shortcut, "Ctrl+Tab")
+        self.assertEqual(settings.workspace_previous_tab_shortcut, "Ctrl+Shift+Tab")
+        self.assertEqual(settings.workspace_split_vertical_shortcut, "Ctrl+Alt+V")
+        self.assertEqual(settings.workspace_split_horizontal_shortcut, "Ctrl+Alt+H")
+        self.assertEqual(
+            settings.workspace_tab_jump_shortcuts[:10],
+            [*(f"Ctrl+{index}" for index in range(1, 10)), "Ctrl+0"],
+        )
+        self.assertEqual(settings.workspace_tab_jump_shortcuts[10:], ["", ""])
+
     def test_roundtrip_preserves_hide_controls_in_fullscreen(self) -> None:
         settings = AppSettings.defaults()
         settings.main_window_hide_controls_in_fullscreen = True
@@ -392,6 +421,22 @@ class SettingsServiceTests(unittest.TestCase):
             sanitized.main_window_fullscreen_shortcut,
             AppSettings.defaults().main_window_fullscreen_shortcut,
         )
+
+    def test_sanitize_workspace_tab_shortcuts_preserves_disabled_values_and_twelve_jump_slots(self) -> None:
+        settings = AppSettings.defaults()
+        settings.workspace_next_tab_shortcut = "   "
+        settings.workspace_previous_tab_shortcut = " Ctrl+Alt+Left "
+        settings.workspace_tab_jump_shortcuts = [" Ctrl+1 ", "", "Ctrl+3"]
+        settings.workspace_split_vertical_shortcut = " Ctrl+Alt+V "
+        settings.workspace_split_horizontal_shortcut = "   "
+
+        sanitized = SettingsService._sanitize(settings)
+
+        self.assertEqual(sanitized.workspace_next_tab_shortcut, "")
+        self.assertEqual(sanitized.workspace_previous_tab_shortcut, "Ctrl+Alt+Left")
+        self.assertEqual(sanitized.workspace_tab_jump_shortcuts, ["Ctrl+1", "", "Ctrl+3", *[""] * 9])
+        self.assertEqual(sanitized.workspace_split_vertical_shortcut, "Ctrl+Alt+V")
+        self.assertEqual(sanitized.workspace_split_horizontal_shortcut, "")
 
     def test_sanitize_normalizes_invalid_session_list_visibility_mode(self) -> None:
         settings = AppSettings.defaults()

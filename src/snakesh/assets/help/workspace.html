@@ -25,10 +25,22 @@
 
   <h2>Split Panes and Tab Movement</h2>
   <ul>
-    <li>SSH and SFTP tabs can move between horizontal and vertical split panes.</li>
+    <li>SSH and SFTP tabs can move between horizontal and vertical split panes from the tab context menu or configured shortcuts.</li>
     <li>Tabs can be rearranged by drag and drop across panes.</li>
     <li>This allows side-by-side work such as a Local Shell next to an SSH session, or an SSH tab next to its SFTP workspace.</li>
   </ul>
+
+  <h2>Workspace Shortcuts</h2>
+  <p>Workspace tab and split shortcuts are configurable in Settings under <strong>Tab Shortcuts</strong>. On Windows and Linux, the defaults are:</p>
+  <ul>
+    <li><strong>Next Tab</strong>: <code>Ctrl+Tab</code></li>
+    <li><strong>Previous Tab</strong>: <code>Ctrl+Shift+Tab</code></li>
+    <li><strong>Jump to Tab 1-10</strong>: <code>Ctrl+1</code> through <code>Ctrl+9</code>, then <code>Ctrl+0</code> for tab 10. Jump to Tab 11 and Jump to Tab 12 are available but disabled by default.</li>
+    <li><strong>Split Vertical (Side by Side)</strong>: <code>Ctrl+Alt+V</code></li>
+    <li><strong>Split Horizontal (Top/Bottom)</strong>: <code>Ctrl+Alt+H</code></li>
+  </ul>
+  <p>On macOS, split defaults are <code>Command+Control+V</code> and <code>Command+Control+H</code>. Tab navigation uses the platform-native shortcut text displayed in the Settings dialog.</p>
+  <p>Next and previous tab shortcuts wrap like a ring: moving next from the last selectable tab selects the first selectable tab, and moving previous from the first selectable tab selects the last selectable tab. Direct jumps count selectable workspace tabs only and do not wrap. <strong>Session Details</strong> is skipped by tab cycling, direct jumps, and split shortcut targets.</p>
 
   <h2>Detached Windows</h2>
   <p>Terminal-style tabs can be detached into independent non-modal windows when you want to place them on another monitor or keep them visible while reorganizing the main workspace. SnakeSh now treats Local Shell tabs the same way as SSH, SFTP, and Telnet tabs for detach and reattach behavior.</p>

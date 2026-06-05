@@ -42,6 +42,17 @@
     <li><strong>Hide Controls in Fullscreen</strong>: when enabled, fullscreen hides the top action bar and bottom command bar so the session list and workspace remain.</li>
   </ul>
 
+  <h2>Tab Shortcuts</h2>
+  <ul>
+    <li><strong>Next Tab</strong>: moves to the next selectable workspace tab in the active pane. It wraps from the last selectable tab to the first and skips <strong>Session Details</strong>.</li>
+    <li><strong>Previous Tab</strong>: moves to the previous selectable workspace tab in the active pane. It wraps from the first selectable tab to the last and skips <strong>Session Details</strong>.</li>
+    <li><strong>Split Vertical</strong>: splits the active selectable workspace tab into a side-by-side layout. It does nothing on <strong>Session Details</strong>.</li>
+    <li><strong>Split Horizontal</strong>: splits the active selectable workspace tab into a top/bottom layout. It does nothing on <strong>Session Details</strong>.</li>
+    <li><strong>Jump to Tab 1-12</strong>: direct jump shortcuts count selectable workspace tabs in the active pane. <strong>Session Details</strong> is not counted, and out-of-range jumps do nothing.</li>
+    <li><strong>Disabled shortcuts</strong>: blank tab and split shortcut fields disable that action. Jump to Tab 11 and Jump to Tab 12 are supported but blank by default.</li>
+    <li><strong>Duplicate rule</strong>: SnakeSh rejects duplicate nonblank application shortcuts, including the fullscreen shortcut, tab navigation shortcuts, split shortcuts, and direct tab jumps.</li>
+  </ul>
+
   <h2>Terminal</h2>
   <ul>
     <li><strong>Terminal Background</strong>: default terminal canvas color used when classic default-color compatibility is disabled.</li>

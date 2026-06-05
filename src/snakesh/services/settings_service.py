@@ -201,6 +201,54 @@ def default_terminal_log_dir() -> str:
     return str((base / "SnakeSh Logs").expanduser())
 
 
+def default_workspace_next_tab_shortcut() -> str:
+    if platform.system().lower() == "darwin":
+        return "Ctrl+}"
+    return "Ctrl+Tab"
+
+
+def default_workspace_previous_tab_shortcut() -> str:
+    if platform.system().lower() == "darwin":
+        return "Ctrl+{"
+    return "Ctrl+Shift+Tab"
+
+
+def default_workspace_tab_jump_shortcuts() -> list[str]:
+    return [*(f"Ctrl+{index}" for index in range(1, 10)), "Ctrl+0", "", ""]
+
+
+def default_workspace_split_vertical_shortcut() -> str:
+    if platform.system().lower() == "darwin":
+        return "Ctrl+Meta+V"
+    return "Ctrl+Alt+V"
+
+
+def default_workspace_split_horizontal_shortcut() -> str:
+    if platform.system().lower() == "darwin":
+        return "Ctrl+Meta+H"
+    return "Ctrl+Alt+H"
+
+
+def _sanitize_workspace_tab_jump_shortcuts(
+    value: object,
+    *,
+    missing_values: list[str] | None = None,
+) -> list[str]:
+    fallback = list(missing_values or [""] * 12)
+    if len(fallback) < 12:
+        fallback.extend([""] * (12 - len(fallback)))
+    if not isinstance(value, list):
+        return fallback[:12]
+
+    cleaned: list[str] = []
+    for index in range(12):
+        if index < len(value):
+            cleaned.append(str(value[index]).strip())
+        else:
+            cleaned.append(fallback[index])
+    return cleaned
+
+
 CLASSIC_TERMINAL_BG = "#000000"
 CLASSIC_TERMINAL_FG = "#e5e5e5"
 
@@ -312,6 +360,11 @@ class AppSettings:
     main_window_splitter_b64: str = ""
     main_window_fullscreen_shortcut: str = "F11"
     main_window_hide_controls_in_fullscreen: bool = False
+    workspace_next_tab_shortcut: str = field(default_factory=default_workspace_next_tab_shortcut)
+    workspace_previous_tab_shortcut: str = field(default_factory=default_workspace_previous_tab_shortcut)
+    workspace_tab_jump_shortcuts: list[str] = field(default_factory=default_workspace_tab_jump_shortcuts)
+    workspace_split_vertical_shortcut: str = field(default_factory=default_workspace_split_vertical_shortcut)
+    workspace_split_horizontal_shortcut: str = field(default_factory=default_workspace_split_horizontal_shortcut)
     standalone_tool_window_placements: dict[str, dict[str, object]] = field(default_factory=dict)
     resource_monitor_show_offline_adapters: bool = False
     resource_monitor_zoom_percent: int = 100
@@ -425,6 +478,11 @@ class AppSettings:
             "main_window_splitter_b64": self.main_window_splitter_b64,
             "main_window_fullscreen_shortcut": self.main_window_fullscreen_shortcut,
             "main_window_hide_controls_in_fullscreen": self.main_window_hide_controls_in_fullscreen,
+            "workspace_next_tab_shortcut": self.workspace_next_tab_shortcut,
+            "workspace_previous_tab_shortcut": self.workspace_previous_tab_shortcut,
+            "workspace_tab_jump_shortcuts": list(self.workspace_tab_jump_shortcuts),
+            "workspace_split_vertical_shortcut": self.workspace_split_vertical_shortcut,
+            "workspace_split_horizontal_shortcut": self.workspace_split_horizontal_shortcut,
             "standalone_tool_window_placements": dict(self.standalone_tool_window_placements),
             "resource_monitor_show_offline_adapters": self.resource_monitor_show_offline_adapters,
             "resource_monitor_zoom_percent": self.resource_monitor_zoom_percent,
@@ -561,6 +619,18 @@ class AppSettings:
             main_window_splitter_b64=str(payload["main_window_splitter_b64"]),
             main_window_fullscreen_shortcut=str(payload["main_window_fullscreen_shortcut"]),
             main_window_hide_controls_in_fullscreen=bool(payload["main_window_hide_controls_in_fullscreen"]),
+            workspace_next_tab_shortcut=str(payload["workspace_next_tab_shortcut"]),
+            workspace_previous_tab_shortcut=str(payload["workspace_previous_tab_shortcut"]),
+            workspace_tab_jump_shortcuts=_sanitize_workspace_tab_jump_shortcuts(
+                payload.get("workspace_tab_jump_shortcuts"),
+                missing_values=(
+                    defaults.workspace_tab_jump_shortcuts
+                    if "workspace_tab_jump_shortcuts" not in raw
+                    else [""] * 12
+                ),
+            ),
+            workspace_split_vertical_shortcut=str(payload["workspace_split_vertical_shortcut"]),
+            workspace_split_horizontal_shortcut=str(payload["workspace_split_horizontal_shortcut"]),
             standalone_tool_window_placements=_sanitize_standalone_tool_window_placements(
                 payload.get("standalone_tool_window_placements")
             ),
@@ -904,6 +974,13 @@ class SettingsService:
             settings.main_window_fullscreen_shortcut.strip() or AppSettings.defaults().main_window_fullscreen_shortcut
         )
         settings.main_window_hide_controls_in_fullscreen = bool(settings.main_window_hide_controls_in_fullscreen)
+        settings.workspace_next_tab_shortcut = settings.workspace_next_tab_shortcut.strip()
+        settings.workspace_previous_tab_shortcut = settings.workspace_previous_tab_shortcut.strip()
+        settings.workspace_tab_jump_shortcuts = _sanitize_workspace_tab_jump_shortcuts(
+            settings.workspace_tab_jump_shortcuts
+        )
+        settings.workspace_split_vertical_shortcut = settings.workspace_split_vertical_shortcut.strip()
+        settings.workspace_split_horizontal_shortcut = settings.workspace_split_horizontal_shortcut.strip()
         settings.standalone_tool_window_placements = _sanitize_standalone_tool_window_placements(
             settings.standalone_tool_window_placements
         )

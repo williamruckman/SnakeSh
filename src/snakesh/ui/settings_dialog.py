@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QColor, QFontDatabase, QKeySequence
+from PySide6.QtGui import QColor, QFontDatabase
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
-    QKeySequenceEdit,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -38,164 +37,10 @@ from snakesh.services.master_password_service import MasterPasswordService
 from snakesh.services.settings_service import AppSettings
 from snakesh.ui.color_picker import pick_color
 from snakesh.ui.desktop_open import open_local_path
+from snakesh.ui.shortcut_preferences import ShortcutPreferenceEditor, display_shortcut_text
 
 _SCROLLBACK_ESTIMATED_FIXED_BYTES = 2 * 1024 * 1024
 _SCROLLBACK_ESTIMATED_BYTES_PER_LINE = 5 * 1024
-
-
-def _normalize_shortcut_text(raw: str) -> str:
-    text = raw.strip()
-    if not text:
-        return ""
-    sequence = QKeySequence.fromString(text, QKeySequence.PortableText)
-    if sequence.isEmpty():
-        sequence = QKeySequence.fromString(text, QKeySequence.NativeText)
-    if sequence.isEmpty():
-        return ""
-    try:
-        first = sequence[0]
-    except Exception:
-        return sequence.toString(QKeySequence.PortableText)
-    return QKeySequence(first).toString(QKeySequence.PortableText)
-
-
-def _display_shortcut_text(raw: str) -> str:
-    normalized = _normalize_shortcut_text(raw)
-    if not normalized:
-        return "Disabled"
-    sequence = QKeySequence.fromString(normalized, QKeySequence.PortableText)
-    display = sequence.toString(QKeySequence.NativeText) or normalized
-    return display.replace("Return", "Enter")
-
-
-class ShortcutCaptureDialog(QDialog):
-    def __init__(
-        self,
-        *,
-        title: str,
-        initial_shortcut: str,
-        default_shortcut: str,
-        parent=None,
-    ) -> None:
-        super().__init__(parent)
-        self.setWindowTitle(title)
-        self.setModal(True)
-        self.resize(460, 200)
-
-        self._default_shortcut = _normalize_shortcut_text(default_shortcut)
-
-        root = QVBoxLayout(self)
-        instructions = QLabel("Press the shortcut you want to use. The capture field records the next key combination.")
-        instructions.setWordWrap(True)
-        root.addWidget(instructions)
-
-        self.sequence_edit = QKeySequenceEdit(self)
-        if hasattr(self.sequence_edit, "setMaximumSequenceLength"):
-            try:
-                self.sequence_edit.setMaximumSequenceLength(1)
-            except Exception:
-                pass
-        normalized_initial = _normalize_shortcut_text(initial_shortcut)
-        if normalized_initial:
-            self.sequence_edit.setKeySequence(QKeySequence.fromString(normalized_initial, QKeySequence.PortableText))
-        root.addWidget(self.sequence_edit)
-
-        self.preview = QLabel("")
-        self.preview.setWordWrap(True)
-        root.addWidget(self.preview)
-
-        actions = QHBoxLayout()
-        default_btn = QPushButton("Default")
-        actions.addWidget(default_btn)
-        actions.addStretch(1)
-        root.addLayout(actions)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=self)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        root.addWidget(buttons)
-
-        default_btn.clicked.connect(self._restore_default_shortcut)
-        self.sequence_edit.keySequenceChanged.connect(self._update_preview)
-        self._update_preview(self.sequence_edit.keySequence())
-        QTimer.singleShot(0, self.sequence_edit.setFocus)
-
-    def _restore_default_shortcut(self) -> None:
-        if not self._default_shortcut:
-            self.sequence_edit.clear()
-            return
-        self.sequence_edit.setKeySequence(QKeySequence.fromString(self._default_shortcut, QKeySequence.PortableText))
-
-    def _update_preview(self, sequence: QKeySequence) -> None:
-        try:
-            first = sequence[0]
-        except Exception:
-            first = None
-        rendered = _display_shortcut_text(QKeySequence(first).toString(QKeySequence.PortableText)) if first else "Disabled"
-        self.preview.setText(f"Current selection: {rendered}")
-
-    def shortcut_text(self) -> str:
-        sequence = self.sequence_edit.keySequence()
-        try:
-            first = sequence[0]
-        except Exception:
-            first = None
-        if not first:
-            return ""
-        return QKeySequence(first).toString(QKeySequence.PortableText)
-
-
-class ShortcutPreferenceEditor(QWidget):
-    def __init__(
-        self,
-        *,
-        initial_shortcut: str,
-        default_shortcut: str,
-        dialog_title: str,
-        parent=None,
-    ) -> None:
-        super().__init__(parent)
-        self._default_shortcut = _normalize_shortcut_text(default_shortcut)
-        self._dialog_title = dialog_title
-        self._shortcut_text = ""
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
-
-        self.display = QLineEdit(self)
-        self.display.setReadOnly(True)
-        self.display.setPlaceholderText("Disabled")
-        self.display.setFocusPolicy(Qt.NoFocus)
-
-        self.set_btn = QPushButton("Set Shortcut...")
-        self.default_btn = QPushButton("Default")
-
-        self.set_btn.clicked.connect(self._open_capture_dialog)
-        self.default_btn.clicked.connect(lambda: self.set_shortcut_text(self._default_shortcut))
-
-        layout.addWidget(self.display, 1)
-        layout.addWidget(self.set_btn, 0)
-        layout.addWidget(self.default_btn, 0)
-
-        self.set_shortcut_text(initial_shortcut or self._default_shortcut)
-
-    def _open_capture_dialog(self) -> None:
-        dialog = ShortcutCaptureDialog(
-            title=self._dialog_title,
-            initial_shortcut=self._shortcut_text,
-            default_shortcut=self._default_shortcut,
-            parent=self,
-        )
-        if dialog.exec():
-            self.set_shortcut_text(dialog.shortcut_text())
-
-    def shortcut_text(self) -> str:
-        return self._shortcut_text
-
-    def set_shortcut_text(self, value: str) -> None:
-        self._shortcut_text = _normalize_shortcut_text(value)
-        self.display.setText(_display_shortcut_text(self._shortcut_text))
 
 
 class SettingsDialog(QDialog):
@@ -281,6 +126,49 @@ class SettingsDialog(QDialog):
             "Hide the top action bar and bottom command bar during fullscreen"
         )
         self.main_window_hide_controls_in_fullscreen.setChecked(settings.main_window_hide_controls_in_fullscreen)
+        self.workspace_next_tab_shortcut = ShortcutPreferenceEditor(
+            initial_shortcut=settings.workspace_next_tab_shortcut,
+            default_shortcut=self._defaults.workspace_next_tab_shortcut,
+            dialog_title="Set Next Tab Shortcut",
+            allow_disabled=True,
+            parent=self,
+        )
+        self.workspace_previous_tab_shortcut = ShortcutPreferenceEditor(
+            initial_shortcut=settings.workspace_previous_tab_shortcut,
+            default_shortcut=self._defaults.workspace_previous_tab_shortcut,
+            dialog_title="Set Previous Tab Shortcut",
+            allow_disabled=True,
+            parent=self,
+        )
+        self.workspace_split_vertical_shortcut = ShortcutPreferenceEditor(
+            initial_shortcut=settings.workspace_split_vertical_shortcut,
+            default_shortcut=self._defaults.workspace_split_vertical_shortcut,
+            dialog_title="Set Split Vertical Shortcut",
+            allow_disabled=True,
+            parent=self,
+        )
+        self.workspace_split_horizontal_shortcut = ShortcutPreferenceEditor(
+            initial_shortcut=settings.workspace_split_horizontal_shortcut,
+            default_shortcut=self._defaults.workspace_split_horizontal_shortcut,
+            dialog_title="Set Split Horizontal Shortcut",
+            allow_disabled=True,
+            parent=self,
+        )
+        tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
+        tab_jump_defaults = list(self._defaults.workspace_tab_jump_shortcuts)
+        self.workspace_tab_jump_shortcuts: list[ShortcutPreferenceEditor] = []
+        for index in range(12):
+            initial = tab_jump_shortcuts[index] if index < len(tab_jump_shortcuts) else ""
+            default = tab_jump_defaults[index] if index < len(tab_jump_defaults) else ""
+            self.workspace_tab_jump_shortcuts.append(
+                ShortcutPreferenceEditor(
+                    initial_shortcut=initial,
+                    default_shortcut=default,
+                    dialog_title=f"Set Jump to Tab {index + 1} Shortcut",
+                    allow_disabled=True,
+                    parent=self,
+                )
+            )
 
         self.scrollback = QSpinBox()
         self.scrollback.setRange(100, 50000)
@@ -523,6 +411,40 @@ class SettingsDialog(QDialog):
             ),
             self.main_window_hide_controls_in_fullscreen,
         )
+        form.addRow(self._section_label("Tab Shortcuts"))
+        form.addRow(
+            self._hint_label("Next Tab", "Moves to the next tab in the active tab pane, wrapping to the first tab."),
+            self.workspace_next_tab_shortcut,
+        )
+        form.addRow(
+            self._hint_label(
+                "Previous Tab",
+                "Moves to the previous tab in the active tab pane, wrapping to the last tab.",
+            ),
+            self.workspace_previous_tab_shortcut,
+        )
+        form.addRow(
+            self._hint_label(
+                "Split Vertical",
+                "Splits the active tab side by side.",
+            ),
+            self.workspace_split_vertical_shortcut,
+        )
+        form.addRow(
+            self._hint_label(
+                "Split Horizontal",
+                "Splits the active tab into top and bottom panes.",
+            ),
+            self.workspace_split_horizontal_shortcut,
+        )
+        for index, editor in enumerate(self.workspace_tab_jump_shortcuts, start=1):
+            form.addRow(
+                self._hint_label(
+                    f"Jump to Tab {index}",
+                    "Selects that tab number in the active tab pane when it exists.",
+                ),
+                editor,
+            )
 
         form.addRow(self._section_label("Terminal"))
         form.addRow(
@@ -1110,6 +1032,13 @@ class SettingsDialog(QDialog):
                     or self._defaults.main_window_fullscreen_shortcut
                 ),
                 "main_window_hide_controls_in_fullscreen": self.main_window_hide_controls_in_fullscreen.isChecked(),
+                "workspace_next_tab_shortcut": self.workspace_next_tab_shortcut.shortcut_text(),
+                "workspace_previous_tab_shortcut": self.workspace_previous_tab_shortcut.shortcut_text(),
+                "workspace_tab_jump_shortcuts": [
+                    editor.shortcut_text() for editor in self.workspace_tab_jump_shortcuts
+                ],
+                "workspace_split_vertical_shortcut": self.workspace_split_vertical_shortcut.shortcut_text(),
+                "workspace_split_horizontal_shortcut": self.workspace_split_horizontal_shortcut.shortcut_text(),
                 "terminal_scrollback_lines": self.scrollback.value(),
                 "terminal_log_dir": self.log_dir.text().strip() or self._defaults.terminal_log_dir,
                 "global_session_logging_enabled": self.global_session_logging_enabled.isChecked(),
@@ -1475,6 +1404,13 @@ class SettingsDialog(QDialog):
             settings.main_window_fullscreen_shortcut or self._defaults.main_window_fullscreen_shortcut
         )
         self.main_window_hide_controls_in_fullscreen.setChecked(settings.main_window_hide_controls_in_fullscreen)
+        self.workspace_next_tab_shortcut.set_shortcut_text(settings.workspace_next_tab_shortcut)
+        self.workspace_previous_tab_shortcut.set_shortcut_text(settings.workspace_previous_tab_shortcut)
+        self.workspace_split_vertical_shortcut.set_shortcut_text(settings.workspace_split_vertical_shortcut)
+        self.workspace_split_horizontal_shortcut.set_shortcut_text(settings.workspace_split_horizontal_shortcut)
+        tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
+        for index, editor in enumerate(self.workspace_tab_jump_shortcuts):
+            editor.set_shortcut_text(tab_jump_shortcuts[index] if index < len(tab_jump_shortcuts) else "")
         self.scrollback.setValue(settings.terminal_scrollback_lines)
         self._update_scrollback_estimate()
         self.log_dir.setText(settings.terminal_log_dir)
@@ -1561,7 +1497,49 @@ class SettingsDialog(QDialog):
                 "Master password protection is enabled, but no password is set.\nSet a password or disable the toggle.",
             )
             return
+        shortcut_conflict = self._shortcut_conflict()
+        if shortcut_conflict is not None:
+            first_label, second_label, shortcut = shortcut_conflict
+            QMessageBox.warning(
+                self,
+                "Shortcut Conflict",
+                (
+                    f"{first_label} and {second_label} both use "
+                    f"{display_shortcut_text(shortcut)}.\n\n"
+                    "Choose a unique shortcut or disable one of the tab shortcuts."
+                ),
+            )
+            return
         self.accept()
+
+    def _shortcut_conflict(self) -> tuple[str, str, str] | None:
+        seen: dict[str, str] = {}
+        for label, shortcut in self._configured_app_shortcuts():
+            if not shortcut:
+                continue
+            previous = seen.get(shortcut)
+            if previous is not None:
+                return previous, label, shortcut
+            seen[shortcut] = label
+        return None
+
+    def _configured_app_shortcuts(self) -> list[tuple[str, str]]:
+        entries = [
+            (
+                "Fullscreen Shortcut",
+                self.main_window_fullscreen_shortcut.shortcut_text()
+                or self._defaults.main_window_fullscreen_shortcut,
+            ),
+            ("Next Tab", self.workspace_next_tab_shortcut.shortcut_text()),
+            ("Previous Tab", self.workspace_previous_tab_shortcut.shortcut_text()),
+            ("Split Vertical", self.workspace_split_vertical_shortcut.shortcut_text()),
+            ("Split Horizontal", self.workspace_split_horizontal_shortcut.shortcut_text()),
+        ]
+        entries.extend(
+            (f"Jump to Tab {index}", editor.shortcut_text())
+            for index, editor in enumerate(self.workspace_tab_jump_shortcuts, start=1)
+        )
+        return entries
 
     def _update_master_password_controls(self) -> None:
         clearing = self.master_password_clear.isChecked()
