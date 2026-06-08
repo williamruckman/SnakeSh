@@ -423,6 +423,295 @@ class TabWorkspaceTests(unittest.TestCase):
         self.assertIn("QTabWidget::tab-bar { left: 0px; }", style)
         self.assertNotIn("left: 12px", style)
 
+    def test_workspace_tab_stacking_defaults_to_scroll_buttons(self) -> None:
+        tab_bar = self.window.tabs.tabBar()
+
+        self.assertFalse(self.window._settings.workspace_tab_stacking_enabled)
+        self.assertTrue(self.window.tabs.usesScrollButtons())
+        self.assertTrue(tab_bar.usesScrollButtons())
+        self.assertFalse(tab_bar.expanding())
+        self.assertFalse(tab_bar.tab_stacking_enabled())
+
+    def test_unstacked_workspace_tabs_keep_natural_widths_and_overflow_to_scroll_buttons(self) -> None:
+        host = self.window.tabs
+        tab_bar = host.tabBar()
+        self.window.resize(900, 700)
+        QApplication.processEvents()
+        for index in range(12):
+            session = _build_session(f"Long Local Shell Label {index}", f"sess-unstacked-scroll-{index}")
+            self.window._add_session_tab(session, QWidget(), "LOCAL")
+
+        QApplication.processEvents()
+
+        self.assertTrue(host.usesScrollButtons())
+        self.assertTrue(tab_bar.usesScrollButtons())
+        self.assertFalse(tab_bar.expanding())
+        natural_widths = [tab_bar.tabSizeHint(index).width() for index in range(host.count())]
+        rect_widths = [tab_bar.tabRect(index).width() for index in range(host.count())]
+        self.assertGreater(sum(rect_widths), tab_bar.width())
+        self.assertGreater(min(rect_widths[1:]), 80)
+        for index in range(1, host.count()):
+            self.assertGreaterEqual(rect_widths[index], natural_widths[index] - 2)
+
+    def test_workspace_tab_stacking_applies_to_primary_split_and_detached_hosts(self) -> None:
+        session = _build_session("Stack Host", "sess-stack-host")
+        widget = QWidget()
+        self.window._add_session_tab(session, widget, "SSH")
+        self.window._split_tab(self.window.tabs, self.window.tabs.indexOf(widget), Qt.Horizontal)
+        updated = AppSettings.from_dict(self.window._settings.to_dict())
+        updated.workspace_tab_stacking_enabled = True
+
+        self.window._apply_app_settings(
+            updated,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+        _window, detached_host = self.window._create_detached_tab_window()
+
+        for host in self.window._tab_hosts:
+            tab_bar = host.tabBar()
+            self.assertFalse(host.usesScrollButtons())
+            self.assertFalse(tab_bar.usesScrollButtons())
+            self.assertTrue(tab_bar.tab_stacking_enabled())
+        self.assertIn(detached_host, self.window._tab_hosts)
+
+    def test_workspace_tab_stacking_toggle_off_restores_unstacked_scroll_buttons(self) -> None:
+        session = _build_session("Toggle Stack", "sess-toggle-stack")
+        widget = QWidget()
+        self.window._add_session_tab(session, widget, "SSH")
+        updated = AppSettings.from_dict(self.window._settings.to_dict())
+        updated.workspace_tab_stacking_enabled = True
+        self.window._apply_app_settings(
+            updated,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+        stacked_bar = self.window.tabs.tabBar()
+        self.assertTrue(stacked_bar.tab_stacking_enabled())
+        self.assertFalse(stacked_bar.usesScrollButtons())
+
+        restored = AppSettings.from_dict(updated.to_dict())
+        restored.workspace_tab_stacking_enabled = False
+        self.window._apply_app_settings(
+            restored,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+        QApplication.processEvents()
+
+        tab_bar = self.window.tabs.tabBar()
+        close_button = self._assert_custom_right_close_button(self.window.tabs, self.window.tabs.indexOf(widget))
+        self.assertFalse(tab_bar.tab_stacking_enabled())
+        self.assertTrue(self.window.tabs.usesScrollButtons())
+        self.assertTrue(tab_bar.usesScrollButtons())
+        self.assertFalse(tab_bar.expanding())
+        self.assertFalse(close_button.isHidden())
+
+    def test_stacked_workspace_tabs_wrap_against_host_width_not_stale_tab_bar_width(self) -> None:
+        updated = AppSettings.from_dict(self.window._settings.to_dict())
+        updated.workspace_tab_stacking_enabled = True
+        self.window._apply_app_settings(
+            updated,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+        host = self.window.tabs
+        tab_bar = host.tabBar()
+        self.window.resize(1200, 700)
+        QApplication.processEvents()
+
+        stale_native_width = max(1, tab_bar.tabSizeHint(0).width())
+        tab_bar.resize(stale_native_width, max(64, tab_bar.height()))
+        session = _build_session("Local Shell", "sess-stack-first-shell")
+        widget = QWidget()
+        self.window._add_session_tab(session, widget, "LOCAL")
+        tab_bar._refresh_stacked_layout()
+        QApplication.processEvents()
+
+        self.assertGreater(host.width(), stale_native_width * 2)
+        self.assertGreater(tab_bar._available_tab_width(), stale_native_width * 2)
+        self.assertEqual(tab_bar.sizeHint().width(), tab_bar._available_tab_width())
+        self.assertEqual(tab_bar.tabRect(1).top(), tab_bar.tabRect(0).top())
+
+    def test_stacked_workspace_tabs_in_split_pane_can_shrink_and_elide(self) -> None:
+        first_widget = QWidget()
+        second_widget = QWidget()
+        self.window._add_session_tab(_build_session("Split First", "sess-stack-split-first"), first_widget, "SSH")
+        self.window._add_session_tab(_build_session("Split Second", "sess-stack-split-second"), second_widget, "SSH")
+        self.window._split_tab(self.window.tabs, self.window.tabs.indexOf(second_widget), Qt.Horizontal)
+        split_host = [host for host in self.window._tab_hosts if host is not self.window.tabs][0]
+        self.window._set_active_tab_host(split_host)
+        for index in range(3):
+            session = _build_session(
+                f"Very Long Split Stacked Tab Label {index}",
+                f"sess-stack-split-narrow-{index}",
+            )
+            self.window._add_session_tab(session, QWidget(), "SSH")
+        updated = AppSettings.from_dict(self.window._settings.to_dict())
+        updated.workspace_tab_stacking_enabled = True
+        self.window._apply_app_settings(
+            updated,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+        QApplication.processEvents()
+
+        tab_bar = split_host.tabBar()
+        tab_bar._refresh_stacked_layout()
+        splitter = split_host.parentWidget()
+        self.assertIsInstance(splitter, QSplitter)
+        assert isinstance(splitter, QSplitter)
+        starting_width = split_host.width()
+        self.assertLessEqual(tab_bar.minimumSizeHint().width(), tab_bar._STACKED_MIN_TAB_WIDTH)
+        self.assertLess(split_host.minimumSizeHint().width(), starting_width)
+
+        splitter.setSizes([max(1, splitter.width() - 100), 100])
+        QApplication.processEvents()
+        tab_bar._refresh_stacked_layout()
+
+        rects = [tab_bar.tabRect(index) for index in range(split_host.count())]
+        self.assertTrue(tab_bar.tab_stacking_enabled())
+        self.assertLessEqual(tab_bar.sizeHint().width(), split_host.width())
+        self.assertLess(split_host.width(), starting_width // 2)
+        self.assertLessEqual(split_host.width(), 140)
+        self.assertGreater(rects[-1].top(), rects[0].top())
+        for rect in rects:
+            self.assertLessEqual(rect.width(), split_host.width())
+        text_rect = tab_bar._stacked_tab_text_rect(1, rects[1])
+        self.assertNotEqual(tab_bar._elided_tab_text(1, text_rect), split_host.tabText(1))
+
+    def test_stacked_workspace_tab_bar_wraps_tabs_and_keeps_hit_targets(self) -> None:
+        updated = AppSettings.from_dict(self.window._settings.to_dict())
+        updated.workspace_tab_stacking_enabled = True
+        self.window._apply_app_settings(
+            updated,
+            persist=False,
+            apply_runtime_side_effects=False,
+            show_status=False,
+        )
+        widgets: list[QWidget] = []
+        for index in range(5):
+            session = _build_session(f"Very Long Stack Host {index}", f"sess-stack-wrap-{index}")
+            widget = QWidget()
+            widgets.append(widget)
+            self.window._add_session_tab(session, widget, "SSH")
+
+        host = self.window.tabs
+        tab_bar = host.tabBar()
+        host.setFixedWidth(96)
+        QApplication.processEvents()
+        tab_bar.resize(96, 400)
+        tab_bar._refresh_stacked_layout()
+        QApplication.processEvents()
+
+        rects = [tab_bar.tabRect(index) for index in range(host.count())]
+        self.assertGreater(rects[-1].top(), rects[0].top())
+        self.assertEqual(tab_bar.tabAt(rects[-1].center()), host.count() - 1)
+        for index, rect in enumerate(rects):
+            text_rect = tab_bar._stacked_tab_text_rect(index, rect)
+            self.assertGreater(text_rect.width(), 0)
+            self.assertGreaterEqual(text_rect.left(), rect.left())
+            self.assertLessEqual(text_rect.right(), rect.right())
+            right_control = tab_bar.tabButton(index, QTabBar.RightSide)
+            if right_control is not None and not right_control.isHidden():
+                self.assertLess(text_rect.right(), right_control.geometry().left())
+                self.assertTrue(rect.contains(right_control.geometry().center()))
+
+        long_index = host.indexOf(widgets[0])
+        long_label = "Extremely Long Stacked Workspace Tab Label That Must Be Elided"
+        host.setTabText(long_index, long_label)
+        tab_bar._refresh_stacked_layout()
+        long_rect = tab_bar.tabRect(long_index)
+        long_text_rect = tab_bar._stacked_tab_text_rect(long_index, long_rect)
+        elided = tab_bar._elided_tab_text(long_index, long_text_rect)
+        self.assertNotEqual(elided, long_label)
+        self.assertLessEqual(tab_bar.fontMetrics().horizontalAdvance(elided), long_text_rect.width() + 1)
+
+        close_button = self._assert_custom_right_close_button(host, host.indexOf(widgets[2]))
+        self.assertEqual(close_button.property("sp_widget_id"), id(widgets[2]))
+        self.assertFalse(close_button.isHidden())
+
+        self.window._set_base_tab_title(widgets[2], "Renamed Stack Host")
+        self.window._set_tab_group_id(widgets[1], "group-stack")
+        self.window._set_tab_group_id(widgets[2], "group-stack")
+        self.window._refresh_tab_title(widgets[1])
+        self.window._refresh_tab_title(widgets[2])
+        tab_bar._refresh_stacked_layout()
+        renamed_index = host.indexOf(widgets[2])
+        self.assertIn("*", host.tabText(renamed_index))
+        self.assertEqual(tab_bar.tabAt(tab_bar.tabRect(renamed_index).center()), renamed_index)
+        renamed_close_button = self._assert_custom_right_close_button(host, renamed_index)
+        self.assertEqual(renamed_close_button.property("sp_widget_id"), id(widgets[2]))
+
+        rects = [tab_bar.tabRect(index) for index in range(host.count())]
+        with patch.object(self.window, "_show_tab_context_menu") as mock_context:
+            tab_bar._show_context_menu(rects[-1].center())
+
+        mock_context.assert_called_once()
+        args = mock_context.call_args.args
+        self.assertIs(args[0], host)
+        self.assertEqual(args[1], host.count() - 1)
+
+    def test_sftp_tab_renders_shell_banner(self) -> None:
+        session = _build_session("SFTP Banner", "sess-sftp-banner")
+        session.protocol = Protocol.SFTP
+        session.shell_banner_message = "Production SFTP"
+        session.shell_banner_color = "#ef4444"
+        session.shell_banner_blink = True
+        tab = SFTPSessionTab(
+            session=session,
+            sftp=self.window._sftp,
+            initial_remote_dir="/remote",
+            initial_remote_entries=[],
+            initial_local_dir="~",
+            password=None,
+            execute_remote=lambda _session, current_password, operation: (
+                operation(current_password, False),
+                current_password,
+            ),
+            status_callback=lambda _message, _timeout_ms: None,
+            should_confirm_delete=lambda: True,
+            should_confirm_overwrite=lambda: True,
+            parent=self.window,
+        )
+        try:
+            self.assertEqual(tab._shell_banner_label.text(), "Production SFTP")
+            self.assertFalse(tab._shell_banner_label.isHidden())
+            self.assertTrue(tab._shell_banner_blink_timer.isActive())
+            self.assertIn("#ef4444", tab._shell_banner_label.styleSheet().lower())
+
+            tab.shutdown()
+
+            self.assertFalse(tab._shell_banner_blink_timer.isActive())
+        finally:
+            tab.deleteLater()
+            QApplication.processEvents()
+
+    def test_sftp_session_details_include_shell_banner(self) -> None:
+        session = _build_session("SFTP Details", "sess-sftp-details-banner")
+        session.protocol = Protocol.SFTP
+        session.shell_banner_message = "SFTP Warning"
+        session.shell_banner_color = "#22c55e"
+        session.shell_banner_blink = True
+        self.session_service.add_or_update(session)
+        self.window._refresh_tree()
+        item = self._find_session_item(self.window, session.id)
+        self.assertIsNotNone(item)
+        assert item is not None
+
+        self.window.session_tree.setCurrentItem(item)
+        self.window._update_details()
+
+        details = self.window.details._view.toPlainText()
+        self.assertIn("Shell Banner: SFTP Warning", details)
+        self.assertIn("Shell Banner Color: #22c55e", details)
+        self.assertIn("Shell Banner Blink: Yes", details)
+
     def _launch_standalone_tool(self, tool_key: str, *, arguments=None, cwd=None, env=None):
         _ = cwd, env
         process = _StubToolProcess(tool_key, list(arguments or []))

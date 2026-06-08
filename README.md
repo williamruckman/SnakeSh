@@ -42,12 +42,12 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - X11 forwarding-ready SSH config flags
 - SSH sessions support dynamic (SOCKS) and static (local/remote) port-forward tunnel profiles
 - SSH/Telnet/Serial sessions support optional post-connect automation flows (command/sleep/expect steps with timeout actions)
-- SSH/Telnet/Serial sessions can show a per-session shell banner with custom color and optional blink for warnings or environment reminders
+- SSH/SFTP/Telnet/Serial sessions can show a per-session banner with custom color and optional blink for warnings or environment reminders
 - SSH/SFTP uses a single global command bar (bottom of workspace); commands target the active terminal tab or its group. Grouped tabs show `*` and can be managed/renamed from a Group Manager dialog
 - Saved Fast Commands are protocol-aware: they type into terminal tabs and copy to the clipboard when the active tab is an RDP, VNC, or NoMachine viewer
 - Multiple tabs to the same host are automatically numbered (for example `DatacenterSSH(1)`, `DatacenterSSH(2)`)
 - SSH/SFTP session tabs support horizontal/vertical split workspace layouts from the tab context menu or configurable shortcuts, with drag-drop tab movement across panes
-- Configurable workspace shortcuts cover next/previous tab cycling, direct tab jumps, and vertical/horizontal split actions; tab navigation and split shortcut targets skip `Session Details`
+- Configurable workspace shortcuts cover next/previous tab cycling, direct tab jumps, and vertical/horizontal split actions; optional tab stacking wraps workspace tabs into multiple rows; tab navigation and split shortcut targets skip `Session Details`
 - Docked session list width stays fixed while the main window resizes; drag the middle divider to choose a new width
 - SSH/SFTP/Telnet tabs can be detached into independent non-modal windows and reattached back to the main workspace
 - Local Shell tabs can also be detached into independent non-modal windows and reattached later

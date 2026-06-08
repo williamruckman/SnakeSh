@@ -154,6 +154,8 @@ class SettingsDialog(QDialog):
             allow_disabled=True,
             parent=self,
         )
+        self.workspace_tab_stacking_enabled = QCheckBox("Stack workspace tabs into multiple rows")
+        self.workspace_tab_stacking_enabled.setChecked(settings.workspace_tab_stacking_enabled)
         tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
         tab_jump_defaults = list(self._defaults.workspace_tab_jump_shortcuts)
         self.workspace_tab_jump_shortcuts: list[ShortcutPreferenceEditor] = []
@@ -445,6 +447,14 @@ class SettingsDialog(QDialog):
                 ),
                 editor,
             )
+        form.addRow(self._section_label("Tab Layout"))
+        form.addRow(
+            self._hint_label(
+                "Stack Tabs",
+                "Wraps workspace tabs into multiple rows instead of scrolling horizontally.",
+            ),
+            self.workspace_tab_stacking_enabled,
+        )
 
         form.addRow(self._section_label("Terminal"))
         form.addRow(
@@ -1039,6 +1049,7 @@ class SettingsDialog(QDialog):
                 ],
                 "workspace_split_vertical_shortcut": self.workspace_split_vertical_shortcut.shortcut_text(),
                 "workspace_split_horizontal_shortcut": self.workspace_split_horizontal_shortcut.shortcut_text(),
+                "workspace_tab_stacking_enabled": self.workspace_tab_stacking_enabled.isChecked(),
                 "terminal_scrollback_lines": self.scrollback.value(),
                 "terminal_log_dir": self.log_dir.text().strip() or self._defaults.terminal_log_dir,
                 "global_session_logging_enabled": self.global_session_logging_enabled.isChecked(),
@@ -1232,6 +1243,7 @@ class SettingsDialog(QDialog):
         self.font_family.currentTextChanged.connect(self._emit_preview_settings)
         self.font_pt.valueChanged.connect(self._emit_preview_settings)
         self.terminal_classic_default_colors.toggled.connect(self._emit_preview_settings)
+        self.workspace_tab_stacking_enabled.toggled.connect(self._emit_preview_settings)
 
     def _emit_preview_settings(self, *_args) -> None:
         if self._on_preview_requested is None:
@@ -1309,6 +1321,7 @@ class SettingsDialog(QDialog):
                 ),
                 "terminal_font_family": self.font_family.currentText().strip() or str(payload["terminal_font_family"]),
                 "terminal_font_pt": self.font_pt.value(),
+                "workspace_tab_stacking_enabled": self.workspace_tab_stacking_enabled.isChecked(),
             }
         )
         return AppSettings.from_dict(payload)
@@ -1408,6 +1421,7 @@ class SettingsDialog(QDialog):
         self.workspace_previous_tab_shortcut.set_shortcut_text(settings.workspace_previous_tab_shortcut)
         self.workspace_split_vertical_shortcut.set_shortcut_text(settings.workspace_split_vertical_shortcut)
         self.workspace_split_horizontal_shortcut.set_shortcut_text(settings.workspace_split_horizontal_shortcut)
+        self.workspace_tab_stacking_enabled.setChecked(settings.workspace_tab_stacking_enabled)
         tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
         for index, editor in enumerate(self.workspace_tab_jump_shortcuts):
             editor.set_shortcut_text(tab_jump_shortcuts[index] if index < len(tab_jump_shortcuts) else "")

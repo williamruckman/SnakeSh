@@ -190,6 +190,42 @@ class SettingsDialogTests(unittest.TestCase):
             dialog.deleteLater()
             QApplication.processEvents()
 
+    def test_build_settings_preserves_workspace_tab_stacking_preference(self) -> None:
+        dialog = SettingsDialog(settings=AppSettings.defaults())
+        try:
+            dialog.workspace_tab_stacking_enabled.setChecked(True)
+            saved = dialog.build_settings()
+
+            self.assertTrue(saved.workspace_tab_stacking_enabled)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_apply_settings_reloads_workspace_tab_stacking_preference(self) -> None:
+        dialog = SettingsDialog(settings=AppSettings.defaults())
+        try:
+            updated = AppSettings.defaults()
+            updated.workspace_tab_stacking_enabled = True
+
+            dialog.apply_settings(updated)
+
+            self.assertTrue(dialog.workspace_tab_stacking_enabled.isChecked())
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_workspace_tab_stacking_toggle_emits_preview_settings(self) -> None:
+        previews: list[AppSettings] = []
+        dialog = SettingsDialog(settings=AppSettings.defaults(), on_preview_requested=previews.append)
+        try:
+            dialog.workspace_tab_stacking_enabled.setChecked(True)
+
+            self.assertTrue(previews)
+            self.assertTrue(previews[-1].workspace_tab_stacking_enabled)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
     def test_workspace_tab_shortcut_duplicate_validation_rejects_save(self) -> None:
         settings = AppSettings.defaults()
         dialog = SettingsDialog(settings=settings)

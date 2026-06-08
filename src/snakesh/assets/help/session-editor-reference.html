@@ -62,7 +62,7 @@
 
   <h2>Shell Banner Fields</h2>
   <ul>
-    <li><strong>Shell Banner Message</strong>: optional plain-text message shown above the connected terminal. Visible only for SSH, Telnet, and Serial sessions.</li>
+    <li><strong>Shell Banner Message</strong>: optional plain-text message shown above SSH, SFTP, Telnet, and Serial session views.</li>
     <li><strong>Shell Banner Font Color</strong>: text color used by the shell banner message.</li>
     <li><strong>Blink shell banner while connected</strong>: toggles a blinking warning banner. If the banner message is blank, the color and blink settings are ignored.</li>
   </ul>
@@ -164,7 +164,7 @@
     <li>Telnet shows terminal-type, timeout, and TLS controls.</li>
     <li>Serial hides host-style network fields and shows device-line settings instead.</li>
     <li>SSH and SFTP show key-auth, SFTP folder, X11, keepalive, legacy-compatibility, tunneling, and terminal-color-override controls.</li>
-    <li>Only SSH, Telnet, and Serial expose the automation and shell-banner controls.</li>
+    <li>SSH, SFTP, Telnet, and Serial expose shell-banner controls. Automation controls are available for SSH, Telnet, and Serial.</li>
     <li>Local Shell is not part of the Session Editor; configure its defaults in Settings and launch it from the main toolbar.</li>
   </ul>
 

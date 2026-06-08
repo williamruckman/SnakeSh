@@ -921,7 +921,7 @@ class SessionEditorDialog(QDialog):
         is_remote_desktop = protocol in (Protocol.RDP, Protocol.VNC)
         supports_remote_launch_mode = protocol == Protocol.RDP and platform.system().lower() == "linux"
         supports_terminal_automation = protocol in (Protocol.SSH, Protocol.TELNET, Protocol.SERIAL)
-        supports_shell_banner = protocol in (Protocol.SSH, Protocol.TELNET, Protocol.SERIAL)
+        supports_shell_banner = protocol in (Protocol.SSH, Protocol.SFTP, Protocol.TELNET, Protocol.SERIAL)
         is_ssh_family = protocol in (Protocol.SSH, Protocol.SFTP)
         is_network_host = protocol != Protocol.SERIAL
         supports_password_storage = (
@@ -1392,7 +1392,7 @@ class SessionEditorDialog(QDialog):
             payload["serial_stop_bits"] = "1"
             payload["serial_flow_control"] = "none"
             payload["serial_terminal_type"] = "auto"
-            if protocol not in (Protocol.SSH, Protocol.TELNET, Protocol.SERIAL):
+            if protocol not in (Protocol.SSH, Protocol.SFTP, Protocol.TELNET, Protocol.SERIAL):
                 payload["shell_banner_message"] = ""
                 payload["shell_banner_color"] = ""
                 payload["shell_banner_blink"] = False

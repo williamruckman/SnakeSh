@@ -8595,9 +8595,21 @@ class SFTPSessionTab(QWidget):
         self._remote_load_save_password_on_success = False
         self._remote_placeholder_active = False
         self._remote_load_closing = False
+        self._shell_banner_text = ""
+        self._shell_banner_color = QColor("#f59e0b")
+        self._shell_banner_blink_visible = True
+        self._shell_banner_blink_timer = QTimer(self)
+        self._shell_banner_blink_timer.setInterval(550)
+        self._shell_banner_blink_timer.timeout.connect(self._toggle_shell_banner_visibility)
         self.setAcceptDrops(True)
 
         root = QVBoxLayout(self)
+        self._shell_banner_label = QLabel("")
+        self._shell_banner_label.setWordWrap(True)
+        self._shell_banner_label.setAlignment(Qt.AlignCenter)
+        self._shell_banner_label.setTextFormat(Qt.PlainText)
+        self._shell_banner_label.hide()
+        root.addWidget(self._shell_banner_label)
         split = QSplitter(Qt.Horizontal)
         root.addWidget(split, 1)
 
@@ -8610,10 +8622,57 @@ class SFTPSessionTab(QWidget):
 
         self._set_local_directory(self._local_dir, sync_tree=True, show_errors=False)
         self.remote_path_input.setText(initial_remote_dir)
+        self.set_shell_banner(
+            message=session.shell_banner_message,
+            color=session.shell_banner_color,
+            blink=session.shell_banner_blink,
+        )
         if initial_remote_entries is None:
             self._show_remote_loading_state(f"Loading {initial_remote_dir}...")
         else:
             self._apply_remote_directory_entries(initial_remote_dir, initial_remote_entries, loading=False)
+
+    def set_shell_banner(self, *, message: str, color: str, blink: bool) -> None:
+        normalized = message.replace("\r\n", "\n").replace("\r", "\n").strip()
+        self._shell_banner_text = normalized
+        self._shell_banner_blink_timer.stop()
+        self._shell_banner_blink_visible = True
+        if not normalized:
+            self._shell_banner_label.clear()
+            self._shell_banner_label.hide()
+            return
+
+        banner_color = QColor(color.strip())
+        if not banner_color.isValid():
+            banner_color = QColor("#f59e0b")
+        self._shell_banner_color = banner_color
+        self._shell_banner_label.setText(normalized)
+        self._shell_banner_label.show()
+        self._apply_shell_banner_style(text_visible=True)
+        if blink:
+            self._shell_banner_blink_timer.start()
+
+    def _toggle_shell_banner_visibility(self) -> None:
+        if not self._shell_banner_text:
+            self._shell_banner_blink_timer.stop()
+            self._shell_banner_label.hide()
+            return
+        self._shell_banner_blink_visible = not self._shell_banner_blink_visible
+        self._apply_shell_banner_style(text_visible=self._shell_banner_blink_visible)
+
+    def _apply_shell_banner_style(self, *, text_visible: bool) -> None:
+        color = self._shell_banner_color
+        text_color = color.name() if text_visible else f"rgba({color.red()}, {color.green()}, {color.blue()}, 0)"
+        self._shell_banner_label.setStyleSheet(
+            "QLabel {"
+            f"color: {text_color};"
+            f"background-color: rgba({color.red()}, {color.green()}, {color.blue()}, 36);"
+            f"border: 1px solid {color.name()};"
+            "border-radius: 6px;"
+            "padding: 6px 10px;"
+            "font-weight: 700;"
+            "}"
+        )
 
     @staticmethod
     def _resolve_initial_local_dir(path: str) -> str:
@@ -9758,9 +9817,13 @@ class SFTPSessionTab(QWidget):
         self._upload_local_paths(local_paths)
         event.acceptProposedAction()
 
-    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+    def shutdown(self) -> None:
         self._remote_load_closing = True
+        self._shell_banner_blink_timer.stop()
         self._cancel_remote_directory_load(wait_ms=250)
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+        self.shutdown()
         super().closeEvent(event)
 
 
@@ -12254,15 +12317,250 @@ _TAB_DRAG_MIME = "application/x-snakesh-tab"
 
 
 class WorkspaceTabBar(QTabBar):
+    _STACKED_MIN_TAB_WIDTH = 72
+    _STACKED_MAX_TAB_WIDTH = 240
+    _STACKED_ROW_GAP = 0
+    _STACKED_TAB_GAP = 2
+    _STACKED_TAB_LEFT_PADDING = 12
+    _STACKED_TAB_RIGHT_PADDING = 8
+    _STACKED_TAB_BUTTON_MARGIN = 4
+    _STACKED_TAB_TEXT_BUTTON_GAP = 6
+
     def __init__(self, owner: "MainWindow", host: "WorkspaceTabWidget", parent=None) -> None:
         super().__init__(parent)
         self._owner = owner
         self._host = host
         self._press_pos = None
+        self._tab_stacking_enabled = False
         self.setAcceptDrops(True)
         self.setMovable(False)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
+
+    def set_tab_stacking_enabled(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        changed = self._tab_stacking_enabled != enabled
+        self._tab_stacking_enabled = enabled
+        self.setUsesScrollButtons(not enabled)
+        self.setElideMode(Qt.TextElideMode.ElideRight)
+        self.setExpanding(False)
+        self._refresh_stacked_layout()
+        if changed:
+            self.updateGeometry()
+
+    def tab_stacking_enabled(self) -> bool:
+        return self._tab_stacking_enabled
+
+    def tabAt(self, position):  # noqa: N802
+        if self._tab_stacking_enabled:
+            return self._stacked_tab_at(position)
+        return super().tabAt(position)
+
+    def tabRect(self, index: int) -> QRect:  # noqa: N802
+        if self._tab_stacking_enabled:
+            rects = self._stacked_tab_rects()
+            if 0 <= index < len(rects):
+                return QRect(rects[index])
+            return QRect()
+        return super().tabRect(index)
+
+    def tabSizeHint(self, index: int) -> QSize:  # noqa: N802
+        size = super().tabSizeHint(index)
+        if not self._tab_stacking_enabled:
+            return size
+        return QSize(self._stacked_tab_width(index), max(32, size.height()))
+
+    def minimumTabSizeHint(self, index: int) -> QSize:  # noqa: N802
+        size = super().minimumTabSizeHint(index)
+        if not self._tab_stacking_enabled:
+            return self.tabSizeHint(index)
+        return QSize(min(self._stacked_minimum_width(), self._available_tab_width()), max(32, size.height()))
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        size = super().sizeHint()
+        if not self._tab_stacking_enabled or self.count() <= 0:
+            return size
+        rects = self._stacked_tab_rects()
+        if not rects:
+            return size
+        height = max(rect.bottom() for rect in rects) + 1
+        return QSize(self._available_tab_width(), max(size.height(), height))
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802
+        size = super().minimumSizeHint()
+        if not self._tab_stacking_enabled or self.count() <= 0:
+            return size
+        return QSize(self._stacked_minimum_width(), max(size.height(), self._stacked_row_height()))
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        if not self._tab_stacking_enabled:
+            super().paintEvent(event)
+            return
+        self._sync_stacked_tab_buttons()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.TextAntialiasing, True)
+        for index, rect in enumerate(self._stacked_tab_rects()):
+            self._paint_stacked_tab(painter, index, rect)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._refresh_stacked_layout()
+
+    def tabInserted(self, index: int) -> None:  # noqa: N802
+        super().tabInserted(index)
+        self._refresh_stacked_layout()
+
+    def tabRemoved(self, index: int) -> None:  # noqa: N802
+        super().tabRemoved(index)
+        self._refresh_stacked_layout()
+
+    def tabLayoutChange(self) -> None:  # noqa: N802
+        super().tabLayoutChange()
+        self._refresh_stacked_layout()
+
+    def _available_tab_width(self) -> int:
+        candidates: list[int] = []
+        host = self._host
+        if host is not None:
+            candidates.append(host.contentsRect().width())
+            candidates.append(host.width())
+        parent = self.parentWidget()
+        if parent is not None:
+            candidates.append(parent.contentsRect().width())
+            candidates.append(parent.width())
+        candidates.append(self.width())
+        for width in candidates:
+            if width > 1:
+                return int(width)
+        return self._stacked_minimum_width()
+
+    def _stacked_minimum_width(self) -> int:
+        return max(1, int(self._STACKED_MIN_TAB_WIDTH))
+
+    def _stacked_row_height(self) -> int:
+        height = 32
+        for index in range(self.count()):
+            height = max(height, QTabBar.tabSizeHint(self, index).height())
+        return height
+
+    def _stacked_tab_width(self, index: int) -> int:
+        available = self._available_tab_width()
+        if available <= self._STACKED_MIN_TAB_WIDTH:
+            return available
+        width = QTabBar.tabSizeHint(self, index).width()
+        width = max(self._STACKED_MIN_TAB_WIDTH, min(self._STACKED_MAX_TAB_WIDTH, width))
+        return min(width, available)
+
+    def _stacked_tab_rects(self) -> list[QRect]:
+        count = self.count()
+        if count <= 0:
+            return []
+        available = self._available_tab_width()
+        row_height = self._stacked_row_height()
+        rects: list[QRect] = []
+        x = 0
+        y = 0
+        for index in range(count):
+            width = self._stacked_tab_width(index)
+            if x > 0 and x + width > available:
+                x = 0
+                y += row_height + self._STACKED_ROW_GAP
+            width = min(width, available)
+            rects.append(QRect(x, y, width, row_height))
+            x += width + self._STACKED_TAB_GAP
+        return rects
+
+    def _stacked_tab_at(self, position: QPoint) -> int:
+        for index, rect in enumerate(self._stacked_tab_rects()):
+            if rect.contains(position):
+                return index
+        return -1
+
+    def _stacked_tab_text_rect(self, index: int, rect: QRect) -> QRect:
+        left = rect.left() + self._STACKED_TAB_LEFT_PADDING
+        right = rect.right() - self._STACKED_TAB_RIGHT_PADDING
+        close_button = self.tabButton(index, QTabBar.RightSide)
+        if close_button is not None and not close_button.isHidden():
+            right = min(right, close_button.geometry().left() - self._STACKED_TAB_TEXT_BUTTON_GAP)
+        elif close_button is not None:
+            button_width = min(max(1, close_button.sizeHint().width()), max(1, rect.width() - 6))
+            right = min(right, rect.right() - button_width - self._STACKED_TAB_BUTTON_MARGIN - self._STACKED_TAB_TEXT_BUTTON_GAP)
+        if right < left:
+            right = left
+        return QRect(left, rect.top(), max(1, right - left + 1), rect.height())
+
+    def _elided_tab_text(self, index: int, text_rect: QRect) -> str:
+        return self.fontMetrics().elidedText(
+            self.tabText(index),
+            Qt.TextElideMode.ElideRight,
+            max(1, text_rect.width()),
+        )
+
+    def _paint_stacked_tab(self, painter: QPainter, index: int, rect: QRect) -> None:
+        s = self._owner._settings
+        selected = index == self.currentIndex()
+        active_host = self._host == getattr(self._owner, "_active_tab_host", None)
+        if selected and active_host:
+            bg = self._owner._safe_theme_color(s.tab_active_bg, "#2563eb")
+            fg = self._owner._safe_theme_color(s.tab_active_fg, "#ffffff")
+        else:
+            bg = self._owner._safe_theme_color(s.tab_inactive_bg, "#1f2937")
+            fg = self._owner._safe_theme_color(s.tab_inactive_fg, "#cbd5e1")
+        border = self._owner._safe_theme_color(s.field_border, "#334155")
+
+        draw_rect = QRect(rect).adjusted(0, 0, -1, 0)
+        painter.setPen(QColor(border))
+        painter.setBrush(QColor(bg))
+        painter.drawRoundedRect(draw_rect, 4, 4)
+
+        font = QFont(self.font())
+        if selected and active_host:
+            font.setWeight(QFont.Weight.DemiBold)
+        elif selected:
+            font.setWeight(QFont.Weight.Medium)
+        painter.setFont(font)
+        painter.setPen(QColor(fg))
+        text_rect = self._stacked_tab_text_rect(index, rect)
+        painter.drawText(
+            text_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            self._elided_tab_text(index, text_rect),
+        )
+
+    def _sync_stacked_tab_buttons(self) -> None:
+        if not self._tab_stacking_enabled:
+            for index in range(self.count()):
+                for side in (QTabBar.LeftSide, QTabBar.RightSide):
+                    control = self.tabButton(index, side)
+                    if control is not None:
+                        control.show()
+            return
+        rects = self._stacked_tab_rects()
+        for index, rect in enumerate(rects):
+            for side in (QTabBar.LeftSide, QTabBar.RightSide):
+                control = self.tabButton(index, side)
+                if control is None:
+                    continue
+                hint = control.sizeHint()
+                width = min(max(1, hint.width()), max(1, rect.width() - 6))
+                height = min(max(1, hint.height()), max(1, rect.height() - 4))
+                if width < 8 or height < 8:
+                    control.hide()
+                    continue
+                if side == QTabBar.RightSide:
+                    x = rect.right() - width - self._STACKED_TAB_BUTTON_MARGIN
+                else:
+                    x = rect.left() + self._STACKED_TAB_BUTTON_MARGIN
+                y = rect.top() + max(0, (rect.height() - height) // 2)
+                control.setGeometry(x, y, width, height)
+                control.raise_()
+                control.show()
+
+    def _refresh_stacked_layout(self) -> None:
+        self._sync_stacked_tab_buttons()
+        self.updateGeometry()
+        self.update()
 
     def _show_context_menu(self, position) -> None:
         index = self.tabAt(position)
@@ -12275,6 +12573,12 @@ class WorkspaceTabBar(QTabBar):
         if event.button() == Qt.LeftButton:
             self._press_pos = event.position().toPoint()
             self._owner._set_active_tab_host(self._host)
+            if self._tab_stacking_enabled:
+                index = self._stacked_tab_at(self._press_pos)
+                if index >= 0:
+                    self.setCurrentIndex(index)
+                    event.accept()
+                    return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
@@ -12297,6 +12601,9 @@ class WorkspaceTabBar(QTabBar):
                 drag.exec(Qt.MoveAction)
             finally:
                 self._owner._end_tab_drag()
+            return
+        if self._tab_stacking_enabled:
+            event.accept()
             return
         super().mouseMoveEvent(event)
 
@@ -12613,6 +12920,7 @@ class MainWindow(QMainWindow):
         host = WorkspaceTabWidget(owner=self, parent=parent)
         host.setProperty("is_primary_host", primary)
         host.setTabBar(WorkspaceTabBar(owner=self, host=host, parent=host))
+        self._configure_tab_host_layout(host)
         host.setTabsClosable(True)
         host.tabCloseRequested.connect(lambda index, h=host: self._request_close_tab_in_host(h, index))
         host.currentChanged.connect(lambda _index, h=host: self._on_host_current_changed(h))
@@ -12623,6 +12931,17 @@ class MainWindow(QMainWindow):
         else:
             self._apply_tab_styles()
         return host
+
+    def _configure_tab_host_layout(self, host: WorkspaceTabWidget) -> None:
+        stacking_enabled = bool(getattr(self._settings, "workspace_tab_stacking_enabled", False))
+        host.setUsesScrollButtons(not stacking_enabled)
+        tab_bar = host.tabBar()
+        if isinstance(tab_bar, WorkspaceTabBar):
+            tab_bar.set_tab_stacking_enabled(stacking_enabled)
+
+    def _apply_tab_layout_settings(self) -> None:
+        for host in self._tab_hosts:
+            self._configure_tab_host_layout(host)
 
     def _schedule_ui_settings_save(self) -> None:
         self._ui_settings_save_pending = True
@@ -14247,6 +14566,8 @@ class MainWindow(QMainWindow):
                 tab_bar.setContentsMargins(0, 0, 0, 0)
                 tab_bar.setStyleSheet(style)
                 self._sync_host_tab_close_buttons(host)
+                if isinstance(tab_bar, WorkspaceTabBar):
+                    tab_bar._refresh_stacked_layout()
         finally:
             self._applying_tab_styles = False
 
@@ -16104,7 +16425,7 @@ class MainWindow(QMainWindow):
                 f"Background {session.terminal_bg_color or '(default)'} / "
                 f"Foreground {session.terminal_fg_color or '(default)'}"
             )
-        if session.protocol in (Protocol.SSH, Protocol.TELNET, Protocol.SERIAL) and session.shell_banner_message:
+        if session.protocol in (Protocol.SSH, Protocol.SFTP, Protocol.TELNET, Protocol.SERIAL) and session.shell_banner_message:
             lines.extend(
                 [
                     f"Shell Banner: {session.shell_banner_message}",
@@ -19630,6 +19951,7 @@ class MainWindow(QMainWindow):
         self._session_list_mode = self._normalized_session_list_mode(self._settings.session_list_visibility_mode)
         self._sync_session_list_mode_actions()
         self._apply_session_list_mode(self._session_list_mode, persist=False)
+        self._apply_tab_layout_settings()
         if apply_runtime_side_effects:
             self._maybe_prune_session_logs(force=True)
             self._maybe_prune_web_server_logs(force=True)
@@ -20214,6 +20536,8 @@ class MainWindow(QMainWindow):
                 self._finish_status_progress(close_progress)
                 self.statusBar().showMessage("Session is still shutting down. Try closing the tab again shortly.", 5000)
                 return
+        elif isinstance(widget, SFTPSessionTab):
+            widget.shutdown()
         elif isinstance(widget, RemoteViewerTab):
             widget.shutdown()
         host.removeTab(index)

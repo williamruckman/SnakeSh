@@ -208,6 +208,61 @@ class SessionEditorDialogTests(unittest.TestCase):
             dialog.deleteLater()
             QApplication.processEvents()
 
+    def test_shell_banner_controls_visible_for_sftp(self) -> None:
+        dialog = SessionEditorDialog()
+        try:
+            dialog.protocol_input.setCurrentText("SFTP")
+            dialog._update_protocol_specific_fields()
+
+            self.assertFalse(dialog.shell_banner_message_input.isHidden())
+            self.assertFalse(dialog.shell_banner_color_widget.isHidden())
+            self.assertFalse(dialog.shell_banner_blink_input.isHidden())
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_build_session_retains_sftp_shell_banner_settings(self) -> None:
+        dialog = SessionEditorDialog()
+        try:
+            dialog.protocol_input.setCurrentText("SFTP")
+            dialog._update_protocol_specific_fields()
+            dialog.name_input.setText("SFTP Host")
+            dialog.host_input.setText("127.0.0.1")
+            dialog.shell_banner_message_input.setText("Production SFTP")
+            dialog.shell_banner_color_input.setText("#ef4444")
+            dialog.shell_banner_blink_input.setChecked(True)
+
+            session = dialog.build_session()
+
+            self.assertEqual(session.protocol, Protocol.SFTP)
+            self.assertEqual(session.shell_banner_message, "Production SFTP")
+            self.assertEqual(session.shell_banner_color, "#ef4444")
+            self.assertTrue(session.shell_banner_blink)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
+    def test_unsupported_protocol_switch_clears_shell_banner_settings(self) -> None:
+        dialog = SessionEditorDialog()
+        try:
+            dialog.protocol_input.setCurrentText("SFTP")
+            dialog._update_protocol_specific_fields()
+            dialog.shell_banner_message_input.setText("Should clear")
+            dialog.shell_banner_color_input.setText("#ef4444")
+            dialog.shell_banner_blink_input.setChecked(True)
+
+            dialog.protocol_input.setCurrentText("RDP")
+            dialog._update_protocol_specific_fields()
+            session = dialog.build_session()
+
+            self.assertEqual(session.protocol, Protocol.RDP)
+            self.assertEqual(session.shell_banner_message, "")
+            self.assertEqual(session.shell_banner_color, "")
+            self.assertFalse(session.shell_banner_blink)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
 
 if __name__ == "__main__":
     unittest.main()

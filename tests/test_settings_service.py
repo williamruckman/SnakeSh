@@ -279,6 +279,18 @@ class SettingsServiceTests(unittest.TestCase):
         settings = AppSettings.defaults()
         self.assertEqual(settings.session_list_visibility_mode, "shown")
 
+    def test_defaults_disable_workspace_tab_stacking(self) -> None:
+        settings = AppSettings.defaults()
+        self.assertFalse(settings.workspace_tab_stacking_enabled)
+
+    def test_roundtrip_preserves_workspace_tab_stacking_preference(self) -> None:
+        settings = AppSettings.defaults()
+        settings.workspace_tab_stacking_enabled = True
+
+        restored = AppSettings.from_dict(settings.to_dict())
+
+        self.assertTrue(restored.workspace_tab_stacking_enabled)
+
     def test_roundtrip_preserves_session_log_cleanup_preferences(self) -> None:
         settings = AppSettings.defaults()
         settings.session_log_cleanup_enabled = True
