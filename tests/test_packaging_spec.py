@@ -69,6 +69,30 @@ class PackagingSpecTests(unittest.TestCase):
         self.assertIn("VERSION does not match release tag", build_text)
         self.assertIn("${RELEASE_TAG} does not contain a VERSION file.", build_text)
         self.assertIn("needs.release-version.outputs.should_build == 'true'", build_text)
+        self.assertNotIn("actions/checkout@v4", build_text)
+        self.assertNotIn("actions/setup-python@v5", build_text)
+        self.assertIn("uses: actions/checkout@v6", build_text)
+        self.assertIn("uses: actions/setup-python@v6", build_text)
+        self.assertNotIn("actions/checkout@v4", draft_text)
+        self.assertIn("uses: actions/checkout@v6", draft_text)
+        self.assertIn("name: Test Suite\n    runs-on: ubuntu-22.04\n    timeout-minutes: 25", build_text)
+        self.assertIn("name: Run workspace tests\n        timeout-minutes: 10", build_text)
+        self.assertIn("name: Run remaining tests\n        timeout-minutes: 15", build_text)
+        self.assertIn(
+            "python3 -m pytest -vv --durations=25 -o faulthandler_timeout=60 "
+            "tests/test_tab_workspace.py",
+            build_text,
+        )
+        self.assertIn(
+            "python3 -m pytest -vv --durations=25 -o faulthandler_timeout=60 "
+            "tests/test_theme.py",
+            build_text,
+        )
+        self.assertIn(
+            "python3 -m pytest -vv --durations=25 -o faulthandler_timeout=60 "
+            "--ignore=tests/test_tab_workspace.py --ignore=tests/test_theme.py",
+            build_text,
+        )
         self.assertIn("overwrite_files: false", build_text)
         self.assertIn("fail_on_unmatched_files: true", build_text)
         self.assertIn(

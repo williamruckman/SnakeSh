@@ -18,7 +18,7 @@ jobs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
@@ -50,17 +50,18 @@ jobs:
   tests:
     name: Test Suite
     runs-on: ubuntu-22.04
+    timeout-minutes: 25
     needs:
       - release-version
     if: github.event_name != 'release' || needs.release-version.outputs.should_build == 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -69,11 +70,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
 
-      - name: Run test suite
+      - name: Install Python test dependencies
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -e . pytest
-          python3 -m pytest -q
+
+      - name: Run workspace tests
+        timeout-minutes: 10
+        run: python3 -m pytest -vv --durations=25 -o faulthandler_timeout=60 tests/test_tab_workspace.py
+
+      - name: Run remaining tests
+        timeout-minutes: 15
+        run: |
+          python3 -m pytest -vv --durations=25 -o faulthandler_timeout=60 tests/test_theme.py
+          python3 -m pytest -vv --durations=25 -o faulthandler_timeout=60 --ignore=tests/test_tab_workspace.py --ignore=tests/test_theme.py
 
   linux-x64:
     name: Linux x64 (AppImage)
@@ -84,12 +94,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -147,12 +157,12 @@ jobs:
             arch: arm64
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -259,12 +269,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
