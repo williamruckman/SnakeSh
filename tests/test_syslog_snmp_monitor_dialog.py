@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
@@ -18,6 +18,7 @@ from snakesh.services.syslog_snmp_monitor import (
     insert_monitor_event,
 )
 from snakesh.ui.bind_host_selector import CUSTOM_BIND_HOST_VALUE
+from snakesh.ui.alert_sound import BellSoundPlayer
 from snakesh.ui.syslog_snmp_monitor_dialog import SyslogSnmpMonitorDialog
 
 
@@ -55,6 +56,21 @@ class SyslogSnmpMonitorDialogTests(unittest.TestCase):
                 ],
             ),
         ]
+
+    def test_alert_sound_effect_is_owned_by_player(self) -> None:
+        player = BellSoundPlayer()
+        effect = MagicMock()
+        try:
+            with (
+                patch("snakesh.ui.alert_sound.QSoundEffect", return_value=effect) as sound_effect_factory,
+                patch("snakesh.ui.alert_sound.ensure_terminal_bell_wav", return_value=Path("bell.wav")),
+            ):
+                self.assertIs(player._get_or_create_sound_effect(), effect)
+
+            sound_effect_factory.assert_called_once_with(player)
+        finally:
+            player.deleteLater()
+            QApplication.processEvents()
 
     def _create_dialog(
         self,

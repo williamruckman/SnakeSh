@@ -1432,20 +1432,18 @@ class TerminalTab(QWidget):
         except Exception:
             return
 
-    @classmethod
-    def _create_bell_sound_effect(cls):
+    def _create_bell_sound_effect(self):
         if QSoundEffect is None:
             return None
-        app = QApplication.instance()
-        if app is None:
+        if QApplication.instance() is None:
             return None
         sound_path = _ensure_terminal_bell_wav()
         if sound_path is None:
             return None
         try:
-            effect = QSoundEffect(app)
+            effect = QSoundEffect(self)
             effect.setLoopCount(1)
-            effect.setVolume(cls._BELL_SOUND_VOLUME)
+            effect.setVolume(self._BELL_SOUND_VOLUME)
             effect.setSource(QUrl.fromLocalFile(str(sound_path)))
             return effect
         except Exception:
@@ -1457,6 +1455,21 @@ class TerminalTab(QWidget):
         self._bell_sound_effect_initialized = True
         self._bell_sound_effect = self._create_bell_sound_effect()
         return self._bell_sound_effect
+
+    def _release_bell_sound_effect(self) -> None:
+        effect = self._bell_sound_effect
+        self._bell_sound_effect = None
+        self._bell_sound_effect_initialized = False
+        if effect is None:
+            return
+        try:
+            effect.stop()
+        except Exception:
+            pass
+        try:
+            effect.deleteLater()
+        except Exception:
+            pass
 
     def _drain_pending_output(self, *, drain_all: bool = False) -> None:
         if not self._pending_output_chunks:
@@ -2171,6 +2184,7 @@ class TerminalTab(QWidget):
             self._bell_sound_retry_timer.stop()
             self._pending_bell_sound_effect_play = False
             self._bell_sound_retry_attempts_remaining = 0
+            self._release_bell_sound_effect()
         self.output.apply_settings(settings)
         dialog = self._scrollback_dialog
         if dialog is not None:
@@ -2552,6 +2566,7 @@ class TerminalTab(QWidget):
         self._reset_terminal_query_probe_tail()
         self._pending_bell_sound_effect_play = False
         self._bell_sound_retry_attempts_remaining = 0
+        self._release_bell_sound_effect()
         self._pending_output_chunks.clear()
         self._pending_output_chars = 0
         self._windows_local_shell_backend = ""

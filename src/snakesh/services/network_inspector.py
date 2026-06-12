@@ -656,18 +656,23 @@ def launch_network_inspector_ports_helper_elevated(
             "  exit 1\n"
             "}\n"
         )
+        run_kwargs: dict[str, Any] = {
+            "check": False,
+            "capture_output": True,
+            "text": True,
+        }
+        run_kwargs.update(_windows_hidden_process_options())
         result = subprocess.run(  # noqa: S603
             [
                 "powershell",
                 "-NoProfile",
+                "-NonInteractive",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
                 script,
             ],
-            check=False,
-            capture_output=True,
-            text=True,
+            **run_kwargs,
         )
         if result.returncode == 1223:
             raise ValueError("Elevation was cancelled by the user.")
@@ -1132,14 +1137,14 @@ def _launch_ports_helper_plain(session_dir: str | Path, *, platform_name: str | 
     command = network_inspector_ports_helper_command(session_dir)
     system = _platform_name(platform_name)
     if system == "windows":
-        creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        launch_kwargs = _windows_hidden_process_options(detached=True)
         subprocess.Popen(  # noqa: S603
             command,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             close_fds=True,
-            creationflags=creationflags,
+            **launch_kwargs,
         )
     else:
         subprocess.Popen(  # noqa: S603
@@ -1192,9 +1197,71 @@ def _normalize_pid(value: Any) -> int | None:
     return normalized if normalized > 0 else None
 
 
-def _pid_exists(pid: int) -> bool:
+def _windows_hidden_process_options(*, detached: bool = False) -> dict[str, Any]:
+    creationflags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if detached:
+        creationflags |= int(getattr(subprocess, "DETACHED_PROCESS", 0))
+        creationflags |= int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+
+    options: dict[str, Any] = {}
+    if creationflags:
+        options["creationflags"] = creationflags
+    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
+    if startupinfo_cls is not None:
+        startupinfo = startupinfo_cls()
+        startupinfo.dwFlags |= int(getattr(subprocess, "STARTF_USESHOWWINDOW", 0))
+        startupinfo.wShowWindow = int(getattr(subprocess, "SW_HIDE", 0))
+        options["startupinfo"] = startupinfo
+    return options
+
+
+def _pid_exists(pid: int, *, platform_name: str | None = None) -> bool:
     if pid <= 0:
         return False
+    if _platform_name(platform_name) == "windows":
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            kernel32 = ctypes.windll.kernel32
+            open_process = kernel32.OpenProcess
+            get_exit_code_process = kernel32.GetExitCodeProcess
+            close_handle = kernel32.CloseHandle
+            try:
+                open_process.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+                open_process.restype = wintypes.HANDLE
+                get_exit_code_process.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+                get_exit_code_process.restype = wintypes.BOOL
+                close_handle.argtypes = [wintypes.HANDLE]
+                close_handle.restype = wintypes.BOOL
+            except (AttributeError, TypeError):
+                pass
+
+            process_query_limited_information = 0x1000
+            process_query_information = 0x0400
+            still_active = 259
+            handle = None
+            for access in (process_query_limited_information, process_query_information):
+                handle = open_process(access, False, pid)
+                if handle:
+                    break
+                if ctypes.get_last_error() == 5:
+                    return True
+            if not handle:
+                return False
+            try:
+                exit_code = wintypes.DWORD()
+                if not get_exit_code_process(handle, ctypes.byref(exit_code)):
+                    return True
+                return int(exit_code.value) == still_active
+            finally:
+                try:
+                    close_handle(handle)
+                except Exception:
+                    pass
+        except Exception:
+            # A failed liveness probe must not crash the elevated helper.
+            return True
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

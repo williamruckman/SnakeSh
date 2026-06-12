@@ -1534,6 +1534,33 @@ class TabWorkspaceTests(unittest.TestCase):
             tab.deleteLater()
             QApplication.processEvents()
 
+    def test_terminal_bell_sound_effect_is_owned_and_released_by_tab(self) -> None:
+        settings = AppSettings.defaults()
+        settings.terminal_bell_enabled = True
+        tab = TerminalTab(settings=settings)
+        effect = MagicMock()
+        try:
+            with (
+                patch("snakesh.ui.main_window.QSoundEffect", return_value=effect) as sound_effect_factory,
+                patch("snakesh.ui.main_window._ensure_terminal_bell_wav", return_value=Path("bell.wav")),
+            ):
+                self.assertIs(tab._get_or_create_bell_sound_effect(), effect)
+
+            sound_effect_factory.assert_called_once_with(tab)
+
+            disabled = AppSettings.from_dict(settings.to_dict())
+            disabled.terminal_bell_enabled = False
+            tab.apply_settings(disabled)
+
+            effect.stop.assert_called_once()
+            effect.deleteLater.assert_called_once()
+            self.assertIsNone(tab._bell_sound_effect)
+            self.assertFalse(tab._bell_sound_effect_initialized)
+        finally:
+            tab.shutdown()
+            tab.deleteLater()
+            QApplication.processEvents()
+
     def test_terminal_bell_falls_back_to_app_beep_when_sound_effect_unavailable(self) -> None:
         settings = AppSettings.defaults()
         settings.terminal_bell_enabled = True

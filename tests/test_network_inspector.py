@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import snakesh.services.network_inspector as network_inspector
@@ -201,6 +202,105 @@ default                                 fe80::1%en0                    UGcIg    
 
         self.assertEqual(output, "ok")
         self.assertEqual(mock_run.call_args.kwargs["creationflags"], 0x08000000)
+
+    def test_windows_elevated_helper_launch_hides_powershell_and_target(self) -> None:
+        class _FakeStartupInfo:
+            def __init__(self) -> None:
+                self.dwFlags = 0
+                self.wShowWindow = -1
+
+        completed = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+        with (
+            patch("snakesh.services.network_inspector.subprocess.run", return_value=completed) as mock_run,
+            patch(
+                "snakesh.services.network_inspector.runtime.self_launch_command",
+                return_value=[r"C:\Program Files\SnakeSh\SnakeSh.exe", "--network-inspector-ports-helper", r"C:\Temp\session"],
+            ),
+            patch.object(network_inspector.subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True),
+            patch.object(network_inspector.subprocess, "STARTUPINFO", _FakeStartupInfo, create=True),
+            patch.object(network_inspector.subprocess, "STARTF_USESHOWWINDOW", 0x00000001, create=True),
+            patch.object(network_inspector.subprocess, "SW_HIDE", 0, create=True),
+        ):
+            network_inspector.launch_network_inspector_ports_helper_elevated(
+                r"C:\Temp\session",
+                platform_name="windows",
+            )
+
+        command = mock_run.call_args.args[0]
+        kwargs = mock_run.call_args.kwargs
+        self.assertEqual(command[:3], ["powershell", "-NoProfile", "-NonInteractive"])
+        self.assertEqual(kwargs["creationflags"], 0x08000000)
+        self.assertEqual(kwargs["startupinfo"].dwFlags, 0x00000001)
+        self.assertEqual(kwargs["startupinfo"].wShowWindow, 0)
+        self.assertIn("-Verb RunAs -WindowStyle Hidden", command[-1])
+
+    def test_windows_plain_helper_launch_never_creates_a_console(self) -> None:
+        class _FakeStartupInfo:
+            def __init__(self) -> None:
+                self.dwFlags = 0
+                self.wShowWindow = -1
+
+        with (
+            patch("snakesh.services.network_inspector.subprocess.Popen") as mock_popen,
+            patch(
+                "snakesh.services.network_inspector.runtime.self_launch_command",
+                return_value=["snakesh", "--network-inspector-ports-helper", "session"],
+            ),
+            patch.object(network_inspector.subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True),
+            patch.object(network_inspector.subprocess, "DETACHED_PROCESS", 0x00000008, create=True),
+            patch.object(network_inspector.subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200, create=True),
+            patch.object(network_inspector.subprocess, "STARTUPINFO", _FakeStartupInfo, create=True),
+            patch.object(network_inspector.subprocess, "STARTF_USESHOWWINDOW", 0x00000001, create=True),
+            patch.object(network_inspector.subprocess, "SW_HIDE", 0, create=True),
+        ):
+            network_inspector._launch_ports_helper_plain("session", platform_name="windows")
+
+        kwargs = mock_popen.call_args.kwargs
+        self.assertEqual(kwargs["creationflags"], 0x08000208)
+        self.assertEqual(kwargs["startupinfo"].dwFlags, 0x00000001)
+        self.assertEqual(kwargs["startupinfo"].wShowWindow, 0)
+
+    def test_pid_exists_uses_windows_process_query_api(self) -> None:
+        class _FakeKernel32:
+            def OpenProcess(self, access, inherit_handle, pid):  # noqa: ANN001
+                self.access = access
+                self.inherit_handle = inherit_handle
+                self.pid = pid
+                return 41
+
+            def GetExitCodeProcess(self, handle, exit_code_ptr):  # noqa: ANN001
+                self.handle = handle
+                exit_code_ptr._obj.value = 259
+                return True
+
+            def CloseHandle(self, handle):  # noqa: ANN001
+                self.closed_handle = handle
+                return True
+
+        fake_kernel32 = _FakeKernel32()
+        with (
+            patch("snakesh.services.network_inspector._platform_name", return_value="windows"),
+            patch("ctypes.windll", new=SimpleNamespace(kernel32=fake_kernel32), create=True),
+            patch("ctypes.get_last_error", return_value=0, create=True),
+            patch("snakesh.services.network_inspector.os.kill", side_effect=AssertionError("os.kill should not be used")),
+        ):
+            self.assertTrue(network_inspector._pid_exists(1234))
+
+        self.assertEqual(fake_kernel32.pid, 1234)
+        self.assertEqual(fake_kernel32.handle, 41)
+        self.assertEqual(fake_kernel32.closed_handle, 41)
+
+    def test_pid_exists_windows_probe_failure_does_not_call_os_kill(self) -> None:
+        class _FailingKernel32:
+            def OpenProcess(self, access, inherit_handle, pid):  # noqa: ANN001
+                raise OSError("process query failed")
+
+        with (
+            patch("snakesh.services.network_inspector._platform_name", return_value="windows"),
+            patch("ctypes.windll", new=SimpleNamespace(kernel32=_FailingKernel32()), create=True),
+            patch("snakesh.services.network_inspector.os.kill", side_effect=SystemError("invalid Windows handle")),
+        ):
+            self.assertTrue(network_inspector._pid_exists(1234))
 
     def test_collect_arp_entries_applies_oui_lookup(self) -> None:
         service = OUILookupService([OUIRecord(prefix="AABBCC", bits=24, vendor="Vendor Example")])

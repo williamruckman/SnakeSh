@@ -145,20 +145,18 @@ class BellSoundPlayer(QObject):
         except Exception:
             return
 
-    @classmethod
-    def _create_sound_effect(cls):
+    def _create_sound_effect(self):
         if QSoundEffect is None:
             return None
-        app = QApplication.instance()
-        if app is None:
+        if QApplication.instance() is None:
             return None
         sound_path = ensure_terminal_bell_wav()
         if sound_path is None:
             return None
         try:
-            effect = QSoundEffect(app)
+            effect = QSoundEffect(self)
             effect.setLoopCount(1)
-            effect.setVolume(cls._SOUND_VOLUME)
+            effect.setVolume(self._SOUND_VOLUME)
             effect.setSource(QUrl.fromLocalFile(str(sound_path)))
             return effect
         except Exception:
