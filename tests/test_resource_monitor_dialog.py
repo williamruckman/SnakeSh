@@ -1305,7 +1305,10 @@ class ResourceMonitorDialogTests(unittest.TestCase):
             dialog.deleteLater()
             QApplication.processEvents()
 
-    def test_process_snapshot_updates_tree_and_search_filter(self) -> None:
+    # These tests supply snapshots directly. Tab activation must not start a
+    # live collector that can overwrite the fixture while events are processed.
+    @patch.object(ResourceMonitorDialog, "_start_process_refresh", return_value=False)
+    def test_process_snapshot_updates_tree_and_search_filter(self, _start_refresh) -> None:
         with patch("snakesh.ui.resource_monitor_dialog.QTimer.singleShot"):
             dialog = ResourceMonitorDialog()
         try:
@@ -1328,7 +1331,8 @@ class ResourceMonitorDialogTests(unittest.TestCase):
             dialog.deleteLater()
             QApplication.processEvents()
 
-    def test_process_snapshot_defaults_to_cpu_descending_sort(self) -> None:
+    @patch.object(ResourceMonitorDialog, "_start_process_refresh", return_value=False)
+    def test_process_snapshot_defaults_to_cpu_descending_sort(self, _start_refresh) -> None:
         with patch("snakesh.ui.resource_monitor_dialog.QTimer.singleShot"):
             dialog = ResourceMonitorDialog()
         try:
@@ -1374,7 +1378,8 @@ class ResourceMonitorDialogTests(unittest.TestCase):
             dialog.deleteLater()
             QApplication.processEvents()
 
-    def test_process_snapshot_preserves_memory_descending_sort(self) -> None:
+    @patch.object(ResourceMonitorDialog, "_start_process_refresh", return_value=False)
+    def test_process_snapshot_preserves_memory_descending_sort(self, _start_refresh) -> None:
         with patch("snakesh.ui.resource_monitor_dialog.QTimer.singleShot"):
             dialog = ResourceMonitorDialog()
         try:

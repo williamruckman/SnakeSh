@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.74 source changes against `a9f02db` / version 1.72, October 21, 2026.
+Version 1.75 source changes against `a9f02db` / version 1.72, October 21, 2026.
 Package verification follows the GitLab/GitHub CI builds; local source test
 results below do not establish packaged or on-device behavior.
 
@@ -57,7 +57,7 @@ python -m pytest -q tests/test_qt_runtime.py tests/test_version.py tests/test_pa
 ```
 
 `python -m snakesh --help`, `python -m snakesh tool list`, and
-`git diff --check` also passed. Version 1.74 is prepared for the GitLab release
+`git diff --check` also passed. Version 1.75 is prepared for the GitLab release
 job, which mirrors its tag to GitHub. GitHub builds the platform packages on
 release publication or a manual workflow run. Windows clipboard/native-shell
 behavior and macOS Tahoe RDP remain on-device verification gates, not confirmed
@@ -74,6 +74,13 @@ Version 1.74 pins PySide6 6.11.2 in package metadata and the source bootstrap,
 and adds an isolated runtime regression before CI workspace tests. The published
 v1.73 tag is preserved; the corrected build uses a new version.
 The new regression fails safely with the 6.12.0 runtime and passes with 6.11.2.
+
+The v1.74 CI run passed the Qt runtime and workspace checks, then reported one
+Resource Monitor sorting-test failure: a live process refresh started by tab
+activation overwrote the test's synthetic process snapshot. Version 1.75
+disables live collection in the three snapshot-rendering tests. The complete
+Resource Monitor test module passed afterward (64 tests); application refresh
+behavior is unchanged. Published tags v1.73 and v1.74 are preserved.
 
 ## Upstream references
 
