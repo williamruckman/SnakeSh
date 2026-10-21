@@ -12,7 +12,7 @@
 </head>
 <body>
   <h1>Remote Desktops</h1>
-  <p>SnakeSh supports RDP, VNC, and NoMachine sessions through integrated launch workflows. These sessions still live in the session library, but their runtime behavior is different from terminal tabs because desktop viewers do not share a universal input API.</p>
+  <p>SnakeSh supports RDP and VNC sessions through integrated launch workflows. These sessions still live in the session library, but their runtime behavior is different from terminal tabs because desktop viewers do not share a universal input API.</p>
 
   <h2>RDP</h2>
   <ul>
@@ -26,16 +26,14 @@
   <h2>VNC</h2>
   <p>VNC uses an installed platform viewer such as TigerVNC or compatible alternatives. SnakeSh detects available viewers and applies display preferences when the selected client supports them.</p>
 
-  <h2>NoMachine</h2>
-  <p>NoMachine uses <code>nxplayer</code> and follows a detached-viewer workflow. This keeps the session managed inside SnakeSh without pretending the viewer behaves like an embedded terminal. Saved sessions can also tune audio streaming, remote audio muting, physical-desktop auto-resize, resize mode, and link/video quality.</p>
-
   <h2>Display Preferences</h2>
-  <p>RDP and VNC sessions can store options such as resolution, fullscreen, and color depth. These settings stay attached to the session definition so reconnects use the same viewing preference each time. NoMachine uses its own quality and resize controls instead of the shared RDP/VNC resolution fields.</p>
+  <p>RDP and VNC sessions can store options such as resolution, fullscreen, and color depth. These settings stay attached to the session definition so reconnects use the same viewing preference each time.</p>
 
   <h2>Clipboard-Oriented Fast Commands</h2>
   <p>Saved Fast Commands behave differently on remote viewer tabs. Instead of trying to type into the remote desktop, SnakeSh copies the command text to the local clipboard and tells you to paste it manually inside the remote session. This keeps the behavior predictable across viewer implementations.</p>
 
   <h2>Platform Limits</h2>
   <p>Not every protocol supports in-tab rendering on every operating system. When a viewer must run detached, SnakeSh still manages the session entry and launch flow, but the actual desktop surface opens through the platform viewer process. See <strong>Platform Differences</strong> in the Help index for a direct Windows, Linux, and macOS comparison.</p>
+  <h2>macOS RDP</h2><p>SnakeSh prefers an installed native FreeRDP SDL client, which does not need XQuartz. Older X11-only installations use xfreerdp with a working XQuartz display. If XQuartz cannot provide a display, SnakeSh reports an error.</p>
 </body>
 </html>

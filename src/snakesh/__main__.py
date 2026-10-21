@@ -4,6 +4,11 @@ import argparse
 import os
 import sys
 
+# Keep the timed clipboard helper independent of GUI/Qt import and startup work.
+if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "--clipboard-helper":
+    from snakesh.services.windows_clipboard import run_clipboard_helper
+    raise SystemExit(run_clipboard_helper(sys.argv[2]))
+
 from snakesh.bootstrap import ensure_runtime_dependencies
 from snakesh.core.tool_registry import TOOL_REGISTRY_BY_KEY
 from snakesh.runtime import is_frozen
@@ -441,6 +446,9 @@ def _run_tool_command(argv: list[str]) -> int:
 
 def cli_main(argv: list[str] | None = None) -> int:
     provided_argv = list(argv) if argv is not None else list(sys.argv[1:])
+    if len(provided_argv) == 2 and provided_argv[0] == "--clipboard-helper":
+        from snakesh.services.windows_clipboard import run_clipboard_helper
+        return run_clipboard_helper(provided_argv[1])
     if provided_argv and provided_argv[0] == "tool":
         return _run_tool_command(provided_argv[1:])
 

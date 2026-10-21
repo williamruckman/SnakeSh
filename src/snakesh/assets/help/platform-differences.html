@@ -44,7 +44,7 @@
         <td>RDP support</td>
         <td><code>mstsc</code>, detached/external viewer workflow</td>
         <td><code>xfreerdp</code>, detached or supported in-tab workflow</td>
-        <td>Not supported</td>
+        <td>FreeRDP, detached; prefers native SDL, with XQuartz fallback</td>
       </tr>
       <tr>
         <td>VNC</td>
@@ -52,13 +52,7 @@
         <td>Installed viewer integration</td>
         <td>Installed viewer integration</td>
       </tr>
-      <tr>
-        <td>NoMachine</td>
-        <td><code>nxplayer</code>, detached</td>
-        <td><code>nxplayer</code>, detached</td>
-        <td><code>nxplayer</code>, detached</td>
-      </tr>
-      <tr>
+  <tr>
         <td>X11 forwarding</td>
         <td>Needs local X server, SnakeSh can help with VcXsrv</td>
         <td>Needs working local X environment</td>
@@ -83,7 +77,7 @@
   <ul>
     <li>SSH, SFTP, Telnet, Serial, and Local Shell tabs use the same terminal workspace model.</li>
     <li>Local Shell tabs can detach and reattach the same way as other terminal tabs.</li>
-    <li>Fast Commands on RDP, VNC, and NoMachine tabs copy to the clipboard instead of injecting keystrokes.</li>
+    <li>Fast Commands on RDP and VNC tabs copy to the clipboard instead of injecting keystrokes.</li>
     <li>Network Inspector, File Hash, OUI Lookup, Web Server, Syslog / SNMP Monitor, and the rest of the Tools menu follow the same basic GUI pattern.</li>
     <li>Session encryption, saved-session structure, and secrets-backend support are shared across platforms.</li>
   </ul>
@@ -93,7 +87,7 @@
   <p>Local Shell tabs normally start with PowerShell or cmd. SSH, SFTP, Telnet, Serial, logging, grouping, and profiles behave the same way they do on other platforms.</p>
 
   <h3>Remote Desktop Workflow</h3>
-  <p>RDP launches through <code>mstsc</code>. This is a Windows-native external viewer workflow rather than the Linux in-tab <code>xfreerdp</code> path. VNC depends on an installed compatible viewer. NoMachine uses <code>nxplayer</code> in detached mode.</p>
+  <p>RDP launches through <code>mstsc</code>. This is a Windows-native external viewer workflow rather than the Linux in-tab <code>xfreerdp</code> path. VNC depends on an installed compatible viewer. </p>
 
   <h3>X11 and Helpers</h3>
   <p>Windows is the platform where SnakeSh provides the most direct X11 helper behavior. If you enable SSH X11 forwarding, SnakeSh can prefer VcXsrv, detect other X servers, and offer install or launch assistance when needed.</p>
@@ -122,7 +116,7 @@
   <p>Unsigned local macOS builds are supported, and signed/notarized release artifacts depend on configured release credentials. Unsigned builds can involve Gatekeeper prompts or a Finder <code>Open</code> workflow before the app is allowed to run.</p>
 
   <h3>Remote Desktop Workflow</h3>
-  <p>RDP is not currently supported on macOS in SnakeSh. SSH, SFTP, VNC, NoMachine, Telnet, Serial, and Local Shell workflows remain available. VNC and NoMachine rely on installed external viewer tools where appropriate.</p>
+  <p>RDP uses a detached FreeRDP viewer. SnakeSh prefers the installed native SDL frontend, which does not need XQuartz; older X11-only installations need a working XQuartz display. SSH, SFTP, VNC, Telnet, Serial, and Local Shell workflows remain available. VNC relies on installed external viewer tools where appropriate.</p>
 
   <h3>Terminal and Tool Behavior</h3>
   <p>Local Shell tabs use the detected macOS shell environment. The Tools menu remains available, but output from network and resolver inspection can differ from Linux because macOS uses different underlying system commands and data sources.</p>

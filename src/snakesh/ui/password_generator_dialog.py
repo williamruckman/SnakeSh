@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from snakesh.ui.clipboard import copy_text
 from snakesh.services.settings_service import AppSettings
 from snakesh.ui.theme import apply_terminal_output_font
 
@@ -299,5 +300,5 @@ class PasswordGeneratorDialog(QDialog):
         text = self.output.toPlainText().strip()
         if not text:
             return
-        QApplication.clipboard().setText(text)
+        copy_text(text)
         self.status.setText("Copied generated passwords to clipboard.")

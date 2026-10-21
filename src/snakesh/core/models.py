@@ -11,7 +11,7 @@ class Protocol(str, Enum):
     SFTP = "sftp"
     RDP = "rdp"
     VNC = "vnc"
-    NOMACHINE = "nomachine"
+    NOMACHINE = "nomachine"  # Retired: retained only to read/export existing records.
     TELNET = "telnet"
     SERIAL = "serial"
 

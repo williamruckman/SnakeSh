@@ -3,7 +3,7 @@
 # SnakeSh
 
 SnakeSh is a cross-platform remote access workspace in Python with a modern Qt UI and secure session storage.
-Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, and Serial.
+Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 
 <a href="docs/assets/snakesh-preview.mp4">
   <img src="docs/assets/snakesh-preview.gif" alt="Animated SnakeSh application preview" width="900">
@@ -25,26 +25,26 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - In-app Telnet terminal tabs with optional TLS, server certificate validation controls, and configurable terminal type/connect timeout
 - In-app Serial terminal tabs with configurable baud/data bits/parity/stop bits/flow control (native POSIX backend with PySerial fallback)
 - Dual-pane SFTP workspace (local left, remote right) with split navigation/list panes
+- SFTP Delete Selected buttons and the Delete key act on highlighted items with the configured deletion confirmation
 - SFTP transfers via double-click on remote files (download), double-click on local files (upload), right-click upload/download/rename/new-folder actions, `F5` refresh, and drag-drop upload
-- Upload progress dialog with percentage, elapsed time, transfer speed, and cancel support
+- Upload/download preparation and deletion progress with cancellation; file operations leave other workspace tabs usable
 - SFTP delete and overwrite actions can prompt for confirmation before replacing or removing files
 - Right-click SSH/SFTP session action to open an SFTP tab reusing the same session credentials
 - SSH/SFTP sessions support default SFTP local and remote start folders
-- RDP launcher integration (`mstsc` on Windows, `xfreerdp` on Linux/macOS)
-- RDP launcher uses saved session credentials when available (Windows via `cmdkey`, Linux/macOS via `xfreerdp` stdin credential handoff)
-- Linux RDP sessions can run inside SnakeSh tabs (Open Mode: In tab) or detached; VNC, NoMachine, and non-Linux RDP use detached window mode only
+- RDP launcher integration (`mstsc` on Windows, FreeRDP on Linux/macOS)
+- RDP launcher uses saved session credentials when available (Windows via `cmdkey`, Linux/macOS via FreeRDP stdin credential handoff)
+- Linux RDP sessions can run inside SnakeSh tabs (Open Mode: In tab) or detached; VNC and non-Linux RDP use detached window mode only
 - Linux RDP launches ask certificate trust in a GUI confirmation dialog before starting `xfreerdp` (no hidden terminal prompt)
 - VNC launcher integration with client auto-detection on Windows/Linux/macOS and optional default viewer auto-install where supported (TigerVNC)
-- NoMachine launcher integration (`nxplayer`) with detached-window workflow
 - RDP sessions support a dedicated domain field; X11 forwarding is only exposed for SSH/SFTP sessions
 - RDP and VNC sessions support per-session resolution, fullscreen, and color depth preferences
-- Session editor/details/context menus are protocol-aware (SSH/SFTP-only actions are hidden for RDP/VNC/NoMachine)
+- Session editor/details/context menus are protocol-aware (SSH/SFTP-only actions are hidden for RDP/VNC)
 - X11 forwarding-ready SSH config flags
 - SSH sessions support dynamic (SOCKS) and static (local/remote) port-forward tunnel profiles
 - SSH/Telnet/Serial sessions support optional post-connect automation flows (command/sleep/expect steps with timeout actions)
 - SSH/SFTP/Telnet/Serial sessions can show a per-session banner with custom color and optional blink for warnings or environment reminders
 - SSH/SFTP uses a single global command bar (bottom of workspace); commands target the active terminal tab or its group. Grouped tabs show `*` and can be managed/renamed from a Group Manager dialog
-- Saved Fast Commands are protocol-aware: they type into terminal tabs and copy to the clipboard when the active tab is an RDP, VNC, or NoMachine viewer
+- Saved Fast Commands are protocol-aware: they type into terminal tabs and copy to the clipboard when the active tab is an RDP, VNC viewer
 - Multiple tabs to the same host are automatically numbered (for example `DatacenterSSH(1)`, `DatacenterSSH(2)`)
 - SSH/SFTP session tabs support horizontal/vertical split workspace layouts from the tab context menu or configurable shortcuts, with drag-drop tab movement across panes
 - Configurable workspace shortcuts cover next/previous tab cycling, direct tab jumps, and vertical/horizontal split actions; optional tab stacking wraps workspace tabs into multiple rows; tab navigation and split shortcut targets skip `Session Details`
@@ -57,7 +57,8 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, NoMachine, Telnet, an
 - Windows X11 forwarding helper: prefers VcXsrv, falls back to other installed/running X servers, and can install/launch VcXsrv on demand
 - Tabbed multi-session workspace for concurrent connections
 - Built-in Local Shell tab launcher (PowerShell/cmd on Windows, shell detection on Linux/macOS)
-- In-app SSH terminal tabs with VT/ANSI emulation (supports color and full-screen TUIs like `top`/`htop`)
+- In-app SSH terminal tabs with VT/ANSI emulation, bounded Sixel inline graphics, color, and full-screen TUIs like `top`/`htop`
+- Optional minimize to system tray in Settings (disabled by default); restore and quit from the tray menu
 - Terminal key forwarding keeps `Tab`/`Shift+Tab` inside the SSH session instead of switching GUI focus
 - Terminal and command-bar paste handling reviews multi-line input before sending it to a live terminal
 - SSH terminal context menu includes `Open SFTP Tab` for the active SSH session and terminal context menus include `Disconnect` for active shell tabs
@@ -253,7 +254,7 @@ SnakeSh requires Python 3.11+.
 ## Troubleshooting
 
 - Missing protocol tools:
-SnakeSh checks protocol dependencies on demand (for example `xfreerdp`, `mstsc`, `vncviewer`, `nxplayer`, `xauth`, `ssh-keygen`, and the Python SNMP runtime used by the Syslog / SNMP Monitor) and shows an in-app prompt if installation is needed.
+SnakeSh checks protocol dependencies on demand (for example `xfreerdp`, `mstsc`, `vncviewer`, `xauth`, `ssh-keygen`, and the Python SNMP runtime used by the Syslog / SNMP Monitor) and shows an in-app prompt if installation is needed.
 On macOS, automatic dependency installation is not offered; SnakeSh detects standard Homebrew paths such as `/opt/homebrew/bin` and `/usr/local/bin` plus supported app bundles.
 
 - Permission prompts:
@@ -269,10 +270,10 @@ Open `Settings` and use `Install/Repair Desktop Integration` or `Remove Desktop 
 Open `Settings` and use `Manage Tool Launchers...` to install or remove per-user launcher entries for standalone tools. `snakesh --remove-tool-launchers` removes all managed standalone tool launchers without changing app data.
 
 - RDP support on macOS:
-RDP launcher support requires an installed FreeRDP `xfreerdp` client, for example from Homebrew, and runs detached only. In-tab RDP remains Linux-only.
+RDP requires an installed FreeRDP client, for example from Homebrew, and runs detached only. SnakeSh prefers `sdl-freerdp` on macOS to avoid XQuartz rendering problems; older installations can fall back to `xfreerdp` with a working XQuartz display. In-tab RDP remains Linux-only.
 
 - Fast Commands on remote desktops:
-When the active tab is RDP, VNC, or NoMachine, Fast Commands copy the saved text to the clipboard instead of trying to inject keystrokes into the viewer. Paste manually inside the remote desktop session.
+When the active tab is RDP, VNC, Fast Commands copy the saved text to the clipboard instead of trying to inject keystrokes into the viewer. Paste manually inside the remote desktop session.
 
 - Network Inspector copy/export:
 Use `Copy Selected`, `Copy All`, or `Ctrl+C` on the focused Network Inspector tab to copy the visible data as tab-delimited text with headers.
@@ -371,9 +372,8 @@ Bundled third-party components keep their own licenses, permissions, and notices
 - SSH/SFTP/Telnet tabs can run in the main workspace or be detached into independent windows, then reattached later.
 - Local Shell tabs use the same terminal workspace and detach/reattach flow.
 - SSH/SFTP auth: key auth is supported, and password prompt fallback appears on auth failure.
-- RDP: Supported on Windows (`mstsc`) and Linux/macOS (`xfreerdp`). In-tab mode is supported on Linux only; macOS launches detached external FreeRDP windows.
+- RDP: Supported on Windows (`mstsc`) and Linux/macOS (`xfreerdp`). In-tab mode is supported on Linux only; macOS prefers the installed native `sdl-freerdp` client, with `xfreerdp`/XQuartz as a fallback; viewers run detached.
 - VNC: Launched through installed platform viewers (TigerVNC/compatible clients, Remmina/gvncviewer where available); authentication prompts are handled by the selected viewer. Display options are applied when supported by the selected viewer.
-- NoMachine: Launched through installed NoMachine Player (`nxplayer`) in detached mode (Windows/Linux/macOS).
 - Telnet: Native in-app terminal client with option negotiation (terminal type + window resize), optional TLS, and optional certificate verification.
 - Serial: Native in-app serial terminal with configurable line parameters (baud/data bits/parity/stop bits/flow control).
 - X11 Redirection: Enabled through SSH X11 forwarding settings; requires a local X server on Windows and a local X environment on Linux.
@@ -387,3 +387,7 @@ Bundled third-party components keep their own licenses, permissions, and notices
 - `keepass` backend requires `keepassxc-cli` and a KeePass 2.x (`.kdbx`) database path. Master password can be set in SnakeSh (stored in OS keyring) or read from the configured environment variable (default: `KEEPASSXC_PASSWORD`).
 - `vault` backend expects Vault KV v2. Vault token can be set in SnakeSh (stored in OS keyring) or read from the configured environment variable (default: `VAULT_TOKEN`).
 - Settings now include `Setup Backend` and `Test Backend` actions so backend readiness can be validated from SnakeSh.
+
+## Maintenance validation
+
+See [the issue validation record](docs/ISSUE_VALIDATION.md) for the current fixes, verification, and Windows/macOS reproduction checks. Existing retired NoMachine records remain readable and exportable but cannot be launched or edited.

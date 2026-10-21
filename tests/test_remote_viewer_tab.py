@@ -62,15 +62,6 @@ def _build_rdp_session() -> Session:
     )
 
 
-def _build_nomachine_session() -> Session:
-    return Session(
-        id="sess-nx-remote",
-        name="NoMachine Remote",
-        host="192.0.2.90",
-        protocol=Protocol.NOMACHINE,
-        port=4000,
-        username="tester",
-    )
 
 
 class RemoteViewerTabTests(unittest.TestCase):
@@ -162,64 +153,7 @@ class RemoteViewerTabTests(unittest.TestCase):
         self.assertNotIn("context menu", tab._hint_label.text().lower())
         tab.deleteLater()
 
-    def test_windows_nomachine_detached_handoff_does_not_mark_closed(self) -> None:
-        session = _build_nomachine_session()
 
-        def detached_builder() -> tuple[list[str], str, dict[str, str] | None]:
-            return ["nxplayer.exe", "--session", "dummy.nxs"], "NoMachine Player", None
-
-        with patch("snakesh.ui.main_window.platform.system", return_value="Windows"):
-            tab = RemoteViewerTab(
-                session=session,
-                protocol_name="NoMachine",
-                detached_command_builder=detached_builder,
-            )
-
-        fake_process = unittest.mock.Mock()
-        fake_process.poll.return_value = 0
-        tab._mode = "detached"
-        tab._viewer_name = "NoMachine Player"
-        tab._detached_process = fake_process
-
-        with (
-            patch("snakesh.ui.main_window.platform.system", return_value="Windows"),
-            patch.object(tab, "_is_windows_process_name_running", return_value=True),
-        ):
-            tab._watch_process_state()
-
-        self.assertEqual(tab._mode, "detached")
-        self.assertIsNone(tab._detached_process)
-        self.assertFalse(bool(tab.property("remote_viewer_closed")))
-        self.assertIn("external client process", tab._hint_label.text().lower())
-        tab.deleteLater()
-
-    def test_macos_nomachine_detached_handoff_does_not_mark_closed(self) -> None:
-        session = _build_nomachine_session()
-
-        def detached_builder() -> tuple[list[str], str, dict[str, str] | None]:
-            return ["/Applications/NoMachine.app/Contents/MacOS/nxplayer", "--session", "dummy.nxs"], "NoMachine Player", None
-
-        with patch("snakesh.ui.main_window.platform.system", return_value="Darwin"):
-            tab = RemoteViewerTab(
-                session=session,
-                protocol_name="NoMachine",
-                detached_command_builder=detached_builder,
-            )
-
-        fake_process = unittest.mock.Mock()
-        fake_process.poll.return_value = 0
-        tab._mode = "detached"
-        tab._viewer_name = "NoMachine Player"
-        tab._detached_process = fake_process
-
-        with patch("snakesh.ui.main_window.platform.system", return_value="Darwin"):
-            tab._watch_process_state()
-
-        self.assertEqual(tab._mode, "detached")
-        self.assertIsNone(tab._detached_process)
-        self.assertFalse(bool(tab.property("remote_viewer_closed")))
-        self.assertIn("external client process", tab._hint_label.text().lower())
-        tab.deleteLater()
 
     def test_linux_support_status_mentions_xdotool_when_missing(self) -> None:
         tab = self._build_tab()
@@ -542,9 +476,6 @@ class VNCOpenTabTests(unittest.TestCase):
         self.assertFalse(kwargs.get("windows_reparent_embed", False))
         self.assertTrue(kwargs.get("start_detached", False))
 
-    def test_nomachine_sessions_start_detached_by_default(self) -> None:
-        session = _build_nomachine_session()
-        self.assertTrue(self.window._start_detached_for_remote_session(session))
 
     def test_rdp_sessions_start_detached_on_non_linux(self) -> None:
         session = _build_rdp_session()
@@ -561,41 +492,10 @@ class VNCOpenTabTests(unittest.TestCase):
         with patch("snakesh.ui.main_window.platform.system", return_value="Linux"):
             self.assertTrue(self.window._start_detached_for_remote_session(session))
 
-    def test_open_nomachine_tab_on_linux_uses_detached_only(self) -> None:
-        session = _build_nomachine_session()
-        with (
-            patch("snakesh.ui.main_window.platform.system", return_value="Linux"),
-            patch.object(self.window, "_open_remote_viewer_tab") as mock_open_remote_viewer_tab,
-        ):
-            self.window._open_nomachine_tab(session)
 
-        mock_open_remote_viewer_tab.assert_called_once()
-        kwargs = mock_open_remote_viewer_tab.call_args.kwargs
-        self.assertFalse(kwargs.get("linux_x11_reparent_embed", False))
-        self.assertFalse(kwargs.get("windows_reparent_embed", False))
-        self.assertTrue(kwargs.get("start_detached", False))
 
-    def test_open_nomachine_tab_on_windows_uses_detached_only(self) -> None:
-        session = _build_nomachine_session()
-        with (
-            patch("snakesh.ui.main_window.platform.system", return_value="Windows"),
-            patch.object(self.window, "_open_remote_viewer_tab") as mock_open_remote_viewer_tab,
-        ):
-            self.window._open_nomachine_tab(session)
 
-        mock_open_remote_viewer_tab.assert_called_once()
-        kwargs = mock_open_remote_viewer_tab.call_args.kwargs
-        self.assertFalse(kwargs.get("linux_x11_reparent_embed", False))
-        self.assertFalse(kwargs.get("windows_reparent_embed", False))
-        self.assertTrue(kwargs.get("start_detached", False))
-
-    def test_nomachine_protocol_dependency_maps_to_nxplayer(self) -> None:
-        self.assertEqual(
-            self.window._required_dependency_id_for_protocol(Protocol.NOMACHINE),
-            "nxplayer",
-        )
-
-    def test_connect_session_linux_rdp_clears_known_host_before_launch(self) -> None:
+    def test_connect_session_linux_rdp_preserves_known_host_before_launch(self) -> None:
         session = _build_rdp_session()
         with (
             patch("snakesh.ui.main_window.platform.system", return_value="Linux"),
@@ -607,7 +507,7 @@ class VNCOpenTabTests(unittest.TestCase):
         ):
             self.window._connect_session(session)
 
-        mock_clear.assert_called_once_with(session)
+        mock_clear.assert_not_called()
         mock_open.assert_called_once_with(
             session,
             password="secret",
@@ -627,7 +527,7 @@ class VNCOpenTabTests(unittest.TestCase):
         ):
             self.window._connect_session(session)
 
-        mock_clear.assert_called_once_with(session)
+        mock_clear.assert_not_called()
         mock_launch.assert_not_called()
         mock_open.assert_called_once_with(
             session,
@@ -841,44 +741,6 @@ class VNCOpenTabTests(unittest.TestCase):
         mock_attach.assert_not_called()
         mock_detach.assert_not_called()
 
-    def test_tab_context_menu_hides_remote_attach_detach_for_nomachine(self) -> None:
-        session = _build_nomachine_session()
-
-        def detached_builder() -> tuple[list[str], str, dict[str, str] | None]:
-            return ["/usr/NX/bin/nxplayer", "--session", "dummy.nxs"], "NoMachine Player", None
-
-        with patch("snakesh.ui.main_window.platform.system", return_value="Linux"):
-            tab = RemoteViewerTab(
-                session=session,
-                protocol_name="NoMachine",
-                detached_command_builder=detached_builder,
-                parent=self.window,
-            )
-        tab._mode = "detached"
-        tab._viewer_name = "NoMachine Player"
-        tab._update_state_text()
-        self.window._add_session_tab(session, tab, "NOMACHINE")
-        QApplication.processEvents()
-
-        location = self.window._find_widget_location(tab)
-        self.assertIsNotNone(location)
-        host, index = location
-
-        action_labels: list[str] = []
-
-        def _capture_menu_actions(menu, _global_pos):  # noqa: ANN001
-            action_labels.extend(action.text() for action in menu.actions() if action.text())
-            return None
-
-        with patch.object(self.window, "_exec_menu", side_effect=_capture_menu_actions):
-            self.window._show_tab_context_menu(
-                host,
-                index,
-                self.window.mapToGlobal(QPoint(40, 40)),
-            )
-
-        self.assertNotIn("Detach Viewer", action_labels)
-        self.assertNotIn("Attach Viewer to Tab", action_labels)
 
     def test_tab_context_menu_keeps_remote_attach_for_linux_rdp(self) -> None:
         session = _build_rdp_session()

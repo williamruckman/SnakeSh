@@ -12,7 +12,7 @@
 </head>
 <body>
   <h1>Session Editor Reference</h1>
-  <p>This page is the field-by-field reference for the Session Editor. SnakeSh hides and resets some fields automatically when the selected protocol does not support them, so the same dialog behaves differently depending on whether you are editing SSH, SFTP, RDP, VNC, NoMachine, Telnet, or Serial sessions. Local Shell tabs are launched separately from the main window and are configured globally in Settings rather than through the Session Editor.</p>
+  <p>This page is the field-by-field reference for the Session Editor. SnakeSh hides and resets some fields automatically when the selected protocol does not support them, so the same dialog behaves differently depending on whether you are editing SSH, SFTP, RDP, VNC, Telnet, or Serial sessions. Local Shell tabs are launched separately from the main window and are configured globally in Settings rather than through the Session Editor.</p>
 
   <h2>Always-Visible Core Fields</h2>
   <ul>
@@ -80,16 +80,6 @@
     <li><strong>Domain (RDP)</strong>: Windows login domain.</li>
     <li><strong>Audio (RDP)</strong>: audio routing policy. Choices are <code>On this computer</code>, <code>On remote computer</code>, and <code>Do not play</code>.</li>
     <li><strong>Open Mode</strong>: Linux-only RDP option that selects <code>Open in tab</code> or <code>Open detached window</code>. On non-Linux platforms the field is hidden and RDP is forced into detached mode.</li>
-  </ul>
-
-  <h2>NoMachine Fields</h2>
-  <ul>
-    <li><strong>Enable audio streaming</strong>: enables remote audio streaming.</li>
-    <li><strong>Mute audio on remote computer while connected</strong>: attempts to mute the remote side while audio is being redirected.</li>
-    <li><strong>Auto-resize physical desktop</strong>: allows physical desktop resizing where NoMachine supports it.</li>
-    <li><strong>Resize Mode (NoMachine)</strong>: chooses <code>Scale to fit</code> or <code>Viewport (scroll)</code>.</li>
-    <li><strong>Link Quality (NoMachine)</strong>: connection-quality scale from 0 to 9.</li>
-    <li><strong>Video Quality (NoMachine)</strong>: image-quality scale from 0 to 9.</li>
   </ul>
 
   <h2>Telnet Fields</h2>
@@ -160,7 +150,6 @@
   <ul>
     <li>RDP shows domain, audio, and Linux-only open mode fields.</li>
     <li>VNC shows remote-display fields and the dynamic-resize checkbox, but not the RDP-only domain or audio controls.</li>
-    <li>NoMachine shows the NoMachine quality and resize controls and always uses detached-viewer behavior.</li>
     <li>Telnet shows terminal-type, timeout, and TLS controls.</li>
     <li>Serial hides host-style network fields and shows device-line settings instead.</li>
     <li>SSH and SFTP show key-auth, SFTP folder, X11, keepalive, legacy-compatibility, tunneling, and terminal-color-override controls.</li>

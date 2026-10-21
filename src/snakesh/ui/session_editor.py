@@ -38,8 +38,6 @@ from snakesh.core.models import (
     SSHAutomationStep,
     SSHDynamicTunnel,
     SSHStaticTunnel,
-    normalize_nomachine_quality,
-    normalize_nomachine_resize_mode,
     normalize_rdp_audio_mode,
     normalize_remote_launch_mode,
     normalize_serial_data_bits,
@@ -85,23 +83,7 @@ _REMOTE_LAUNCH_CHOICES: tuple[tuple[str, str], ...] = (
     ("Open detached window", "detached"),
 )
 
-_NOMACHINE_RESIZE_MODE_CHOICES: tuple[tuple[str, str], ...] = (
-    ("Scale to fit", "scaled"),
-    ("Viewport (scroll)", "viewport"),
-)
 
-_NOMACHINE_QUALITY_CHOICES: tuple[tuple[str, int], ...] = (
-    ("0 - Lowest (fastest)", 0),
-    ("1 - Very low", 1),
-    ("2 - Low", 2),
-    ("3 - Lower-medium", 3),
-    ("4 - Medium-low", 4),
-    ("5 - Balanced (default)", 5),
-    ("6 - Medium-high", 6),
-    ("7 - High", 7),
-    ("8 - Very high", 8),
-    ("9 - Highest (best image)", 9),
-)
 
 _TELNET_TERMINAL_TYPE_CHOICES: tuple[str, ...] = (
     "xterm-256color",
@@ -672,8 +654,10 @@ class SessionEditorDialog(QDialog):
         self.port_input = QSpinBox()
         self.port_input.setMaximum(65535)
 
+        if self._session is not None and self._session.protocol == Protocol.NOMACHINE:
+            raise ValueError("NoMachine integration has been removed; this record can still be exported or deleted.")
         self.protocol_input = QComboBox()
-        self.protocol_input.addItems([p.value.upper() for p in Protocol])
+        self.protocol_input.addItems([p.value.upper() for p in Protocol if p != Protocol.NOMACHINE])
 
         self.folder_input = QLineEdit()
         self.tags_input = QLineEdit()
@@ -756,20 +740,6 @@ class SessionEditorDialog(QDialog):
         self.remote_launch_mode_input = QComboBox()
         for label, mode in _REMOTE_LAUNCH_CHOICES:
             self.remote_launch_mode_input.addItem(label, mode)
-        self.nomachine_audio_enabled_input = QCheckBox("Enable audio streaming")
-        self.nomachine_mute_remote_audio_input = QCheckBox("Mute audio on remote computer while connected")
-        self.nomachine_auto_resize_input = QCheckBox("Auto-resize physical desktop")
-        self.nomachine_resize_mode_input = QComboBox()
-        for label, mode in _NOMACHINE_RESIZE_MODE_CHOICES:
-            self.nomachine_resize_mode_input.addItem(label, mode)
-        self.nomachine_link_quality_input = QComboBox()
-        self.nomachine_video_quality_input = QComboBox()
-        for label, quality in _NOMACHINE_QUALITY_CHOICES:
-            self.nomachine_link_quality_input.addItem(label, quality)
-            self.nomachine_video_quality_input.addItem(label, quality)
-        quality_tip = "NoMachine quality scale: 0 = lowest/fastest, 9 = highest image quality."
-        self.nomachine_link_quality_input.setToolTip(quality_tip)
-        self.nomachine_video_quality_input.setToolTip(quality_tip)
 
         self.telnet_terminal_type_input = QComboBox()
         self.telnet_terminal_type_input.setEditable(True)
@@ -819,12 +789,6 @@ class SessionEditorDialog(QDialog):
         form.addRow("Color Depth (RDP/VNC)", self.display_color_input)
         form.addRow("Audio (RDP)", self.rdp_audio_mode_input)
         form.addRow("Open Mode", self.remote_launch_mode_input)
-        form.addRow("", self.nomachine_audio_enabled_input)
-        form.addRow("", self.nomachine_mute_remote_audio_input)
-        form.addRow("", self.nomachine_auto_resize_input)
-        form.addRow("Resize Mode (NoMachine)", self.nomachine_resize_mode_input)
-        form.addRow("Link Quality (NoMachine)", self.nomachine_link_quality_input)
-        form.addRow("Video Quality (NoMachine)", self.nomachine_video_quality_input)
         form.addRow("Terminal Type (Telnet)", self.telnet_terminal_type_input)
         form.addRow("Connect Timeout (Telnet, s)", self.telnet_connect_timeout_input)
         form.addRow("", self.telnet_use_tls_input)
@@ -888,7 +852,6 @@ class SessionEditorDialog(QDialog):
         self.terminal_color_override_input.toggled.connect(self._update_terminal_color_override_controls)
         self.terminal_bg_color_input.textChanged.connect(self._refresh_terminal_color_preview)
         self.terminal_fg_color_input.textChanged.connect(self._refresh_terminal_color_preview)
-        self.nomachine_audio_enabled_input.toggled.connect(self._update_nomachine_audio_controls)
         self.telnet_use_tls_input.toggled.connect(self._update_telnet_tls_controls)
         self.ssh_automation_enabled_input.toggled.connect(self._update_automation_summary)
         self.ssh_automation_button.clicked.connect(self._open_automation_dialog)
@@ -915,7 +878,6 @@ class SessionEditorDialog(QDialog):
         protocol = Protocol(self.protocol_input.currentText().lower())
         is_rdp = protocol == Protocol.RDP
         is_vnc = protocol == Protocol.VNC
-        is_nomachine = protocol == Protocol.NOMACHINE
         is_telnet = protocol == Protocol.TELNET
         is_serial = protocol == Protocol.SERIAL
         is_remote_desktop = protocol in (Protocol.RDP, Protocol.VNC)
@@ -947,15 +909,6 @@ class SessionEditorDialog(QDialog):
         self._set_form_label_visible(self.rdp_audio_mode_input, is_rdp)
         self.remote_launch_mode_input.setVisible(supports_remote_launch_mode)
         self._set_form_label_visible(self.remote_launch_mode_input, supports_remote_launch_mode)
-        self.nomachine_audio_enabled_input.setVisible(is_nomachine)
-        self.nomachine_mute_remote_audio_input.setVisible(is_nomachine)
-        self.nomachine_auto_resize_input.setVisible(is_nomachine)
-        self.nomachine_resize_mode_input.setVisible(is_nomachine)
-        self._set_form_label_visible(self.nomachine_resize_mode_input, is_nomachine)
-        self.nomachine_link_quality_input.setVisible(is_nomachine)
-        self._set_form_label_visible(self.nomachine_link_quality_input, is_nomachine)
-        self.nomachine_video_quality_input.setVisible(is_nomachine)
-        self._set_form_label_visible(self.nomachine_video_quality_input, is_nomachine)
         self.telnet_terminal_type_input.setVisible(is_telnet)
         self._set_form_label_visible(self.telnet_terminal_type_input, is_telnet)
         self.telnet_connect_timeout_input.setVisible(is_telnet)
@@ -1029,13 +982,6 @@ class SessionEditorDialog(QDialog):
             self._set_display_resolution("auto")
         if not is_vnc:
             self.vnc_allow_resize_input.setChecked(False)
-        if not is_nomachine:
-            self.nomachine_audio_enabled_input.setChecked(True)
-            self.nomachine_mute_remote_audio_input.setChecked(True)
-            self.nomachine_auto_resize_input.setChecked(False)
-            self._set_nomachine_resize_mode("scaled")
-            self._set_nomachine_link_quality(5)
-            self._set_nomachine_video_quality(5)
         if not is_telnet:
             self._set_telnet_terminal_type("xterm-256color")
             self.telnet_connect_timeout_input.setValue(10.0)
@@ -1078,7 +1024,6 @@ class SessionEditorDialog(QDialog):
             self.password_input.clear()
             self._saved_password_loaded = False
         self._update_telnet_tls_controls()
-        self._update_nomachine_audio_controls()
         self._update_automation_summary()
         self._update_ssh_tunnel_summary()
         self._apply_quick_connect_mode()
@@ -1155,12 +1100,6 @@ class SessionEditorDialog(QDialog):
         self._set_display_color_depth(self._session.display_color_depth)
         self._set_rdp_audio_mode(self._session.rdp_audio_mode)
         self._set_remote_launch_mode(self._session.remote_launch_mode)
-        self.nomachine_audio_enabled_input.setChecked(self._session.nomachine_audio_enabled)
-        self.nomachine_mute_remote_audio_input.setChecked(self._session.nomachine_mute_remote_audio)
-        self.nomachine_auto_resize_input.setChecked(self._session.nomachine_physical_desktop_auto_resize)
-        self._set_nomachine_resize_mode(self._session.nomachine_physical_desktop_resize_mode)
-        self._set_nomachine_link_quality(self._session.nomachine_link_quality)
-        self._set_nomachine_video_quality(self._session.nomachine_video_quality)
         self._set_telnet_terminal_type(self._session.telnet_terminal_type)
         self.telnet_connect_timeout_input.setValue(self._session.telnet_connect_timeout_seconds)
         self.telnet_use_tls_input.setChecked(self._session.telnet_use_tls)
@@ -1172,7 +1111,6 @@ class SessionEditorDialog(QDialog):
         self._set_serial_stop_bits(self._session.serial_stop_bits)
         self._set_serial_flow_control(self._session.serial_flow_control)
         self._set_serial_terminal_type(self._session.serial_terminal_type)
-        self._update_nomachine_audio_controls()
         self._update_terminal_color_override_controls()
         self.notes_input.setText(self._session.notes)
 
@@ -1212,12 +1150,6 @@ class SessionEditorDialog(QDialog):
             vnc_allow_resize=self.vnc_allow_resize_input.isChecked(),
             rdp_audio_mode=self._selected_rdp_audio_mode(),
             remote_launch_mode=self._selected_remote_launch_mode(),
-            nomachine_audio_enabled=self.nomachine_audio_enabled_input.isChecked(),
-            nomachine_mute_remote_audio=self.nomachine_mute_remote_audio_input.isChecked(),
-            nomachine_physical_desktop_auto_resize=self.nomachine_auto_resize_input.isChecked(),
-            nomachine_physical_desktop_resize_mode=self._selected_nomachine_resize_mode(),
-            nomachine_link_quality=self._selected_nomachine_link_quality(),
-            nomachine_video_quality=self._selected_nomachine_video_quality(),
             telnet_terminal_type=self._selected_telnet_terminal_type(),
             telnet_connect_timeout_seconds=self.telnet_connect_timeout_input.value(),
             telnet_use_tls=self.telnet_use_tls_input.isChecked(),
@@ -1267,40 +1199,6 @@ class SessionEditorDialog(QDialog):
             payload["public_key_path"] = ""
             payload["sftp_local_folder"] = DEFAULT_SFTP_LOCAL_FOLDER
             payload["sftp_remote_folder"] = DEFAULT_SFTP_REMOTE_FOLDER
-            payload["rdp_audio_mode"] = "local"
-            payload["remote_launch_mode"] = "detached"
-            payload["x11_forwarding"] = False
-            payload["ssh_legacy_compatibility"] = False
-            payload["ssh_keepalive"] = False
-            payload["ssh_automation_enabled"] = False
-            payload["ssh_automation_steps"] = []
-            payload["ssh_dynamic_tunnels"] = []
-            payload["ssh_static_tunnels"] = []
-            payload["telnet_terminal_type"] = "xterm-256color"
-            payload["telnet_connect_timeout_seconds"] = 10.0
-            payload["telnet_use_tls"] = False
-            payload["telnet_tls_verify"] = True
-            payload["serial_baud_rate"] = 9600
-            payload["serial_data_bits"] = 8
-            payload["serial_parity"] = "none"
-            payload["serial_stop_bits"] = "1"
-            payload["serial_flow_control"] = "none"
-            payload["serial_terminal_type"] = "auto"
-            payload["shell_banner_message"] = ""
-            payload["shell_banner_color"] = ""
-            payload["shell_banner_blink"] = False
-        elif protocol == Protocol.NOMACHINE:
-            payload["domain"] = ""
-            payload["use_key_auth"] = False
-            payload["private_key_path"] = ""
-            payload["public_key_path"] = ""
-            payload["save_password"] = False
-            payload["sftp_local_folder"] = DEFAULT_SFTP_LOCAL_FOLDER
-            payload["sftp_remote_folder"] = DEFAULT_SFTP_REMOTE_FOLDER
-            payload["display_resolution"] = ""
-            payload["display_fullscreen"] = False
-            payload["display_color_depth"] = 0
-            payload["vnc_allow_resize"] = False
             payload["rdp_audio_mode"] = "local"
             payload["remote_launch_mode"] = "detached"
             payload["x11_forwarding"] = False
@@ -1398,13 +1296,6 @@ class SessionEditorDialog(QDialog):
                 payload["shell_banner_blink"] = False
                 payload["ssh_automation_enabled"] = False
                 payload["ssh_automation_steps"] = []
-        if protocol != Protocol.NOMACHINE:
-            payload["nomachine_audio_enabled"] = True
-            payload["nomachine_mute_remote_audio"] = True
-            payload["nomachine_physical_desktop_auto_resize"] = False
-            payload["nomachine_physical_desktop_resize_mode"] = "scaled"
-            payload["nomachine_link_quality"] = 5
-            payload["nomachine_video_quality"] = 5
         if protocol == Protocol.RDP:
             payload["vnc_allow_resize"] = False
         if not payload["terminal_color_override_enabled"]:
@@ -1836,44 +1727,12 @@ class SessionEditorDialog(QDialog):
             index = self.remote_launch_mode_input.findData("tab")
         self.remote_launch_mode_input.setCurrentIndex(max(0, index))
 
-    def _selected_nomachine_resize_mode(self) -> str:
-        mode = self.nomachine_resize_mode_input.currentData()
-        if isinstance(mode, str):
-            return normalize_nomachine_resize_mode(mode)
-        return "scaled"
 
-    def _set_nomachine_resize_mode(self, mode: str) -> None:
-        normalized = normalize_nomachine_resize_mode(mode)
-        index = self.nomachine_resize_mode_input.findData(normalized)
-        if index < 0:
-            index = self.nomachine_resize_mode_input.findData("scaled")
-        self.nomachine_resize_mode_input.setCurrentIndex(max(0, index))
 
-    def _selected_nomachine_link_quality(self) -> int:
-        value = self.nomachine_link_quality_input.currentData()
-        return normalize_nomachine_quality(value, default=5)
 
-    def _selected_nomachine_video_quality(self) -> int:
-        value = self.nomachine_video_quality_input.currentData()
-        return normalize_nomachine_quality(value, default=5)
 
-    def _set_nomachine_link_quality(self, value: int) -> None:
-        normalized = normalize_nomachine_quality(value, default=5)
-        index = self.nomachine_link_quality_input.findData(normalized)
-        if index < 0:
-            index = self.nomachine_link_quality_input.findData(5)
-        self.nomachine_link_quality_input.setCurrentIndex(max(0, index))
 
-    def _set_nomachine_video_quality(self, value: int) -> None:
-        normalized = normalize_nomachine_quality(value, default=5)
-        index = self.nomachine_video_quality_input.findData(normalized)
-        if index < 0:
-            index = self.nomachine_video_quality_input.findData(5)
-        self.nomachine_video_quality_input.setCurrentIndex(max(0, index))
 
-    def _update_nomachine_audio_controls(self) -> None:
-        enabled = self.nomachine_audio_enabled_input.isChecked()
-        self.nomachine_mute_remote_audio_input.setEnabled(enabled)
 
     def _open_ssh_tunneling_dialog(self) -> None:
         dialog = SSHTunnelingDialog(

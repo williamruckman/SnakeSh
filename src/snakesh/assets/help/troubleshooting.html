@@ -18,7 +18,7 @@
   <p>If you are trying to understand why a feature behaves differently on Windows, Linux, or macOS, open the <strong>Platform Differences</strong> page from the Help index first. It explains which variations are expected and which ones usually indicate a real problem.</p>
 
   <h2>Viewer or Protocol Dependency Missing</h2>
-  <p>Some protocols depend on external programs such as <code>xfreerdp</code>, <code>mstsc</code>, <code>vncviewer</code>, <code>nxplayer</code>, <code>xauth</code>, or <code>ssh-keygen</code>. SnakeSh checks for these tools on demand and warns when the required dependency is unavailable.</p>
+  <p>Some protocols depend on external programs such as <code>xfreerdp</code>, <code>mstsc</code>, <code>vncviewer</code>, <code>xauth</code>, or <code>ssh-keygen</code>. SnakeSh checks for these tools on demand and warns when the required dependency is unavailable.</p>
 
   <h2>Web Server Permission Errors</h2>
   <p>Binding to privileged ports on Unix-like systems may require elevation. Use a non-privileged port such as 8080 when possible. If a privileged port is necessary, SnakeSh will try to request GUI-based elevation instead of expecting you to launch a shell manually.</p>
@@ -27,7 +27,7 @@
   <p>Check the selected profile's listener settings first. Syslog TLS requires a valid certificate and key, and SNMP notification support requires the bundled Python runtime to include <code>pysnmp</code> plus <code>pyasn1</code>. On Linux and macOS, privileged ports such as <code>514</code> and <code>162</code> can also require a GUI elevation prompt before the collector can bind successfully. After you approve that prompt, SnakeSh expects the helper to report back into the same profile-data directory; if the monitor still does not move into a running state, recheck the privileged-port prompt result and any local policy restrictions around <code>pkexec</code> or administrator-privileged app launches.</p>
 
   <h2>Remote Viewer Behavior</h2>
-  <p>If a Fast Command does not appear to run inside an RDP, VNC, or NoMachine session, check the clipboard and paste it manually into the remote desktop. That behavior is intentional.</p>
+  <p>If a Fast Command does not appear to run inside an RDP, VNC session, check the clipboard and paste it manually into the remote desktop. That behavior is intentional.</p>
 
   <h2>DNS, ARP, or Route Data Looks Different Than Expected</h2>
   <p>The Network Inspector uses operating-system tools and <code>psutil</code> to collect data. Output detail can vary by platform and by the availability of route, ARP, or resolver utilities. A missing field does not always indicate a broken inspector; sometimes the OS simply does not report the same detail in the same format.</p>

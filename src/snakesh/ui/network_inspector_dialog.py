@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from snakesh.ui.clipboard import copy_text
 from snakesh.services.network_inspector import (
     NetworkInspectorSnapshot,
     PrivilegedPortsHelperSession,
@@ -375,7 +376,7 @@ class NetworkInspectorDialog(QDialog):
 
         headers = [tree.headerItem().text(index) for index in range(tree.columnCount())]
         payload = "\n".join("\t".join(row) for row in [headers, *rows])
-        QApplication.clipboard().setText(payload)
+        copy_text(payload)
         tab_name = self.tabs.tabText(self.tabs.currentIndex())
         noun = "row" if len(rows) == 1 else "rows"
         self.status_label.setText(f"Copied {len(rows)} {noun} from {tab_name}.")

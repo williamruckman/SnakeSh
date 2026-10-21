@@ -365,6 +365,7 @@ class AppSettings:
     workspace_tab_jump_shortcuts: list[str] = field(default_factory=default_workspace_tab_jump_shortcuts)
     workspace_split_vertical_shortcut: str = field(default_factory=default_workspace_split_vertical_shortcut)
     workspace_split_horizontal_shortcut: str = field(default_factory=default_workspace_split_horizontal_shortcut)
+    minimize_to_tray: bool = False
     workspace_tab_stacking_enabled: bool = False
     standalone_tool_window_placements: dict[str, dict[str, object]] = field(default_factory=dict)
     resource_monitor_show_offline_adapters: bool = False
@@ -484,6 +485,7 @@ class AppSettings:
             "workspace_tab_jump_shortcuts": list(self.workspace_tab_jump_shortcuts),
             "workspace_split_vertical_shortcut": self.workspace_split_vertical_shortcut,
             "workspace_split_horizontal_shortcut": self.workspace_split_horizontal_shortcut,
+            "minimize_to_tray": self.minimize_to_tray,
             "workspace_tab_stacking_enabled": self.workspace_tab_stacking_enabled,
             "standalone_tool_window_placements": dict(self.standalone_tool_window_placements),
             "resource_monitor_show_offline_adapters": self.resource_monitor_show_offline_adapters,
@@ -633,6 +635,7 @@ class AppSettings:
             ),
             workspace_split_vertical_shortcut=str(payload["workspace_split_vertical_shortcut"]),
             workspace_split_horizontal_shortcut=str(payload["workspace_split_horizontal_shortcut"]),
+            minimize_to_tray=bool(payload.get("minimize_to_tray", False)),
             workspace_tab_stacking_enabled=bool(payload["workspace_tab_stacking_enabled"]),
             standalone_tool_window_placements=_sanitize_standalone_tool_window_placements(
                 payload.get("standalone_tool_window_placements")

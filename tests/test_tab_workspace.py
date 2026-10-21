@@ -2366,7 +2366,7 @@ class TabWorkspaceTests(unittest.TestCase):
         emulator.set_terminal_type("vt100")
         emulator.feed("\x1b[c")
 
-        self.assertEqual(replies, ["\x1b[?62;1;2;6;7;8;9;15;18;21;22c", "\x1b[?1;0c"])
+        self.assertEqual(replies, ["\x1b[?62;1;2;4;6;7;8;9;15;18;21;22c", "\x1b[?1;0c"])
         self.assertEqual(emulator.rendered_scrollback_text(), "(no scrollback data yet)")
 
     def test_vt100_emulator_reports_device_status(self) -> None:
@@ -2491,7 +2491,7 @@ class TabWorkspaceTests(unittest.TestCase):
 
             tab.append("\x1b[c")
 
-            tab._worker.send_text.assert_called_once_with("\x1b[?62;1;2;6;7;8;9;15;18;21;22c")
+            tab._worker.send_text.assert_called_once_with("\x1b[?62;1;2;4;6;7;8;9;15;18;21;22c")
         finally:
             tab.shutdown()
             tab.deleteLater()
@@ -5762,8 +5762,9 @@ class TabWorkspaceTests(unittest.TestCase):
         _args, kwargs = mock_dialog.call_args
         loader = kwargs.get("password_loader")
         self.assertTrue(callable(loader))
-        self.assertEqual(getattr(loader, "__self__", None), self.window._credential_service)
-        self.assertEqual(getattr(getattr(loader, "__func__", None), "__name__", ""), "load_password")
+        with patch.object(self.window._credential_service, "load_password", return_value="stored") as load:
+            self.assertEqual(loader(session), "stored")
+        load.assert_called_once_with(session)
 
     def test_session_actions_menu_includes_quick_connect_after_add(self) -> None:
         labels = [action.text() for action in self.window._session_actions_menu.actions() if action.text()]
@@ -7316,11 +7317,11 @@ class TabWorkspaceTests(unittest.TestCase):
 
             mock_dialog.assert_called_once_with(item_count=1, operation_label="Downloading", parent=tab)
             progress_dialog.show.assert_called_once_with()
-            progress_dialog.close.assert_called_once_with()
+            progress_dialog.accept.assert_called_once_with()
             sftp.find_download_overwrite_conflicts.assert_awaited_once()
             sftp.download_paths.assert_awaited_once()
             download_kwargs = sftp.download_paths.await_args.kwargs
-            self.assertIs(download_kwargs["progress_callback"], progress_dialog.update_progress)
+            self.assertTrue(callable(download_kwargs["progress_callback"]))
             self.assertIs(download_kwargs["cancel_requested"], progress_dialog.is_cancel_requested)
             mock_exec.assert_not_called()
             self.assertIn("Downloaded 1 item(s) to ", status_messages[0])

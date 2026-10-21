@@ -56,7 +56,6 @@ def _windows_install_command(package_id: str) -> list[str] | None:
 
 
 def required_dependencies() -> list[PlatformDependency]:
-    from snakesh.protocols.nomachine import has_supported_nomachine_client
     from snakesh.protocols.rdp import has_supported_rdp_client
     from snakesh.protocols.vnc import has_supported_vnc_client
 
@@ -94,16 +93,6 @@ def required_dependencies() -> list[PlatformDependency]:
                 is_available=has_supported_vnc_client,
             )
         )
-        deps.append(
-            PlatformDependency(
-                id="nxplayer",
-                display_name="NoMachine Player (nxplayer)",
-                command="nxplayer",
-                required_for="NoMachine sessions",
-                can_auto_install=False,
-                is_available=has_supported_nomachine_client,
-            )
-        )
         windows_vnc_cmd = _windows_install_command("TigerVNC.TigerVNC")
         if windows_vnc_cmd:
             for dep in deps:
@@ -131,16 +120,6 @@ def required_dependencies() -> list[PlatformDependency]:
                 required_for="VNC sessions",
                 can_auto_install=False,
                 is_available=has_supported_vnc_client,
-            )
-        )
-        deps.append(
-            PlatformDependency(
-                id="nxplayer",
-                display_name="NoMachine Player (nxplayer)",
-                command="nxplayer",
-                required_for="NoMachine sessions",
-                can_auto_install=False,
-                is_available=has_supported_nomachine_client,
             )
         )
         deps.append(
@@ -194,16 +173,6 @@ def required_dependencies() -> list[PlatformDependency]:
                 is_available=has_supported_vnc_client,
             )
         )
-        deps.append(
-            PlatformDependency(
-                id="nxplayer",
-                display_name="NoMachine Player (nxplayer)",
-                command="nxplayer",
-                required_for="NoMachine sessions",
-                can_auto_install=False,
-                is_available=has_supported_nomachine_client,
-            )
-        )
         return deps
 
     # Other platforms: keep checks but no auto-install assumptions.
@@ -224,16 +193,6 @@ def required_dependencies() -> list[PlatformDependency]:
             required_for="VNC sessions",
             can_auto_install=False,
             is_available=has_supported_vnc_client,
-        )
-    )
-    deps.append(
-        PlatformDependency(
-            id="nxplayer",
-            display_name="NoMachine Player (nxplayer)",
-            command="nxplayer",
-            required_for="NoMachine sessions",
-            can_auto_install=False,
-            is_available=has_supported_nomachine_client,
         )
     )
     return deps
@@ -290,6 +249,4 @@ def suggested_install_command(dep: PlatformDependency) -> list[str] | None:
 
 
 def dependency_help_url(dep: PlatformDependency) -> str | None:
-    if dep.id == "nxplayer":
-        return "https://www.nomachine.com/"
     return None

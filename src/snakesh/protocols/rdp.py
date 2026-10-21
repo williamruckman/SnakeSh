@@ -11,9 +11,11 @@ from pathlib import Path
 from snakesh.core.models import Session, is_auto_resolution, normalize_rdp_audio_mode, parse_resolution
 from snakesh.protocols.base import ProtocolError
 from snakesh.services.external_tools import resolve_executable
+from snakesh import runtime
 
 
-_FREERDP_EXECUTABLE_CANDIDATES: tuple[str, ...] = ("xfreerdp",)
+_FREERDP_EXECUTABLE_CANDIDATES: tuple[str, ...] = ("xfreerdp", "xfreerdp3")
+_MACOS_FREERDP_EXECUTABLE_CANDIDATES = ("sdl-freerdp", "sdl-freerdp3", "xfreerdp", "xfreerdp3")
 _MACOS_XQUARTZ_DISPLAY_FALLBACK = ":0"
 
 
@@ -148,7 +150,7 @@ def launch_rdp(
         password=password,
     )
     popen_kwargs: dict[str, object] = {}
-    launch_env = prepare_rdp_launch_environment()
+    launch_env = prepare_rdp_launch_environment(cmd[0])
     if launch_env is not None:
         popen_kwargs["env"] = launch_env
     if platform.system().lower() == "windows":
@@ -160,16 +162,21 @@ def launch_rdp(
     _launch_rdp_process(cmd, stdin_payload=stdin_payload, **popen_kwargs)
 
 
-def prepare_rdp_launch_environment() -> dict[str, str] | None:
+def prepare_rdp_launch_environment(executable: str | None = None) -> dict[str, str] | None:
     if platform.system().lower() != "darwin":
         return None
 
-    env = os.environ.copy()
+    env = runtime.sanitized_local_shell_environment()
+    client = executable or _freerdp_executable("darwin") or ""
+    if Path(client).name.startswith("sdl-freerdp"):
+        return env
     display = (env.get("DISPLAY") or "").strip() or _macos_launchctl_getenv("DISPLAY")
     if not display:
         _launch_macos_xquartz()
         display = _wait_for_macos_x11_display()
-    env["DISPLAY"] = display or _MACOS_XQUARTZ_DISPLAY_FALLBACK
+    if not display:
+        raise ProtocolError("XQuartz did not provide a display. Start XQuartz, log out/in after installation, or install FreeRDP with the native sdl-freerdp client.")
+    env["DISPLAY"] = display
     return env
 
 
@@ -194,13 +201,15 @@ def has_supported_rdp_client() -> bool:
             or shutil.which("mstsc") is not None
         )
     if system in {"linux", "darwin"}:
-        return resolve_executable(_FREERDP_EXECUTABLE_CANDIDATES, platform_name=system) is not None
+        candidates = _MACOS_FREERDP_EXECUTABLE_CANDIDATES if system == "darwin" else _FREERDP_EXECUTABLE_CANDIDATES
+        return resolve_executable(candidates, platform_name=system) is not None
     return False
 
 
 def _freerdp_executable(system: str | None = None) -> str | None:
     platform_name = (system or platform.system()).strip().lower()
-    resolved = resolve_executable(_FREERDP_EXECUTABLE_CANDIDATES, platform_name=platform_name)
+    candidates = _MACOS_FREERDP_EXECUTABLE_CANDIDATES if platform_name == "darwin" else _FREERDP_EXECUTABLE_CANDIDATES
+    resolved = resolve_executable(candidates, platform_name=platform_name)
     if resolved:
         return resolved
     if platform_name == "linux":

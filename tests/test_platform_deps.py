@@ -13,14 +13,13 @@ class PlatformDependencyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             homebrew_bin = Path(temp_dir) / "bin"
             homebrew_bin.mkdir()
-            for executable_name in ("xfreerdp", "vncviewer", "nxplayer"):
+            for executable_name in ("xfreerdp", "vncviewer"):
                 (homebrew_bin / executable_name).write_text("", encoding="utf-8")
 
             with (
                 patch("snakesh.services.platform_deps.platform.system", return_value="Darwin"),
                 patch("snakesh.protocols.rdp.platform.system", return_value="Darwin"),
                 patch("snakesh.protocols.vnc.platform.system", return_value="Darwin"),
-                patch("snakesh.protocols.nomachine.platform.system", return_value="Darwin"),
                 patch("snakesh.services.external_tools.MACOS_EXECUTABLE_DIRS", (homebrew_bin,)),
                 patch("snakesh.services.external_tools.shutil.which", return_value=None),
             ):
@@ -28,13 +27,13 @@ class PlatformDependencyTests(unittest.TestCase):
                 available = {
                     dep_id: bool(dep.is_available and dep.is_available())
                     for dep_id, dep in deps.items()
-                    if dep_id in {"xfreerdp", "vncviewer", "nxplayer"}
+                    if dep_id in {"xfreerdp", "vncviewer"}
                 }
 
         self.assertFalse(deps["xfreerdp"].can_auto_install)
         self.assertFalse(deps["vncviewer"].can_auto_install)
-        self.assertFalse(deps["nxplayer"].can_auto_install)
-        self.assertEqual(available, {"xfreerdp": True, "vncviewer": True, "nxplayer": True})
+        self.assertNotIn("nxplayer", deps)
+        self.assertEqual(available, {"xfreerdp": True, "vncviewer": True})
 
 
 if __name__ == "__main__":

@@ -249,7 +249,7 @@ class _OnePasswordBackend:
         if self._service_token:
             env = os.environ.copy()
             env["OP_SERVICE_ACCOUNT_TOKEN"] = self._service_token
-        return subprocess.run(command, capture_output=True, text=True, check=False, env=env)
+        return subprocess.run(command, capture_output=True, text=True, check=False, env=env, timeout=15)
 
     @staticmethod
     def _is_not_found(stderr: str) -> bool:
@@ -422,7 +422,7 @@ class _BitwardenBackend:
         if self._session:
             env = os.environ.copy()
             env["BW_SESSION"] = self._session
-        return subprocess.run([self._cli, *args], capture_output=True, text=True, check=False, env=env)
+        return subprocess.run([self._cli, *args], capture_output=True, text=True, check=False, env=env, timeout=15)
 
     @staticmethod
     def _is_not_found(text: str) -> bool:

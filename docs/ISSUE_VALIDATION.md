@@ -1,0 +1,72 @@
+# Issue fixes and validation
+
+Version 1.73 source changes against `a9f02db` / version 1.72, October 21, 2026.
+Package verification follows the GitLab/GitHub CI builds; local source test
+results below do not establish packaged or on-device behavior.
+
+| Item | Source change | Validation boundary |
+| --- | --- | --- |
+| 1. Crash-log folder button | Native Windows/macOS opening and a sanitized environment for Linux file-manager launchers. | Launcher regression tests; packaged OS checks still required. |
+| 2. SFTP preparation appears frozen | Show progress before overwrite checking and size discovery; run network/file work on workers. | GUI timer/tab-switch regression and real loopback transfers. |
+| 3. Sixel graphics | Incremental inline decoder and rendering, RGB/HLS colors, repeats, transparency, raster dimensions, and scroll/reset handling. | Decoder, malformed-input limits, terminal integration, and existing terminal trace replays. |
+| 4. Remove NoMachine | Remove launch module, dependency discovery, and session-editor controls. Keep legacy serialized records readable/exportable; reject their launch/edit explicitly. | Legacy-record and protocol-editor/dependency regressions. |
+| 5. Windows clipboard hangs | Plain-text clipboard helper with a deadline, separate from the GUI. Remove clipboard reads while opening terminal context menus. | Helper-timeout/UI responsiveness regression on Linux; Windows with an active RDP clipboard still needs reproduction. |
+| 6. SFTP Delete | Delete Selected buttons and Delete-key shortcuts in both file panes; retain configured confirmation. | SFTP UI regressions and loopback delete. |
+| 7. Minimize to tray | Saved opt-in setting, disabled by default, with Show/Quit actions and a visible-window fallback when no tray exists. Closing the main window still exits. | Settings and tray visibility/restore regressions. |
+| 8. Slow/lost network | Worker-based SFTP and credential operations; connection/login deadlines, cancellable SFTP waits, and a 30-second idle timeout that extends during transfer progress. Bound SFTP setup/cleanup and secrets CLI calls. | Stall, progress, cancellation, GUI responsiveness, and loopback tests. |
+| 9. Highlight/right-click SSH/less with external RDP open | Opening a terminal menu no longer requests clipboard text. Copy/paste use the isolated Windows helper; Copy and Paste reuses the selected text directly. | Source/timeout regressions and less trace replay; Windows/RHEL 7.9 reproduction still required. |
+| 10. Large deletes | Background recursive deletion with activity/count display, cancellation, and preserved completed changes. | Local/remote deletion regressions and real SFTP deletion. |
+| 11. Other tabs during SFTP | Progress is modeless; only the busy SFTP pane's controls are disabled. Protect closing an active operation's tab/window. | Switch to another tab while an overwrite scan is actively awaiting the server. |
+| 12. macOS-to-Windows RDP/XQuartz | Prefer installed native FreeRDP SDL; fall back to X11 clients. Prepare XQuartz off the UI thread and report a missing display instead of silently assuming `:0`. | Client/environment regressions; Tahoe 26.5.1, XQuartz 2.8.6 and the affected Windows server remain a manual reproduction gate. |
+| 13. Hidden certificate Y/N | Existing Linux/macOS GUI approval already uses default No before FreeRDP TOFU. Remove automatic deletion of FreeRDP certificate pins. No hidden automatic yes response is added. | RDP launch/trust regressions. A changed certificate must be reviewed rather than silently forgetting the pin. |
+
+Sixel limits: 2048 pixels per side, 2 MiB encoded input per image, bounded
+paint work, and at most 16 images / 32 MiB retained per terminal. Graphics appear
+in the live terminal; the separate searchable scrollback viewer remains text-only.
+
+Cancellation does not undo completed file writes or deletions. SFTP deadlines
+measure inactivity rather than imposing a total-duration limit on a progressing
+transfer. Directory workers retain their lifetime independently of closed tabs
+until their network cleanup finishes.
+
+## Verification
+
+The source suite is run in a temporary clean source snapshot with the existing
+virtualenv interpreter and `PYTHONPATH` pointing at that snapshot. Workspace and
+theme tests run in separate processes, matching the CI split. Existing ignored
+`build/` and `dist/` folders contain older artifacts and are not modified to make
+source tests pass. Their packaged-help equality gate requires rebuilding them.
+
+Final result: **1,216 unique tests and 152 subtests passed; 3 skipped**.
+The skips are the packaged-help equality check and two packaged-runtime smoke
+tests, because the clean source snapshot contains no frozen bundle.
+
+The CI split produced 357 workspace passes, 2 theme passes, and 857 remaining
+passes. After the final input-handler change, the workspace and all 16 new
+revision regressions also passed together (373 passes). Those 16 regressions
+are counted once in the unique total above.
+
+Commands used with `QT_QPA_PLATFORM=offscreen`, the project virtualenv Python,
+and `PYTHONPATH` set to the clean snapshot's `src/`:
+
+```sh
+python -m pytest -q -o faulthandler_timeout=30 tests/test_tab_workspace.py
+python -m pytest -q tests/test_theme.py
+python -m pytest -q -o faulthandler_timeout=30 --ignore=tests/test_tab_workspace.py --ignore=tests/test_theme.py
+python -m pytest -q -o faulthandler_timeout=30 tests/test_tab_workspace.py tests/test_update_regressions.py
+```
+
+`python -m snakesh --help`, `python -m snakesh tool list`, and
+`git diff --check` also passed. Version 1.73 is prepared for the GitLab release
+job, which mirrors its tag to GitHub. GitHub builds the platform packages on
+release publication or a manual workflow run. Windows clipboard/native-shell
+behavior and macOS Tahoe RDP remain on-device verification gates, not confirmed
+platform fixes.
+
+## Upstream references
+
+- [Microsoft: RDP delayed clipboard rendering](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpeclip/fa309d1b-8034-44bf-b927-adfc753e69c1)
+- [Microsoft: clipboard operations and ownership](https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard-operations)
+- [Microsoft: delayed clipboard rendering can wait 30 seconds](https://devblogs.microsoft.com/oldnewthing/20220609-00/?p=106731)
+- [Homebrew FreeRDP formula, including SDL3 frontend](https://github.com/Homebrew/homebrew-core/blob/master/Formula/f/freerdp.rb)
+- [XQuartz 2.8.6 release notes](https://www.xquartz.org/releases/XQuartz-2.8.6.html)

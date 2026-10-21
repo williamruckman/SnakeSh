@@ -125,7 +125,6 @@ from snakesh.core.tool_registry import (
     normalize_tool_keys,
     profile_startup_tool_entries,
 )
-from snakesh.protocols.nomachine import build_nomachine_launch, launch_nomachine
 from snakesh.protocols.rdp import (
     build_rdp_command,
     build_rdp_stdin_payload,
@@ -186,6 +185,10 @@ from snakesh.services.tool_process_service import (
     queue_tool_settings_sync,
 )
 from snakesh.services.x11_service import X11Service
+from snakesh.ui.background import background_calls_active, run_background_call
+from snakesh.ui.clipboard import copy_text, paste_text
+from snakesh.ui.sixel import SixelStream, TerminalGraphic
+from snakesh.ui.tray import TrayController
 from snakesh.ui.settings_dialog import SettingsDialog
 from snakesh.ui.shortcut_preferences import normalize_shortcut_text
 from snakesh.ui.terminal_scrollback_dialog import TerminalScrollbackDialog
@@ -933,7 +936,7 @@ def _terminal_device_attributes_reply(terminal_type: str) -> str:
     if normalized in {"vt100", "ansi"}:
         return "\x1b[?1;0c"
     if normalized in {"xterm", "xterm-256color"}:
-        return "\x1b[?62;1;2;6;7;8;9;15;18;21;22c"
+        return "\x1b[?62;1;2;4;6;7;8;9;15;18;21;22c"
     return "\x1b[?6c"
 
 
@@ -5782,6 +5785,7 @@ class TerminalView(QAbstractScrollArea):
     def _refresh_font_metrics(self) -> None:
         self._cell_width_px = max(1, self._metrics.horizontalAdvance("0"))
         self._cell_height_px = max(1, self._metrics.height())
+        self._emulator.cell_height = self._cell_height_px
         self._cell_ascent_px = self._metrics.ascent()
         self._cell_descent_px = max(2, self._metrics.descent())
 
@@ -6021,10 +6025,10 @@ class TerminalView(QAbstractScrollArea):
                 and self._enum_int(event.key()) == self._enum_int(Qt.Key_C)
             )
             if self._has_selection() and not is_plain_ctrl_c:
-                QApplication.clipboard().setText(self._selected_text())
+                copy_text(self._selected_text())
                 return
         if event.matches(QKeySequence.Paste):
-            self.paste_requested.emit(QApplication.clipboard().text())
+            paste_text(self.paste_requested.emit)
             return
         backspace_prefers_ctrl_h = self._emulator.backspace_sends_ctrl_h()
         if not backspace_prefers_ctrl_h and self._backspace_prefers_ctrl_h_override is not None:
@@ -6228,7 +6232,7 @@ class TerminalView(QAbstractScrollArea):
         copy_action.setEnabled(self._has_selection())
         menu.addSeparator()
         paste_action = menu.addAction("Paste")
-        paste_action.setEnabled(bool(QApplication.clipboard().text()))
+        paste_action.setEnabled(True)
         open_sftp_action = None
         disconnect_action = None
         if self._open_sftp_supported:
@@ -6248,9 +6252,9 @@ class TerminalView(QAbstractScrollArea):
         if action == copy_and_paste_action:
             self._copy_selection_and_paste()
         elif action == copy_action:
-            QApplication.clipboard().setText(self._selected_text())
+            copy_text(self._selected_text())
         elif action == paste_action:
-            self.paste_requested.emit(QApplication.clipboard().text())
+            paste_text(self.paste_requested.emit)
         elif open_sftp_action is not None and action == open_sftp_action:
             self.open_sftp_requested.emit()
         elif disconnect_action is not None and action == disconnect_action:
@@ -6265,7 +6269,7 @@ class TerminalView(QAbstractScrollArea):
         selected = self._selected_text()
         if not selected:
             return
-        QApplication.clipboard().setText(selected)
+        copy_text(selected)
         self.paste_requested.emit(selected)
 
     def _handle_mouse_press(self, event: QMouseEvent) -> None:
@@ -6523,6 +6527,14 @@ class TerminalView(QAbstractScrollArea):
                             ascent=ascent,
                             color_cache=color_cache,
                         )
+
+        if not screen.history.bottom:
+            painter.save()
+            painter.setClipRect(content.intersected(target))
+            for graphic in screen.graphics:
+                painter.drawImage(content.left() + graphic.column * cell_w,
+                                  content.top() + graphic.row * cell_h, graphic.image)
+            painter.restore()
 
         cursor = screen.cursor
         show_cursor = (not self._cursor_blink_enabled) or (not self._session_connected) or self._cursor_visible
@@ -6868,6 +6880,7 @@ class _SnakeShHistoryScreen(HistoryScreen):
         terminal_type: str = "auto",
     ) -> None:
         self._pending_scroll_operations: list[_TerminalScrollOperation] = []
+        self.graphics: list[TerminalGraphic] = []
         self._draw_char_cache: OrderedDict[tuple[Char, str], Char] = OrderedDict()
         self._sgr_transition_cache: OrderedDict[tuple[Char, tuple[int, ...]], Char] = OrderedDict()
         self._last_graphic_char: str | None = None
@@ -6877,6 +6890,7 @@ class _SnakeShHistoryScreen(HistoryScreen):
         super().__init__(columns, lines, history=history, ratio=ratio)
 
     def reset(self) -> None:
+        self.graphics.clear()
         super().reset()
         self._draw_char_cache.clear()
         self._sgr_transition_cache.clear()
@@ -6888,6 +6902,12 @@ class _SnakeShHistoryScreen(HistoryScreen):
             return
         normalized_top = max(0, min(self.lines - 1, top))
         normalized_bottom = max(normalized_top, min(self.lines - 1, bottom))
+        if self.graphics:
+            self._mark_full_repaint_damage()
+        for graphic in self.graphics:
+            if top <= graphic.row <= bottom or graphic.row < top < graphic.row + graphic.rows:
+                graphic.row -= delta
+        self.graphics[:] = [g for g in self.graphics if g.row + g.rows > 0 and g.row < self.lines]
         self._pending_scroll_operations.append(
             _TerminalScrollOperation(
                 top=normalized_top,
@@ -6999,6 +7019,12 @@ class _SnakeShHistoryScreen(HistoryScreen):
         super().erase_in_line(how, private=private)
 
     def erase_in_display(self, how: int = 0, *args, **kwargs) -> None:
+        if how in (2, 3):
+            self.graphics.clear()
+        elif how == 0:
+            self.graphics[:] = [g for g in self.graphics if g.row + g.rows <= self.cursor.y]
+        elif how == 1:
+            self.graphics[:] = [g for g in self.graphics if g.row > self.cursor.y]
         self._mark_full_repaint_damage()
         super().erase_in_display(how, *args, **kwargs)
 
@@ -7839,6 +7865,8 @@ class VT100Emulator:
             process_input_writer=process_input_writer,
             terminal_type=self._terminal_type,
         )
+        self._sixel_stream = SixelStream()
+        self.cell_height = 16
         self._stream = _SnakeShStream(self._screen, enable_fast_parser=enable_fast_parser)
         # pyte only handles SI/SO and ESC ( / ESC ) DEC charset switching when
         # UTF-8 mode is disabled. This is needed for ncurses line-drawing.
@@ -7849,7 +7877,18 @@ class VT100Emulator:
 
     def feed(self, data: str) -> str:
         with self._lock:
-            self._stream.feed(data)
+            for event in self._sixel_stream.feed(data):
+                if isinstance(event, str):
+                    self._stream.feed(event)
+                else:
+                    rows = max(1, math.ceil(event.height() / max(1, self.cell_height)))
+                    self._screen.graphics.append(TerminalGraphic(event, self._screen.cursor.x, self._screen.cursor.y, rows))
+                    while len(self._screen.graphics) > 16 or sum(g.image.sizeInBytes() for g in self._screen.graphics) > 32 * 1024 * 1024:
+                        self._screen.graphics.pop(0)
+                    for _ in range(rows):
+                        self._screen.index()
+                    self._screen.cursor.x = 0
+                    self._screen._mark_full_repaint_damage()
         return data
 
     def consume_dirty_rows(self) -> set[int]:
@@ -8037,8 +8076,17 @@ class CommandInputLineEdit(QLineEdit):
     paste_requested = Signal(str)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if event.matches(QKeySequence.Copy):
+            if self.hasSelectedText():
+                copy_text(self.selectedText())
+            return
+        if event.matches(QKeySequence.Cut):
+            if self.hasSelectedText():
+                copy_text(self.selectedText())
+                self.insert("")
+            return
         if event.matches(QKeySequence.Paste):
-            self.paste_requested.emit(QApplication.clipboard().text())
+            paste_text(self.paste_requested.emit)
             return
         super().keyPressEvent(event)
 
@@ -8094,7 +8142,7 @@ class CommandInputLineEdit(QLineEdit):
         redo_action.setEnabled(self.isRedoAvailable())
         cut_action.setEnabled(self.hasSelectedText())
         copy_action.setEnabled(self.hasSelectedText())
-        paste_action.setEnabled(bool(QApplication.clipboard().text()))
+        paste_action.setEnabled(True)
         delete_action.setEnabled(self.hasSelectedText())
         select_all_action.setEnabled(bool(self.text()))
 
@@ -8104,11 +8152,12 @@ class CommandInputLineEdit(QLineEdit):
         elif chosen == redo_action:
             self.redo()
         elif chosen == cut_action:
-            self.cut()
+            copy_text(self.selectedText())
+            self.insert("")
         elif chosen == copy_action:
-            self.copy()
+            copy_text(self.selectedText())
         elif chosen == paste_action:
-            self.paste_requested.emit(QApplication.clipboard().text())
+            paste_text(self.paste_requested.emit)
         elif chosen == delete_action:
             self.del_()
         elif chosen == select_all_action:
@@ -8116,11 +8165,33 @@ class CommandInputLineEdit(QLineEdit):
         menu.deleteLater()
 
 
+class _SFTPProgressSignals(QObject):
+    progress = Signal(object)
+    status = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._last_progress = 0.0
+        self._last_status = 0.0
+
+    def report_progress(self, progress: TransferProgress) -> None:
+        now = time.monotonic()
+        if now - self._last_progress >= 0.05:
+            self._last_progress = now
+            self.progress.emit(progress)
+
+    def report_status(self, path: str) -> None:
+        now = time.monotonic()
+        if now - self._last_status >= 0.1:
+            self._last_status = now
+            self.status.emit(path)
+
+
 class UploadProgressDialog(QDialog):
     def __init__(self, item_count: int, *, operation_label: str = "Uploading", parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(operation_label)
-        self.setWindowModality(Qt.ApplicationModal)
+        self.setWindowModality(Qt.NonModal)
         self.setMinimumWidth(520)
         self._item_count = max(1, item_count)
         self._cancel_requested = False
@@ -8129,9 +8200,9 @@ class UploadProgressDialog(QDialog):
 
         layout = QVBoxLayout(self)
         self.summary_label = QLabel(f"Preparing {operation_label.lower()}...")
+        self.summary_label.setTextFormat(Qt.PlainText)
         self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
+        self.progress_bar.setRange(0, 0)
         self.percent_label = QLabel("0%")
         self.speed_label = QLabel("Speed: 0 B/s")
         self.time_label = QLabel("Time: 0s elapsed")
@@ -8172,13 +8243,20 @@ class UploadProgressDialog(QDialog):
         self.summary_label.setText(
             f"Item {progress.item_index}/{self._item_count}: {Path(progress.source_path).name} -> {Path(progress.destination_path).name}"
         )
+        self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(percent)
         self.percent_label.setText(
             f"{percent}% ({self._format_bytes(overall_done)} / {self._format_bytes(overall_total)})"
         )
         self.speed_label.setText(f"Speed: {self._format_bytes(speed)}/s")
         self.time_label.setText(f"Time: {self._format_duration(elapsed)} elapsed, ETA {self._format_duration(eta)}")
-        QApplication.processEvents()
+
+    @Slot(str)
+    def update_status(self, path: str) -> None:
+        self.summary_label.setText(f"Processing: {path}" if path else "Waiting for the server...")
+
+    def reject(self) -> None:
+        self._cancel()
 
     @staticmethod
     def _format_bytes(value: float) -> str:
@@ -8565,6 +8643,27 @@ class SFTPDirectoryLoadWorker(QObject):
         self.deleteLater()
 
 
+_active_sftp_directory_threads: set[QThread] = set()
+
+
+class _SFTPDirectoryThread(QThread):
+    """Keep QObject creation/destruction on Qt's GUI thread."""
+    def __init__(self, worker: SFTPDirectoryLoadWorker):
+        super().__init__()
+        self.worker = worker
+        _active_sftp_directory_threads.add(self)
+        self.finished.connect(self._release, Qt.QueuedConnection)
+
+    def run(self) -> None:
+        self.worker.run()
+
+    @Slot()
+    def _release(self) -> None:
+        self.worker.deleteLater()
+        _active_sftp_directory_threads.discard(self)
+        self.deleteLater()
+
+
 class SFTPSessionTab(QWidget):
     LOCAL_PATH_ROLE = Qt.UserRole + 10
     LOCAL_IS_DIR_ROLE = Qt.UserRole + 11
@@ -8599,6 +8698,8 @@ class SFTPSessionTab(QWidget):
         self._status_callback = status_callback
         self._should_confirm_delete = should_confirm_delete
         self._should_confirm_overwrite = should_confirm_overwrite or (lambda: True)
+        self._file_task_active = False
+        self._progress_signals = _SFTPProgressSignals(self)
         self._local_dir = self._resolve_initial_local_dir(initial_local_dir)
         self._remote_dir = initial_remote_dir
         self._remote_entries: list[SFTPEntry] = []
@@ -8634,6 +8735,11 @@ class SFTPSessionTab(QWidget):
         self._refresh_shortcut = QShortcut(QKeySequence("F5"), self)
         self._refresh_shortcut.setContext(Qt.WidgetWithChildrenShortcut)
         self._refresh_shortcut.activated.connect(self._refresh_directories)
+        for tree, delete in ((self.local_file_tree, self._delete_selected_local),
+                             (self.remote_file_tree, self._delete_selected_remote)):
+            shortcut = QShortcut(QKeySequence(Qt.Key_Delete), tree)
+            shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(delete)
 
         self._set_local_directory(self._local_dir, sync_tree=True, show_errors=False)
         self.remote_path_input.setText(initial_remote_dir)
@@ -8752,6 +8858,9 @@ class SFTPSessionTab(QWidget):
         lower_layout.addWidget(self.local_file_tree, 1)
         split.addWidget(lower)
         split.setSizes([260, 360])
+        self.local_delete_btn = QPushButton("Delete Selected")
+        self.local_delete_btn.clicked.connect(self._delete_selected_local)
+        layout.addWidget(self.local_delete_btn)
         return panel
 
     def _build_remote_panel(self) -> QWidget:
@@ -8804,7 +8913,34 @@ class SFTPSessionTab(QWidget):
         lower_layout.addWidget(self.remote_file_tree, 1)
         split.addWidget(lower)
         split.setSizes([260, 360])
+        self.remote_delete_btn = QPushButton("Delete Selected")
+        self.remote_delete_btn.clicked.connect(self._delete_selected_remote)
+        layout.addWidget(self.remote_delete_btn)
         return panel
+
+    @contextmanager
+    def _file_task(self, label: str, count: int):
+        self._file_task_active = True
+        dialog = UploadProgressDialog(item_count=count, operation_label=label, parent=self)
+        self._progress_signals.progress.connect(dialog.update_progress, Qt.QueuedConnection)
+        self._progress_signals.status.connect(dialog.update_status, Qt.QueuedConnection)
+        controls = (self.local_file_tree, self.remote_file_tree, self.local_nav_tree,
+                    self.remote_nav_tree, self.local_path_input, self.remote_path_input,
+                    self.local_up_btn, self.remote_up_btn, self.local_delete_btn, self.remote_delete_btn)
+        enabled = [control.isEnabled() for control in controls]
+        for control in controls:
+            control.setEnabled(False)
+        dialog.show()
+        try:
+            yield dialog
+        finally:
+            self._progress_signals.progress.disconnect(dialog.update_progress)
+            self._progress_signals.status.disconnect(dialog.update_status)
+            dialog.accept()
+            dialog.deleteLater()
+            for control, was_enabled in zip(controls, enabled):
+                control.setEnabled(was_enabled)
+            self._file_task_active = False
 
     def _run_remote(self, operation: Callable[[str | None, bool], _T]) -> _T | None:
         result, updated_password = self._execute_remote(self._session, self._password, operation)
@@ -9004,48 +9140,30 @@ class SFTPSessionTab(QWidget):
         self._upload_local_paths(paths)
 
     def _upload_local_paths(self, local_paths: list[str]) -> None:
-        if not local_paths:
+        if not local_paths or self._file_task_active:
             return
-        if self._should_confirm_overwrite():
-            conflicts = self._run_remote(
-                lambda password, trust_unknown: asyncio.run(
-                    self._sftp.find_upload_overwrite_conflicts(
-                        self._session,
-                        local_paths,
-                        self._remote_dir,
-                        password=password,
-                        trust_unknown=trust_unknown,
-                    )
-                )
-            )
-            if conflicts is None:
-                return
-            if not self._confirm_overwrite_conflicts(conflicts, destination_label="remote"):
-                self._status_callback("Upload cancelled: overwrite not confirmed.", 5000)
-                return
-        progress_dialog = UploadProgressDialog(item_count=len(local_paths), parent=self)
-        progress_dialog.show()
-        QApplication.processEvents()
-        try:
-            transferred = self._run_remote(
-                lambda password, trust_unknown: asyncio.run(
-                    self._sftp.upload_paths(
-                        self._session,
-                        local_paths,
-                        self._remote_dir,
-                        password=password,
-                        trust_unknown=trust_unknown,
-                        progress_callback=progress_dialog.update_progress,
-                        cancel_requested=progress_dialog.is_cancel_requested,
-                    )
-                )
-            )
-        finally:
-            progress_dialog.close()
-        if transferred is None:
-            return
-        self._status_callback(f"Uploaded {transferred} item(s) to {self._remote_dir}", 6000)
-        self._refresh_remote_directory()
+        destination = self._remote_dir
+        with self._file_task("Uploading", len(local_paths)) as progress:
+            if self._should_confirm_overwrite():
+                conflicts = self._run_remote(lambda password, trust_unknown: asyncio.run(
+                    self._sftp.find_upload_overwrite_conflicts(self._session, local_paths, destination,
+                        password=password, trust_unknown=trust_unknown,
+                        status_callback=self._progress_signals.report_status,
+                        cancel_requested=progress.is_cancel_requested)))
+                if conflicts is None or progress.is_cancel_requested():
+                    return
+                if not self._confirm_overwrite_conflicts(conflicts, destination_label="remote"):
+                    self._status_callback("Upload cancelled: overwrite not confirmed.", 5000)
+                    return
+            transferred = self._run_remote(lambda password, trust_unknown: asyncio.run(
+                self._sftp.upload_paths(self._session, local_paths, destination,
+                    password=password, trust_unknown=trust_unknown,
+                    progress_callback=self._progress_signals.report_progress,
+                    status_callback=self._progress_signals.report_status,
+                    cancel_requested=progress.is_cancel_requested)))
+        if transferred is not None:
+            self._status_callback(f"Uploaded {transferred} item(s) to {destination}", 6000)
+            self._refresh_remote_directory()
 
     def _delete_selected_local(self) -> None:
         paths = self._selected_local_paths()
@@ -9055,26 +9173,48 @@ class SFTPSessionTab(QWidget):
         self._delete_local_paths(paths)
 
     def _delete_local_paths(self, local_paths: list[str]) -> None:
-        if not local_paths:
+        if not local_paths or self._file_task_active or not self._confirm_delete(local_paths, "local"):
             return
-        if not self._confirm_delete(local_paths, "local"):
-            return
-        deleted = 0
-        for path in local_paths:
+        with self._file_task("Deleting local files", len(local_paths)) as progress:
+            def remove():
+                count = 0
+                last_report = 0.0
+                def check(path):
+                    nonlocal last_report
+                    if progress.is_cancel_requested():
+                        raise TransferCancelledError("Deletion cancelled; completed deletions remain in place.")
+                    now = time.monotonic()
+                    if now - last_report >= 0.1:
+                        last_report = now
+                        self._progress_signals.status.emit(f"Deleted {count} items; {path}")
+                def walk_error(error):
+                    raise error
+                for path in local_paths:
+                    check(path)
+                    if os.path.isdir(path) and not os.path.islink(path):
+                        for root, dirs, files in os.walk(path, topdown=False, followlinks=False, onerror=walk_error):
+                            for name in files + dirs:
+                                target = os.path.join(root, name)
+                                check(target)
+                                if os.path.isdir(target) and not os.path.islink(target):
+                                    os.rmdir(target)
+                                else:
+                                    os.remove(target)
+                                count += 1
+                            check(root)
+                        os.rmdir(path)
+                    else:
+                        os.remove(path)
+                    count += 1
+                return count
             try:
-                if os.path.islink(path):
-                    os.remove(path)
-                elif os.path.isdir(path):
-                    shutil.rmtree(path)
-                else:
-                    os.remove(path)
-                deleted += 1
+                deleted = run_background_call(remove)
+                self._status_callback(f"Deleted {deleted} local item(s).", 6000)
+            except TransferCancelledError as exc:
+                self._status_callback(str(exc), 6000)
             except Exception as exc:
-                QMessageBox.critical(self, "Delete Failed", f"Failed to delete local path:\n{path}\n\n{exc}")
-                break
-        if deleted:
-            self._status_callback(f"Deleted {deleted} local item(s).", 6000)
-        self._set_local_directory(self._local_dir, sync_tree=False, show_errors=False)
+                QMessageBox.critical(self, "Delete Failed", str(exc))
+        self._refresh_local_directory()
 
     def _rename_selected_local(self) -> None:
         entries = self._selected_local_entries()
@@ -9165,6 +9305,8 @@ class SFTPSessionTab(QWidget):
         self._set_remote_directory(self._remote_dir)
 
     def _refresh_directories(self) -> None:
+        if self._file_task_active:
+            return
         self._refresh_local_directory()
         self._refresh_remote_directory()
 
@@ -9189,7 +9331,6 @@ class SFTPSessionTab(QWidget):
         self._show_remote_loading_state(f"Loading {path}...")
         self._status_callback(f"Loading remote directory {path}...", 0)
 
-        thread = QThread(self)
         worker = SFTPDirectoryLoadWorker(
             request_id=self._remote_load_request_id,
             session=self._session,
@@ -9198,13 +9339,9 @@ class SFTPSessionTab(QWidget):
             password=self._password,
             trust_unknown=trust_unknown,
         )
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
+        thread = _SFTPDirectoryThread(worker)
         worker.batch_loaded.connect(self._handle_remote_load_batch, Qt.QueuedConnection)
         worker.finished.connect(self._handle_remote_load_finished, Qt.QueuedConnection)
-        worker.finished.connect(worker._schedule_delete, Qt.DirectConnection)
-        worker.finished.connect(thread.quit, Qt.DirectConnection)
-        thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._on_remote_load_thread_finished, Qt.QueuedConnection)
         self._remote_load_thread = thread
         self._remote_load_worker = worker
@@ -9474,52 +9611,30 @@ class SFTPSessionTab(QWidget):
         self._download_remote_paths(paths)
 
     def _download_remote_paths(self, remote_paths: list[str]) -> None:
-        if not remote_paths:
+        if not remote_paths or self._file_task_active:
             return
-        if self._should_confirm_overwrite():
-            conflicts = self._run_remote(
-                lambda password, trust_unknown: asyncio.run(
-                    self._sftp.find_download_overwrite_conflicts(
-                        self._session,
-                        remote_paths,
-                        self._local_dir,
-                        password=password,
-                        trust_unknown=trust_unknown,
-                    )
-                )
-            )
-            if conflicts is None:
-                return
-            if not self._confirm_overwrite_conflicts(conflicts, destination_label="local"):
-                self._status_callback("Download cancelled: overwrite not confirmed.", 5000)
-                return
-        progress_dialog = UploadProgressDialog(
-            item_count=len(remote_paths),
-            operation_label="Downloading",
-            parent=self,
-        )
-        progress_dialog.show()
-        QApplication.processEvents()
-        try:
-            transferred = self._run_remote(
-                lambda password, trust_unknown: asyncio.run(
-                    self._sftp.download_paths(
-                        self._session,
-                        remote_paths,
-                        self._local_dir,
-                        password=password,
-                        trust_unknown=trust_unknown,
-                        progress_callback=progress_dialog.update_progress,
-                        cancel_requested=progress_dialog.is_cancel_requested,
-                    )
-                )
-            )
-        finally:
-            progress_dialog.close()
-        if transferred is None:
-            return
-        self._status_callback(f"Downloaded {transferred} item(s) to {self._local_dir}", 6000)
-        self._set_local_directory(self._local_dir, sync_tree=False, show_errors=False)
+        destination = self._local_dir
+        with self._file_task("Downloading", len(remote_paths)) as progress:
+            if self._should_confirm_overwrite():
+                conflicts = self._run_remote(lambda password, trust_unknown: asyncio.run(
+                    self._sftp.find_download_overwrite_conflicts(self._session, remote_paths, destination,
+                        password=password, trust_unknown=trust_unknown,
+                        status_callback=self._progress_signals.report_status,
+                        cancel_requested=progress.is_cancel_requested)))
+                if conflicts is None or progress.is_cancel_requested():
+                    return
+                if not self._confirm_overwrite_conflicts(conflicts, destination_label="local"):
+                    self._status_callback("Download cancelled: overwrite not confirmed.", 5000)
+                    return
+            transferred = self._run_remote(lambda password, trust_unknown: asyncio.run(
+                self._sftp.download_paths(self._session, remote_paths, destination,
+                    password=password, trust_unknown=trust_unknown,
+                    progress_callback=self._progress_signals.report_progress,
+                    status_callback=self._progress_signals.report_status,
+                    cancel_requested=progress.is_cancel_requested)))
+        if transferred is not None:
+            self._status_callback(f"Downloaded {transferred} item(s) to {destination}", 6000)
+            self._refresh_local_directory()
 
     def _delete_selected_remote(self) -> None:
         paths = self._selected_remote_paths()
@@ -9529,23 +9644,16 @@ class SFTPSessionTab(QWidget):
         self._delete_remote_paths(paths)
 
     def _delete_remote_paths(self, remote_paths: list[str]) -> None:
-        if not remote_paths:
+        if not remote_paths or self._file_task_active or not self._confirm_delete(remote_paths, "remote"):
             return
-        if not self._confirm_delete(remote_paths, "remote"):
-            return
-        deleted = self._run_remote(
-            lambda password, trust_unknown: asyncio.run(
-                self._sftp.delete_paths(
-                    self._session,
-                    remote_paths,
-                    password=password,
-                    trust_unknown=trust_unknown,
-                )
-            )
-        )
-        if deleted is None:
-            return
-        self._status_callback(f"Deleted {deleted} remote item(s).", 6000)
+        with self._file_task("Deleting remote files", len(remote_paths)) as progress:
+            deleted = self._run_remote(lambda password, trust_unknown: asyncio.run(
+                self._sftp.delete_paths(self._session, remote_paths,
+                    password=password, trust_unknown=trust_unknown,
+                    status_callback=self._progress_signals.report_status,
+                    cancel_requested=progress.is_cancel_requested)))
+        if deleted is not None:
+            self._status_callback(f"Deleted {deleted} remote item(s).", 6000)
         self._refresh_remote_directory()
 
     def _show_remote_menu(self, position) -> None:
@@ -10850,11 +10958,6 @@ class RemoteViewerTab(QWidget):
             return False
         system = platform.system().lower()
         protocol = self._protocol_name.strip().upper()
-        if protocol == "NOMACHINE":
-            if system == "windows":
-                return self._is_windows_process_name_running("nxplayer.exe")
-            if system == "darwin":
-                return True
         return False
 
     @staticmethod
@@ -12700,6 +12803,7 @@ class MainWindow(QMainWindow):
         self._session_service = session_service
         self._settings_service = settings_service
         self._settings = settings_service.load()
+        self._tray_controller = TrayController(self, self._settings.minimize_to_tray)
         self._secrets_service = SecretsService(settings_service=self._settings_service)
         self._credential_service = CredentialService(settings_service=self._settings_service)
         self._backup_service = BackupService()
@@ -15193,7 +15297,7 @@ class MainWindow(QMainWindow):
         self._session_service.add_or_update(cloned)
         if cloned.save_password:
             try:
-                source_password = self._credential_service.load_password(session)
+                source_password = run_background_call(lambda: self._credential_service.load_password(session))
                 if source_password:
                     self._persist_session_password(cloned, source_password)
             except Exception:
@@ -15240,6 +15344,9 @@ class MainWindow(QMainWindow):
         if len(sessions) < 2:
             QMessageBox.information(self, "Bulk Edit", "Select at least two sessions to use bulk edit.")
             return
+        if any(session.protocol == Protocol.NOMACHINE for session in sessions):
+            QMessageBox.warning(self, "Unsupported Protocol", "NoMachine records can be exported or deleted, but no longer edited.")
+            return
         protocols = {session.protocol for session in sessions}
         if len(protocols) != 1:
             QMessageBox.warning(self, "Bulk Edit", "Select sessions with the same protocol for bulk edit.")
@@ -15249,7 +15356,7 @@ class MainWindow(QMainWindow):
         dialog = SessionEditorDialog(
             parent=self,
             session=template,
-            password_loader=self._credential_service.load_password,
+            password_loader=lambda session: run_background_call(lambda: self._credential_service.load_password(session)),
         )
         protocol_name = template.protocol.value.upper()
         dialog.setWindowTitle(f"Bulk Edit {len(sessions)} {protocol_name} Sessions")
@@ -15450,8 +15557,6 @@ class MainWindow(QMainWindow):
     def _required_dependency_id_for_protocol(self, protocol: Protocol) -> str | None:
         if protocol == Protocol.VNC:
             return "vncviewer"
-        if protocol == Protocol.NOMACHINE:
-            return "nxplayer"
         if protocol != Protocol.RDP:
             return None
         if platform.system().lower() == "windows":
@@ -15713,7 +15818,7 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _start_detached_for_remote_session(session: Session) -> bool:
-        if session.protocol in (Protocol.VNC, Protocol.NOMACHINE):
+        if session.protocol in (Protocol.VNC,):
             return True
         if session.protocol != Protocol.RDP:
             return False
@@ -15738,7 +15843,7 @@ class MainWindow(QMainWindow):
                     linux_trust_certificate=linux_trust_certificate,
                 )
                 stdin_payload = build_rdp_stdin_payload(session, password=password)
-                return cmd, "RDP Client", prepare_rdp_launch_environment(), stdin_payload
+                return cmd, "RDP Client", run_background_call(lambda: prepare_rdp_launch_environment(cmd[0])), stdin_payload
 
             self._open_remote_viewer_tab(
                 session,
@@ -15818,17 +15923,6 @@ class MainWindow(QMainWindow):
             runtime_only=runtime_only,
         )
 
-    def _open_nomachine_tab(self, session: Session, *, runtime_only: bool = False) -> None:
-        def detached_builder() -> RemoteLaunchSpec:
-            return build_nomachine_launch(session)
-
-        self._open_remote_viewer_tab(
-            session,
-            protocol_name="NoMachine",
-            detached_command_builder=detached_builder,
-            start_detached=True,
-            runtime_only=runtime_only,
-        )
 
     def _connect_session(
         self,
@@ -15845,7 +15939,7 @@ class MainWindow(QMainWindow):
                 password = (
                     password_override
                     if password_override is not None
-                    else (self._credential_service.load_password(session) if session.save_password else None)
+                    else (run_background_call(lambda: self._credential_service.load_password(session)) if session.save_password else None)
                 )
                 system = platform.system().lower()
                 if system in {"linux", "darwin"}:
@@ -15866,11 +15960,7 @@ class MainWindow(QMainWindow):
                             5000,
                         )
                         return
-                    try:
-                        clear_linux_rdp_known_host(session)
-                    except OSError:
-                        # Best-effort cleanup: stale FreeRDP host keys can force hidden terminal prompts.
-                        pass
+                    # Preserve FreeRDP certificate pins: TOFU must reject changed certificates.
                     if runtime_only:
                         self._open_rdp_tab(
                             session,
@@ -15913,7 +16003,7 @@ class MainWindow(QMainWindow):
                 password = (
                     password_override
                     if password_override is not None
-                    else (self._credential_service.load_password(session) if session.save_password else None)
+                    else (run_background_call(lambda: self._credential_service.load_password(session)) if session.save_password else None)
                 )
                 if platform.system().lower() in {"linux", "windows"}:
                     if runtime_only:
@@ -15927,19 +16017,7 @@ class MainWindow(QMainWindow):
             return
 
         if session.protocol == Protocol.NOMACHINE:
-            if not self._ensure_protocol_dependency(session.protocol):
-                return
-            try:
-                if platform.system().lower() in {"linux", "windows", "darwin"}:
-                    if runtime_only:
-                        self._open_nomachine_tab(session, runtime_only=True)
-                    else:
-                        self._open_nomachine_tab(session)
-                    return
-                viewer = launch_nomachine(session)
-                self.statusBar().showMessage(f"NoMachine launched for {session_label} ({viewer})", 5000)
-            except Exception as exc:
-                QMessageBox.critical(self, "Connection Error", str(exc))
+            QMessageBox.warning(self, "Unsupported Protocol", "NoMachine integration has been removed. This saved record is preserved for reference and export.")
             return
 
         if session.protocol == Protocol.SFTP:
@@ -16168,7 +16246,7 @@ class MainWindow(QMainWindow):
         if not public_key_path:
             return
 
-        password = self._credential_service.load_password(session) if session.save_password else None
+        password = run_background_call(lambda: self._credential_service.load_password(session)) if session.save_password else None
         trust_unknown = False
         save_password_on_success = False
         while True:
@@ -16178,14 +16256,9 @@ class MainWindow(QMainWindow):
                     if not password:
                         return
                     save_password_on_success = save_password_on_success or remember_password
-                asyncio.run(
-                    self._ssh.install_public_key(
-                        session,
-                        public_key_path=public_key_path,
-                        password=password,
-                        trust_unknown=trust_unknown,
-                    )
-                )
+                run_background_call(lambda: asyncio.run(asyncio.wait_for(
+                    self._ssh.install_public_key(session, public_key_path=public_key_path,
+                        password=password, trust_unknown=trust_unknown), timeout=30)))
                 if save_password_on_success:
                     self._enable_password_save_for_session(session)
                 if (session.save_password or save_password_on_success) and password:
@@ -16353,41 +16426,7 @@ class MainWindow(QMainWindow):
                 ]
             )
         elif session.protocol == Protocol.NOMACHINE:
-            resize_mode_label = (
-                "Viewport (scroll)"
-                if session.nomachine_physical_desktop_resize_mode == "viewport"
-                else "Scale to fit"
-            )
-            quality_labels = {
-                0: "Lowest (fastest)",
-                1: "Very low",
-                2: "Low",
-                3: "Lower-medium",
-                4: "Medium-low",
-                5: "Balanced",
-                6: "Medium-high",
-                7: "High",
-                8: "Very high",
-                9: "Highest (best image)",
-            }
-            link_quality_label = quality_labels.get(session.nomachine_link_quality, "Custom")
-            video_quality_label = quality_labels.get(session.nomachine_video_quality, "Custom")
-            lines.extend(
-                [
-                    "Auth: Managed by the NoMachine client.",
-                    "Open Mode: Detached window only",
-                    f"Audio Streaming: {'Enabled' if session.nomachine_audio_enabled else 'Disabled'}",
-                    (
-                        "Mute Audio On Remote: Yes"
-                        if session.nomachine_audio_enabled and session.nomachine_mute_remote_audio
-                        else "Mute Audio On Remote: No"
-                    ),
-                    f"Auto Resize Physical Desktop: {'Enabled' if session.nomachine_physical_desktop_auto_resize else 'Disabled'}",
-                    f"Resize Mode: {resize_mode_label}",
-                    f"Link Quality: {session.nomachine_link_quality} ({link_quality_label})",
-                    f"Video Quality: {session.nomachine_video_quality} ({video_quality_label})",
-                ]
-            )
+            lines.append("NoMachine integration has been removed. Record preserved for reference/export.")
         elif session.protocol == Protocol.TELNET:
             transport_label = "TLS" if session.telnet_use_tls else "Plaintext"
             lines.extend(
@@ -16477,10 +16516,13 @@ class MainWindow(QMainWindow):
         self._edit_specific_session(session)
 
     def _edit_specific_session(self, session: Session) -> None:
+        if session.protocol == Protocol.NOMACHINE:
+            QMessageBox.warning(self, "Unsupported Protocol", "NoMachine integration has been removed. You can export or delete this saved record.")
+            return
         dialog = SessionEditorDialog(
             parent=self,
             session=session,
-            password_loader=self._credential_service.load_password,
+            password_loader=lambda session: run_background_call(lambda: self._credential_service.load_password(session)),
         )
         if dialog.exec():
             updated = dialog.build_session()
@@ -16521,7 +16563,7 @@ class MainWindow(QMainWindow):
         title: str = "Password Save Failed",
         show_dialog: bool = False,
     ) -> bool:
-        saved, error_message = self._credential_service.save_password(session, password)
+        saved, error_message = run_background_call(lambda: self._credential_service.save_password(session, password))
         if saved:
             return True
         self._notify_password_save_failure(error_message, title=title, show_dialog=show_dialog)
@@ -16765,7 +16807,7 @@ class MainWindow(QMainWindow):
         password = (
             password_override
             if password_override is not None
-            else (self._credential_service.load_password(session) if session.save_password else None)
+            else (run_background_call(lambda: self._credential_service.load_password(session)) if session.save_password else None)
         )
         x11_forwarding = session.x11_forwarding
         if session.x11_forwarding:
@@ -17286,7 +17328,7 @@ class MainWindow(QMainWindow):
         password = (
             password_override
             if password_override is not None
-            else (self._credential_service.load_password(session) if session.save_password else None)
+            else (run_background_call(lambda: self._credential_service.load_password(session)) if session.save_password else None)
         )
         # Start at the user-defined remote path (defaulting to server home ".").
         start_path = session.sftp_remote_folder.strip() or DEFAULT_SFTP_REMOTE_FOLDER
@@ -17322,7 +17364,7 @@ class MainWindow(QMainWindow):
 
         while True:
             try:
-                result = operation(current_password, trust_unknown)
+                result = run_background_call(lambda: operation(current_password, trust_unknown))
                 if allow_password_save and save_password_on_success:
                     self._enable_password_save_for_session(session)
                 if allow_password_save and (session.save_password or save_password_on_success) and current_password:
@@ -17709,8 +17751,6 @@ class MainWindow(QMainWindow):
             return system in {"linux", "windows"}
         if session.protocol == Protocol.VNC:
             return system in {"linux", "windows"}
-        if session.protocol == Protocol.NOMACHINE:
-            return system in {"linux", "windows", "darwin"}
         return False
 
     def _profile_tab_payloads(self, snapshot: dict[str, object]) -> list[dict[str, object]]:
@@ -17738,7 +17778,7 @@ class MainWindow(QMainWindow):
 
     def _profile_tab_uses_remote_viewer_queue(self, tab_payload: dict[str, object]) -> bool:
         kind = str(tab_payload.get("kind", "")).strip().upper()
-        if kind in {"RDP", "VNC", "NOMACHINE"}:
+        if kind in {"RDP", "VNC"}:
             session_id = str(tab_payload.get("session_id", "")).strip()
             session = self._session_service.by_id(session_id) if session_id else None
             if session is not None:
@@ -17746,7 +17786,6 @@ class MainWindow(QMainWindow):
             protocol_map = {
                 "RDP": Protocol.RDP,
                 "VNC": Protocol.VNC,
-                "NOMACHINE": Protocol.NOMACHINE,
             }
             return self._session_uses_remote_viewer_queue(
                 Session(name=kind, host="", protocol=protocol_map[kind], port=0)
@@ -18409,8 +18448,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Ran fast command {name}.", 4000)
             return
 
-        clipboard = QApplication.clipboard()
-        clipboard.setText(payload.rstrip("\r\n"))
+        copy_text(payload.rstrip("\r\n"))
         self.statusBar().showMessage(
             f"Copied fast command {name} to the clipboard for {target._protocol_name} paste.",
             6000,
@@ -19958,6 +19996,7 @@ class MainWindow(QMainWindow):
                 AppSettings.defaults().main_window_fullscreen_shortcut
             )
         self._settings.main_window_fullscreen_shortcut = normalized_shortcut
+        self._tray_controller.set_enabled(self._settings.minimize_to_tray)
         self._update_workspace_tab_shortcuts()
         if persist:
             self._settings_service.save(self._settings)
@@ -20256,7 +20295,7 @@ class MainWindow(QMainWindow):
         settings: AppSettings,
         auth_updates: dict[str, str | None] | None = None,
     ) -> tuple[bool, str]:
-        health = self._secrets_service.check_backend(settings=settings, auth_overrides=auth_updates)
+        health = run_background_call(lambda: self._secrets_service.check_backend(settings=settings, auth_overrides=auth_updates))
         return health.ok, health.message
 
     def _setup_secrets_backend_from_settings(
@@ -20264,7 +20303,7 @@ class MainWindow(QMainWindow):
         settings: AppSettings,
         auth_updates: dict[str, str | None] | None = None,
     ) -> tuple[bool, str]:
-        health = self._secrets_service.setup_backend(settings=settings, auth_overrides=auth_updates)
+        health = run_background_call(lambda: self._secrets_service.setup_backend(settings=settings, auth_overrides=auth_updates))
         return health.ok, health.message
 
     def _import_securecrt_from_settings_menu(self) -> None:
@@ -20529,6 +20568,9 @@ class MainWindow(QMainWindow):
                     self._close_tab_in_host(host, index)
 
     def _close_tab_in_host(self, host: WorkspaceTabWidget, index: int, *, show_progress: bool = True) -> None:
+        if isinstance(host.widget(index), SFTPSessionTab) and host.widget(index)._file_task_active:
+            self.statusBar().showMessage("Cancel the file operation or wait before closing this tab.", 6000)
+            return
         widget = host.widget(index)
         if widget is None:
             return
@@ -20654,6 +20696,10 @@ class MainWindow(QMainWindow):
         self._apply_fixed_session_list_width()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+        if background_calls_active():
+            event.ignore()
+            self.statusBar().showMessage("A background operation is still running. Cancel it or wait before closing.", 6000)
+            return
         if not self._confirm_application_close_with_connected_tabs():
             event.ignore()
             return
@@ -20686,6 +20732,8 @@ class MainWindow(QMainWindow):
                 title = "Session"
                 if widget is not None:
                     title = self._display_title_for_widget(widget).strip() or "Session"
+                if isinstance(widget, SFTPSessionTab):
+                    widget.shutdown()
                 if isinstance(widget, TerminalTab):
                     if shutdown_progress is not None:
                         self._refresh_status_progress(shutdown_progress, message=f"Closing {title}...")
@@ -20787,4 +20835,12 @@ class MainWindow(QMainWindow):
         self._detached_window_by_host.clear()
         self._detached_host_by_window.clear()
         self._finish_status_progress(shutdown_progress)
+        for thread in list(_active_sftp_directory_threads):
+            if thread.isRunning():
+                thread.worker.cancel()
+                self._is_shutting_down = False
+                event.ignore()
+                self.statusBar().showMessage("Waiting for SFTP directory cleanup. Close again shortly.", 6000)
+                return
+        self._tray_controller.shutdown()
         super().closeEvent(event)

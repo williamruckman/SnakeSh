@@ -154,6 +154,9 @@ class SettingsDialog(QDialog):
             allow_disabled=True,
             parent=self,
         )
+        self.minimize_to_tray = QCheckBox("Minimize SnakeSh to the system tray")
+        self.minimize_to_tray.setChecked(settings.minimize_to_tray)
+        self.minimize_to_tray.setToolTip("Keep sessions running when minimized. Requires an available system tray. Closing still exits.")
         self.workspace_tab_stacking_enabled = QCheckBox("Stack workspace tabs into multiple rows")
         self.workspace_tab_stacking_enabled.setChecked(settings.workspace_tab_stacking_enabled)
         tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
@@ -505,6 +508,7 @@ class SettingsDialog(QDialog):
         form.addRow(QLabel("Cursor Blink"), self.cursor_blink)
         form.addRow(QLabel("Terminal Bell"), self.terminal_bell)
         form.addRow(QLabel("Visual Bell"), self.terminal_visual_bell)
+        form.addRow(QLabel("Minimize to Tray"), self.minimize_to_tray)
         form.addRow(QLabel("SFTP Delete Prompt"), self.warn_before_file_delete)
         form.addRow(QLabel("SFTP Overwrite Prompt"), self.warn_before_file_overwrite)
         form.addRow(QLabel("Active Tab Close Prompt"), self.warn_before_closing_active_tab)
@@ -1049,6 +1053,7 @@ class SettingsDialog(QDialog):
                 ],
                 "workspace_split_vertical_shortcut": self.workspace_split_vertical_shortcut.shortcut_text(),
                 "workspace_split_horizontal_shortcut": self.workspace_split_horizontal_shortcut.shortcut_text(),
+                "minimize_to_tray": self.minimize_to_tray.isChecked(),
                 "workspace_tab_stacking_enabled": self.workspace_tab_stacking_enabled.isChecked(),
                 "terminal_scrollback_lines": self.scrollback.value(),
                 "terminal_log_dir": self.log_dir.text().strip() or self._defaults.terminal_log_dir,
@@ -1243,6 +1248,7 @@ class SettingsDialog(QDialog):
         self.font_family.currentTextChanged.connect(self._emit_preview_settings)
         self.font_pt.valueChanged.connect(self._emit_preview_settings)
         self.terminal_classic_default_colors.toggled.connect(self._emit_preview_settings)
+        self.minimize_to_tray.toggled.connect(self._emit_preview_settings)
         self.workspace_tab_stacking_enabled.toggled.connect(self._emit_preview_settings)
 
     def _emit_preview_settings(self, *_args) -> None:
@@ -1321,6 +1327,7 @@ class SettingsDialog(QDialog):
                 ),
                 "terminal_font_family": self.font_family.currentText().strip() or str(payload["terminal_font_family"]),
                 "terminal_font_pt": self.font_pt.value(),
+                "minimize_to_tray": self.minimize_to_tray.isChecked(),
                 "workspace_tab_stacking_enabled": self.workspace_tab_stacking_enabled.isChecked(),
             }
         )
@@ -1421,6 +1428,7 @@ class SettingsDialog(QDialog):
         self.workspace_previous_tab_shortcut.set_shortcut_text(settings.workspace_previous_tab_shortcut)
         self.workspace_split_vertical_shortcut.set_shortcut_text(settings.workspace_split_vertical_shortcut)
         self.workspace_split_horizontal_shortcut.set_shortcut_text(settings.workspace_split_horizontal_shortcut)
+        self.minimize_to_tray.setChecked(settings.minimize_to_tray)
         self.workspace_tab_stacking_enabled.setChecked(settings.workspace_tab_stacking_enabled)
         tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
         for index, editor in enumerate(self.workspace_tab_jump_shortcuts):

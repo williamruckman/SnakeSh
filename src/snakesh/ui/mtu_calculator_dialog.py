@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from snakesh.ui.clipboard import copy_text
 from snakesh.services.mtu_tools import (
     MTU_OVERHEAD_PRESETS,
     MtuCalculationRequest,
@@ -195,7 +196,7 @@ class MTUCalculatorDialog(QDialog):
     def _copy_summary(self) -> None:
         if self._current_result is None:
             return
-        QApplication.clipboard().setText(format_mtu_summary(self._current_result))
+        copy_text(format_mtu_summary(self._current_result))
         self.status_label.setStyleSheet("color: #166534;")
         self.status_label.setText("Summary copied to clipboard.")
 

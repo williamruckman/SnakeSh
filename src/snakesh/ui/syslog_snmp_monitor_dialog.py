@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from snakesh.ui.clipboard import copy_text
 from snakesh.services.network_inspector import collect_interface_info
 from snakesh.services.settings_service import AppSettings
 from snakesh.services.syslog_snmp_monitor import (
@@ -2252,7 +2253,7 @@ class SyslogSnmpMonitorDialog(QDialog):
         if item is None:
             return
         text = item.text(self._last_event_column)
-        QApplication.clipboard().setText(text)
+        copy_text(text)
         self.status_label.setText("Copied current cell.")
 
     def _copy_current_row(self) -> None:
@@ -2275,7 +2276,7 @@ class SyslogSnmpMonitorDialog(QDialog):
         lines = [label]
         for index in range(self.events_tree.topLevelItemCount()):
             lines.append(self.events_tree.topLevelItem(index).text(self._last_event_column))
-        QApplication.clipboard().setText("\n".join(lines))
+        copy_text("\n".join(lines))
         self.status_label.setText(f"Copied column {label}.")
 
     def _copy_all_rows(self) -> None:
@@ -2290,7 +2291,7 @@ class SyslogSnmpMonitorDialog(QDialog):
         if include_headers:
             lines.append("\t".join(headers))
         lines.extend("\t".join(row) for row in rows)
-        QApplication.clipboard().setText("\n".join(lines))
+        copy_text("\n".join(lines))
         plural = noun if len(rows) == 1 else f"{noun}s"
         self.status_label.setText(f"Copied {len(rows)} {plural}.")
 

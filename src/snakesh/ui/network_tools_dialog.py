@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from snakesh.ui.clipboard import copy_text
 from snakesh.services.mtr_trace import (
     MTR_PROTOCOL_AUTO,
     MTR_PROTOCOL_ICMP,
@@ -771,10 +772,7 @@ class TracerouteToolDialog(QDialog):
             self.status_label.setText("Clipboard is unavailable.")
 
     def _set_clipboard_text(self, payload: str, success_message: str) -> bool:
-        clipboard = QApplication.clipboard()
-        if clipboard is None:
-            return False
-        clipboard.setText(payload)
+        copy_text(payload)
         self.status_label.setText(success_message)
         return True
 
@@ -1695,7 +1693,7 @@ class IPScanDialog(QDialog):
             return
         headers = [tree.headerItem().text(index) for index in range(tree.columnCount())]
         payload = "\n".join("\t".join(row) for row in [headers, *rows])
-        QApplication.clipboard().setText(payload)
+        copy_text(payload)
         tab_name = self.tabs.tabText(self.tabs.currentIndex())
         noun = "row" if len(rows) == 1 else "rows"
         self.status_label.setText(f"Copied {len(rows)} {noun} from {tab_name}.")
