@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.76 source changes against `a9f02db` / version 1.72, October 21, 2026.
+Version 1.77 source changes against `a9f02db` / version 1.72, October 21, 2026.
 Package verification follows the GitLab/GitHub CI builds; local source test
 results below do not establish packaged or on-device behavior.
 
@@ -57,7 +57,7 @@ python -m pytest -q tests/test_qt_runtime.py tests/test_version.py tests/test_pa
 ```
 
 `python -m snakesh --help`, `python -m snakesh tool list`, and
-`git diff --check` also passed. Version 1.76 is prepared for the GitLab release
+`git diff --check` also passed. Version 1.77 is prepared for the GitLab release
 job, which mirrors its tag to GitHub. GitHub builds the platform packages on
 release publication or a manual workflow run. Windows clipboard/native-shell
 behavior and macOS Tahoe RDP remain on-device verification gates, not confirmed
@@ -102,6 +102,13 @@ package server returned HTTP 503 for two Python packages. The existing release
 can be retried without moving its tag. Follow-up changes on `main` add bounded
 APT and tool-download retries for future builds; these changes are not in the
 immutable v1.76 tag.
+
+Direct probes of both failed package URLs also returned HTTP 503. Version 1.77
+uses the existing direct payload-build mode on GitHub's Ubuntu 22.04 runner
+with its `setup-python` Python 3.11 interpreter. The script's Python, shared
+library, and GLIBC baseline checks still run; the separate AppImage packaging
+and smoke checks remain enabled. This CI path avoids the unavailable PPA. Local
+container builds retain the same Ubuntu/Python baseline and bounded retries.
 
 ## Upstream references
 

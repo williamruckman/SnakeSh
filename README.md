@@ -300,6 +300,7 @@ When you import a backup from a different OS, SnakeSh keeps portable settings su
   - Windows x64 Setup EXE
   - macOS x64 dmg/zip (Intel)
   - macOS arm64 dmg/zip (Apple Silicon)
+- The Linux CI job builds directly on its Ubuntu 22.04 runner using the Python 3.11 interpreter from `setup-python`, then packages the AppImage separately. The build script enforces the same portable GLIBC baseline. CI does not need the container builder's Deadsnakes PPA; local full release builds retain the container option.
 - Tag-based release publishing:
 The GitLab release job creates `v*` tags from `VERSION` on the default branch, pushes them to GitLab, and mirrors them to GitHub. Set `GITLAB_RELEASE_TOKEN` and `GITHUB_RELEASE_TOKEN` in GitLab CI/CD variables; set `GITHUB_REPOSITORY=owner/repo` if the GitHub repository path differs from GitLab. A GitHub tag push creates a draft release, and publishing that release builds and attaches artifacts.
 - Release tag recovery:
