@@ -7,7 +7,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV QT_QPA_PLATFORM=offscreen
 
-RUN apt-get update \
+RUN printf '%s\n' \
+        'Acquire::Retries "5";' \
+        'Acquire::http::Timeout "30";' \
+        'Acquire::https::Timeout "30";' \
+        > /etc/apt/apt.conf.d/80-snakesh-retries \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         binutils \
         build-essential \
@@ -47,8 +52,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /opt/snakesh/tools \
-    && curl -L "${LINUXDEPLOY_URL}" -o /opt/snakesh/tools/linuxdeploy-x86_64.AppImage \
-    && curl -L "${APPIMAGETOOL_URL}" -o /opt/snakesh/tools/appimagetool-x86_64.AppImage \
+    && curl --fail --show-error --location --retry 5 --retry-connrefused --retry-max-time 180 --connect-timeout 15 --max-time 120 \
+        "${LINUXDEPLOY_URL}" -o /opt/snakesh/tools/linuxdeploy-x86_64.AppImage \
+    && curl --fail --show-error --location --retry 5 --retry-connrefused --retry-max-time 180 --connect-timeout 15 --max-time 120 \
+        "${APPIMAGETOOL_URL}" -o /opt/snakesh/tools/appimagetool-x86_64.AppImage \
     && chmod +x /opt/snakesh/tools/linuxdeploy-x86_64.AppImage /opt/snakesh/tools/appimagetool-x86_64.AppImage
 
 WORKDIR /workspace

@@ -95,6 +95,14 @@ The four linkage-gate regressions and the affected packaging, version, bootstrap
 security, and Qt runtime tests passed together locally (28 tests). The macOS
 build script also passed Bash syntax validation.
 
+The v1.76 run passed all source tests, Windows, Apple Silicon, and Intel macOS
+packaging, including the previously failing Intel bundle smoke test. Its Linux
+container build stopped before application compilation when the Deadsnakes
+package server returned HTTP 503 for two Python packages. The existing release
+can be retried without moving its tag. Follow-up changes on `main` add bounded
+APT and tool-download retries for future builds; these changes are not in the
+immutable v1.76 tag.
+
 ## Upstream references
 
 - [Cryptography: macOS static OpenSSL build](https://cryptography.io/en/latest/installation/#building-cryptography-on-macos)
