@@ -1,8 +1,8 @@
 # Issue fixes and validation
 
 Version 1.78 source changes against `a9f02db` / version 1.72, October 21, 2026.
-Package verification follows the GitLab/GitHub CI builds; local source test
-results below do not establish packaged or on-device behavior.
+Published CI packages and Linux artifact verification are recorded below.
+Source tests and package smoke checks have separate on-device validation gates.
 
 | Item | Source change | Validation boundary |
 | --- | --- | --- |
@@ -37,7 +37,7 @@ theme tests run in separate processes, matching the CI split. Existing ignored
 `build/` and `dist/` folders contain older artifacts and are not modified to make
 source tests pass. Their packaged-help equality gate requires rebuilding them.
 
-Full local run after the Qt correction on Python 3.11.17 / PySide6 6.11.2:
+Full local run at v1.74 after the Qt correction on Python 3.11.17 / PySide6 6.11.2:
 **1,217 unique tests and 152 subtests passed; 3 skipped**.
 The skips are the packaged-help equality check and two packaged-runtime smoke
 tests, because the clean source snapshot contains no frozen bundle.
@@ -57,11 +57,39 @@ python -m pytest -q tests/test_qt_runtime.py tests/test_version.py tests/test_pa
 ```
 
 `python -m snakesh --help`, `python -m snakesh tool list`, and
-`git diff --check` also passed. Version 1.78 is prepared for the GitLab release
-job, which mirrors its tag to GitHub. GitHub builds the platform packages on
-release publication or a manual workflow run. Windows clipboard/native-shell
-behavior and macOS Tahoe RDP remain on-device verification gates, not confirmed
-platform fixes.
+`git diff --check` also passed. Windows clipboard/native-shell behavior and
+macOS Tahoe RDP remain on-device verification gates.
+
+## Published release verification
+
+GitLab synchronization pipeline 204 passed and mirrored the immutable v1.78 tag
+at `c5b0b1c01206f10d14132052d715f66ae0169b0b`. After release publication,
+[GitHub build 39688345730](https://github.com/williamruckman/SnakeSh/actions/runs/39688345730)
+completed successfully on October 21, 2026. The Qt runtime check, workspace
+suite, remaining source tests, all four platform package jobs, and release
+attachment job passed.
+
+[Release v1.78](https://github.com/williamruckman/SnakeSh/releases/tag/v1.78)
+contains the Linux x86_64 AppImage, Windows x64 installer, Intel and Apple Silicon
+macOS DMG/ZIP packages, and `SHA256SUMS.txt`. The macOS packages are unsigned.
+Native CI startup smoke checks passed on Windows and both macOS architectures;
+Linux passed the frozen executable and AppImage smoke checks.
+
+The published checksum manifest matched GitHub's SHA256 metadata for all six
+package assets. The downloaded Linux AppImage also matched its manifest hash:
+
+```text
+6769c41c039294a52fc9557b82bec8ad67a441d1ea317c8b8b4a9214bcb5f1d5
+```
+
+The downloaded AppImage passed `--help`. Its extracted bundle reported version
+1.78 and was linked into a temporary clean source snapshot for the three checks
+previously skipped without a package: bundled-help equality, detached Diff tool
+lifetime/reuse, and detached Password Generator lifetime/reuse. All passed:
+**3 tests and 36 subtests**, with no skips, using isolated application data and
+Qt's offscreen platform. These checks establish the packaged Linux runtime;
+the Windows clipboard/RDP and macOS Tahoe connection reproductions still need
+the affected machines.
 
 ## CI runtime correction
 
