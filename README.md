@@ -289,6 +289,7 @@ When you import a backup from a different OS, SnakeSh keeps portable settings su
 
 ## Release Packaging (Maintainers)
 
+- Python installations and release builds pin PySide6 to 6.11.2. The 6.12.0 binding reproducibly aborts Python 3.11 during repeated ordinary Qt calls; CI checks this in an isolated process before running workspace tests.
 - GitHub Actions workflow:
 `.github/workflows/build.yml`
 - CI runs the full test suite on pull requests, manual runs, and published GitHub releases.

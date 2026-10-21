@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.73 source changes against `a9f02db` / version 1.72, October 21, 2026.
+Version 1.74 source changes against `a9f02db` / version 1.72, October 21, 2026.
 Package verification follows the GitLab/GitHub CI builds; local source test
 results below do not establish packaged or on-device behavior.
 
@@ -37,31 +37,43 @@ theme tests run in separate processes, matching the CI split. Existing ignored
 `build/` and `dist/` folders contain older artifacts and are not modified to make
 source tests pass. Their packaged-help equality gate requires rebuilding them.
 
-Final result: **1,216 unique tests and 152 subtests passed; 3 skipped**.
+Final local result on Python 3.11.17 / PySide6 6.11.2:
+**1,217 unique tests and 152 subtests passed; 3 skipped**.
 The skips are the packaged-help equality check and two packaged-runtime smoke
 tests, because the clean source snapshot contains no frozen bundle.
 
-The CI split produced 357 workspace passes, 2 theme passes, and 857 remaining
-passes. After the final input-handler change, the workspace and all 16 new
-revision regressions also passed together (373 passes). Those 16 regressions
-are counted once in the unique total above.
+The CI split produced 357 workspace passes, 2 theme passes, and 858 remaining
+passes. The focused Qt runtime, version, packaging, and bootstrap checks also
+passed together (23 passes), and are counted once in the unique total above.
 
 Commands used with `QT_QPA_PLATFORM=offscreen`, the project virtualenv Python,
 and `PYTHONPATH` set to the clean snapshot's `src/`:
 
 ```sh
-python -m pytest -q -o faulthandler_timeout=30 tests/test_tab_workspace.py
+python -X faulthandler -m pytest -vv --durations=25 -o faulthandler_timeout=60 tests/test_tab_workspace.py
 python -m pytest -q tests/test_theme.py
-python -m pytest -q -o faulthandler_timeout=30 --ignore=tests/test_tab_workspace.py --ignore=tests/test_theme.py
-python -m pytest -q -o faulthandler_timeout=30 tests/test_tab_workspace.py tests/test_update_regressions.py
+python -m pytest -q -o faulthandler_timeout=60 --ignore=tests/test_tab_workspace.py --ignore=tests/test_theme.py
+python -m pytest -q tests/test_qt_runtime.py tests/test_version.py tests/test_packaging_spec.py tests/test_bootstrap.py
 ```
 
 `python -m snakesh --help`, `python -m snakesh tool list`, and
-`git diff --check` also passed. Version 1.73 is prepared for the GitLab release
+`git diff --check` also passed. Version 1.74 is prepared for the GitLab release
 job, which mirrors its tag to GitHub. GitHub builds the platform packages on
 release publication or a manual workflow run. Windows clipboard/native-shell
 behavior and macOS Tahoe RDP remain on-device verification gates, not confirmed
 platform fixes.
+
+## CI runtime correction
+
+The v1.73 GitHub build aborted during workspace tests with exit code 134; no
+platform packages were built. A clean Python 3.11.17 environment reproduced
+`none_dealloc` with PySide6 6.12.0. A standalone loop of ordinary
+`QWidget.setWindowTitle` calls lost approximately one reference to `None` per
+call and aborted the process. PySide6 6.11.0 and 6.11.2 did not show that loss.
+Version 1.74 pins PySide6 6.11.2 in package metadata and the source bootstrap,
+and adds an isolated runtime regression before CI workspace tests. The published
+v1.73 tag is preserved; the corrected build uses a new version.
+The new regression fails safely with the 6.12.0 runtime and passes with 6.11.2.
 
 ## Upstream references
 

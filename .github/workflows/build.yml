@@ -75,6 +75,9 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install -e . pytest
 
+      - name: Check Qt runtime
+        run: python3 -m pytest -vv tests/test_qt_runtime.py
+
       - name: Run workspace tests
         timeout-minutes: 10
         run: python3 -m pytest -vv --durations=25 -o faulthandler_timeout=60 tests/test_tab_workspace.py

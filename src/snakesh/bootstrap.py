@@ -16,7 +16,7 @@ class RuntimeRequirement:
 MIN_PYTHON_VERSION = (3, 11)
 
 REQUIRED_MODULES = (
-    RuntimeRequirement("PySide6", "PySide6>=6.7,<7"),
+    RuntimeRequirement("PySide6", "PySide6==6.11.2"),
     RuntimeRequirement("asyncssh", "asyncssh>=2.14"),
     RuntimeRequirement("cryptography.fernet", "cryptography>=42"),
     RuntimeRequirement("cffi", "cffi>=1.16", force_reinstall=True),

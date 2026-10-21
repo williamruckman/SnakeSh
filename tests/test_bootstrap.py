@@ -24,7 +24,7 @@ class BootstrapTests(unittest.TestCase):
 
     def test_run_pip_install_uses_force_reinstall_for_flagged_requirements(self) -> None:
         requirements = [
-            RuntimeRequirement("PySide6", "PySide6>=6.7,<7"),
+            RuntimeRequirement("PySide6", "PySide6==6.11.2"),
             RuntimeRequirement("cffi", "cffi>=1.16", force_reinstall=True),
         ]
 
@@ -34,7 +34,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(mock_check_call.call_count, 2)
         mock_check_call.assert_has_calls(
             [
-                call([sys.executable, "-m", "pip", "install", "PySide6>=6.7,<7"]),
+                call([sys.executable, "-m", "pip", "install", "PySide6==6.11.2"]),
                 call(
                     [
                         sys.executable,
