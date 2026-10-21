@@ -290,6 +290,7 @@ When you import a backup from a different OS, SnakeSh keeps portable settings su
 ## Release Packaging (Maintainers)
 
 - Python installations and release builds pin PySide6 to 6.11.2. The 6.12.0 binding reproducibly aborts Python 3.11 during repeated ordinary Qt calls; CI checks this in an isolated process before running workspace tests.
+- Cryptography is pinned to 50.0.2. Intel macOS builds require Homebrew `openssl@3` with static libraries and a Rust toolchain (`brew install openssl@3 rust`). The build script compiles cryptography against static OpenSSL with its wheel cache disabled, then checks native linkage and an encryption round trip before freezing the app. This prevents a collision with the Python runtime's bundled OpenSSL library.
 - GitHub Actions workflow:
 `.github/workflows/build.yml`
 - CI runs the full test suite on pull requests, manual runs, and published GitHub releases.

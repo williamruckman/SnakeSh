@@ -106,7 +106,36 @@ if [[ "${NOTARIZE_RELEASE}" == "1" ]] && ! has_notary_credentials; then
 fi
 
 "${PYTHON_BIN}" -m pip install --upgrade pip
+
+if [[ "${TARGET_ARCH}" == "x64" ]]; then
+    # Intel macOS has no upstream cryptography wheel. Match upstream's static
+    # OpenSSL build so PyInstaller cannot substitute Python's older libssl.
+    if ! command -v brew >/dev/null 2>&1 || ! command -v cargo >/dev/null 2>&1; then
+        echo "Intel macOS builds require Homebrew OpenSSL and Rust: brew install openssl@3 rust" >&2
+        exit 1
+    fi
+    OPENSSL_BUILD_ROOT="$(brew --prefix openssl@3)"
+    if [[ ! -f "${OPENSSL_BUILD_ROOT}/lib/libssl.a" || ! -f "${OPENSSL_BUILD_ROOT}/lib/libcrypto.a" ]]; then
+        echo "Static OpenSSL libraries not found under ${OPENSSL_BUILD_ROOT}. Run: brew install openssl@3" >&2
+        exit 1
+    fi
+    CRYPTOGRAPHY_REQUIREMENT="$("${PYTHON_BIN}" - <<'PY'
+from pathlib import Path
+import tomllib
+dependencies = tomllib.loads(Path("pyproject.toml").read_text())["project"]["dependencies"]
+print(next(spec for spec in dependencies if spec.startswith("cryptography==")))
+PY
+    )"
+    OPENSSL_STATIC=1 OPENSSL_DIR="${OPENSSL_BUILD_ROOT}" \
+        "${PYTHON_BIN}" -m pip install --force-reinstall --no-cache-dir \
+        --no-binary cryptography --no-deps "${CRYPTOGRAPHY_REQUIREMENT}"
+fi
+
 "${PYTHON_BIN}" -m pip install -e . pyinstaller pytest
+
+if [[ "${TARGET_ARCH}" == "x64" ]]; then
+    "${PYTHON_BIN}" packaging/macos/check_cryptography_linkage.py
+fi
 
 if [[ "${RUN_TESTS}" == "1" ]]; then
     QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" "${PYTHON_BIN}" -m pytest -q

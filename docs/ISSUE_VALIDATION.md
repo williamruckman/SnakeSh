@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.75 source changes against `a9f02db` / version 1.72, October 21, 2026.
+Version 1.76 source changes against `a9f02db` / version 1.72, October 21, 2026.
 Package verification follows the GitLab/GitHub CI builds; local source test
 results below do not establish packaged or on-device behavior.
 
@@ -37,7 +37,7 @@ theme tests run in separate processes, matching the CI split. Existing ignored
 `build/` and `dist/` folders contain older artifacts and are not modified to make
 source tests pass. Their packaged-help equality gate requires rebuilding them.
 
-Final local result on Python 3.11.17 / PySide6 6.11.2:
+Full local run after the Qt correction on Python 3.11.17 / PySide6 6.11.2:
 **1,217 unique tests and 152 subtests passed; 3 skipped**.
 The skips are the packaged-help equality check and two packaged-runtime smoke
 tests, because the clean source snapshot contains no frozen bundle.
@@ -57,7 +57,7 @@ python -m pytest -q tests/test_qt_runtime.py tests/test_version.py tests/test_pa
 ```
 
 `python -m snakesh --help`, `python -m snakesh tool list`, and
-`git diff --check` also passed. Version 1.75 is prepared for the GitLab release
+`git diff --check` also passed. Version 1.76 is prepared for the GitLab release
 job, which mirrors its tag to GitHub. GitHub builds the platform packages on
 release publication or a manual workflow run. Windows clipboard/native-shell
 behavior and macOS Tahoe RDP remain on-device verification gates, not confirmed
@@ -82,8 +82,23 @@ disables live collection in the three snapshot-rendering tests. The complete
 Resource Monitor test module passed afterward (64 tests); application refresh
 behavior is unchanged. Published tags v1.73 and v1.74 are preserved.
 
+The v1.75 run passed all source tests and the Linux, Windows, and Apple Silicon
+package jobs. Intel macOS froze successfully but its bundle smoke test failed:
+cryptography's source-built Rust extension needed `SSL_get0_group_name`, while
+the bundled `libssl.3.dylib` lacked that symbol. Current cryptography releases
+publish only ARM macOS wheels. Version 1.76 pins cryptography 50.0.2 and builds
+it from source on Intel using upstream's static OpenSSL recipe, ignoring cached
+wheels. A native linkage/encryption check runs before PyInstaller. Intel bundle
+validation still requires its CI runner; Linux tests of the gate do not establish
+a native macOS build result. The v1.75 tag is preserved.
+The four linkage-gate regressions and the affected packaging, version, bootstrap,
+security, and Qt runtime tests passed together locally (28 tests). The macOS
+build script also passed Bash syntax validation.
+
 ## Upstream references
 
+- [Cryptography: macOS static OpenSSL build](https://cryptography.io/en/latest/installation/#building-cryptography-on-macos)
+- [Cryptography: macOS Intel wheel support removed in 49.0.0](https://cryptography.io/en/latest/changelog/#v49-0-0)
 - [Microsoft: RDP delayed clipboard rendering](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpeclip/fa309d1b-8034-44bf-b927-adfc753e69c1)
 - [Microsoft: clipboard operations and ownership](https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard-operations)
 - [Microsoft: delayed clipboard rendering can wait 30 seconds](https://devblogs.microsoft.com/oldnewthing/20220609-00/?p=106731)
