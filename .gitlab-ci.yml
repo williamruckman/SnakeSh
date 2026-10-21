@@ -5,6 +5,7 @@ create_release_tag:
   stage: release
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $SYNC_RELEASE_TAG == "1"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $BUILD_PACKAGES == "1"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes:
         - VERSION
@@ -44,6 +45,16 @@ create_release_tag:
       GITHUB_REMOTE_URL="https://x-access-token:${GITHUB_RELEASE_TOKEN}@github.com/${GITHUB_TARGET_REPOSITORY}.git"
       if git ls-remote --exit-code --tags "${GITHUB_REMOTE_URL}" "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
         echo "Tag ${TAG_NAME} already exists on GitHub; leaving it unchanged."
-        exit 0
+      else
+        git push "${GITHUB_REMOTE_URL}" "refs/tags/${TAG_NAME}"
       fi
-      git push "${GITHUB_REMOTE_URL}" "refs/tags/${TAG_NAME}"
+    - |
+      if [ "${BUILD_PACKAGES:-0}" = "1" ]; then
+        echo "Starting GitHub package builds for ${TAG_NAME}."
+        curl --fail --silent --show-error --request POST \
+          --header "Authorization: Bearer ${GITHUB_RELEASE_TOKEN}" \
+          --header "Accept: application/vnd.github+json" \
+          --header "Content-Type: application/json" \
+          --data "{\"ref\":\"${TAG_NAME}\"}" \
+          "https://api.github.com/repos/${GITHUB_TARGET_REPOSITORY}/actions/workflows/build.yml/dispatches"
+      fi

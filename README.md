@@ -302,6 +302,8 @@ When you import a backup from a different OS, SnakeSh keeps portable settings su
 The GitLab release job creates `v*` tags from `VERSION` on the default branch, pushes them to GitLab, and mirrors them to GitHub. Set `GITLAB_RELEASE_TOKEN` and `GITHUB_RELEASE_TOKEN` in GitLab CI/CD variables; set `GITHUB_REPOSITORY=owner/repo` if the GitHub repository path differs from GitLab. A GitHub tag push creates a draft release, and publishing that release builds and attaches artifacts.
 - Release tag recovery:
 Run a GitLab pipeline on the default branch with `SYNC_RELEASE_TAG=1` to mirror the current `VERSION` tag to GitHub when the tag already exists on GitLab.
+- Build packages for verification:
+Run a GitLab pipeline on the default branch with `BUILD_PACKAGES=1` to synchronize the current version tag and dispatch GitHub's Build workflow for that tag. Download the platform packages from the GitHub Actions run for testing. The release stays a draft; publishing it later builds and attaches the release assets through the normal release workflow. The GitHub token must also permit Actions workflow dispatch.
 - Local Linux full release build:
 `bash scripts/build_linux.sh`
 - By default, `scripts/build_linux.sh` uses the containerized release builder when Docker or Podman is available. To force a direct host build on the pinned portable GLIBC baseline (currently GLIBC 2.34-2.35), use:
