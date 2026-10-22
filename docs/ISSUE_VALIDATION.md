@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.82 source changes against `a9f02db` / version 1.72, October 22, 2026.
+Version 1.83 source changes against `a9f02db` / version 1.72, October 22, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
@@ -322,6 +322,24 @@ GitHub rejected the v1.77 tag mirror with GH007 (private author email). Future
 commits in this repository use the owner's GitHub no-reply address. Version
 1.78 carries the same Linux CI change; existing tags and history are retained.
 
+## Windows RDP console-window follow-up (v1.83)
+
+The supplied Windows screenshot and connection-action confirmation identified
+an extra Windows Terminal window when opening RDP. The credential preload used
+the console application `cmdkey` with captured output but no console-suppression
+flag. It now uses `CREATE_NO_WINDOW`, so credential preload runs without opening
+a console. The Microsoft Remote Desktop viewer and its connection/security
+prompts retain their existing launch behavior.
+
+The launcher regression checks both default-port and explicit-port credential
+targets. A native Windows regression launches a GUI parent (`pythonw.exe`),
+substitutes a harmless console probe for the credential-writing command, and
+requires that the child has no console handle. It does not write credentials.
+Both the pre-draft Windows gate and Windows package job include this regression
+and the existing Sixel runtime checks. Local affected source checks passed:
+**79 tests**, with four native Windows checks skipped on Linux. Native Windows
+CI and CI-built package verification remain pending.
+
 ## Upstream references
 
 - [FreeRDP scaling options are mutually exclusive](https://github.com/FreeRDP/FreeRDP/blob/stable-2.0/client/common/cmdline.c)
@@ -330,6 +348,7 @@ commits in this repository use the owner's GitHub no-reply address. Version
 - [Homebrew libsixel formula](https://formulae.brew.sh/formula/libsixel)
 - [Sixel PowerShell module 0.7.1](https://www.powershellgallery.com/packages/Sixel/0.7.1)
 - [Microsoft ConPTY package](https://www.nuget.org/packages/Microsoft.Windows.Console.ConPTY/1.25.260930003)
+- [Microsoft process creation flags: CREATE_NO_WINDOW](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags)
 - [Python X Library 0.33](https://pypi.org/project/python-xlib/0.33/)
 
 - [Cryptography: macOS static OpenSSL build](https://cryptography.io/en/latest/installation/#building-cryptography-on-macos)

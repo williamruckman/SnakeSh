@@ -218,6 +218,27 @@ class RDPLauncherTests(unittest.TestCase):
 
         self.assertEqual(cmd, ["mstsc", str(expected_file)])
 
+    def test_windows_credentials_are_preloaded_without_a_console_window(self) -> None:
+        session = _build_session()
+        session.port = 3390
+        expected_file = Path("C:/Temp/snakesh-test.rdp")
+        with (
+            patch("snakesh.protocols.rdp.platform.system", return_value="Windows"),
+            patch("snakesh.protocols.rdp._windows_mstsc_executable", return_value="mstsc"),
+            patch("snakesh.protocols.rdp._build_windows_rdp_file", return_value=expected_file),
+            patch("snakesh.protocols.rdp.subprocess.CREATE_NO_WINDOW", 0x08000000, create=True),
+            patch("snakesh.protocols.rdp.subprocess.run") as run,
+        ):
+            command = build_rdp_command(session, password="secret")
+
+        self.assertEqual(command, ["mstsc", str(expected_file)])
+        self.assertEqual(run.call_count, 2)
+        for call, target in zip(run.call_args_list, ("TERMSRV/rdp.example.com", "TERMSRV/rdp.example.com:3390")):
+            self.assertEqual(call.args[0], ["cmdkey", f"/generic:{target}", "/user:EXAMPLE\\tester", "/pass:secret"])
+            self.assertEqual(call.kwargs["creationflags"], 0x08000000)
+            self.assertTrue(call.kwargs["capture_output"])
+            self.assertEqual(call.kwargs["timeout"], 3)
+
     def test_macos_build_command_uses_homebrew_freerdp(self) -> None:
         session = _build_session()
         with tempfile.TemporaryDirectory() as temp_dir:

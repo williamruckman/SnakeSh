@@ -384,8 +384,8 @@ Assert-LastExitCode "Microsoft ConPTY runtime preparation"
 
 # Exercise real PowerShell conversion through the modern console transport,
 # rather than treating source-only renderer tests as Windows runtime proof.
-& $ResolvedPythonExe -m pytest -q tests/test_windows_sixel_runtime.py
-Assert-LastExitCode "Windows Sixel integration"
+& $ResolvedPythonExe -m pytest -q tests/test_windows_sixel_runtime.py tests/test_windows_rdp_runtime.py tests/test_rdp.py
+Assert-LastExitCode "Windows Sixel and RDP integration"
 
 if ($RunTests) {
     Write-Host "Running test suite..."

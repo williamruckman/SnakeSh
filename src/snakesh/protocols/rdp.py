@@ -330,6 +330,8 @@ def _seed_windows_rdp_credentials(session: Session, username: str, password: str
                 capture_output=True,
                 text=True,
                 timeout=3,
+                # Capturing cmdkey's output alone still lets Windows open a console.
+                creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
             )
         except subprocess.TimeoutExpired:
             # Allow launch to continue; mstsc can still prompt for credentials.
