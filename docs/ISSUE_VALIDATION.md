@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.81 source changes against `a9f02db` / version 1.72, October 22, 2026.
+Version 1.82 source changes against `a9f02db` / version 1.72, October 22, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
@@ -231,6 +231,13 @@ produce public GitHub check annotations and a JUnit artifact, avoiding the need
 to retrieve authenticated logs to see terminal test failures. Package builds
 still start when the user publishes the resulting draft. Compiled verification
 requires successful CI package jobs and remains pending for this version.
+
+The v1.81 Windows gate also failed and prevented draft creation. Further review
+identified a separate documented Windows startup issue: without
+`STARTF_USESTDHANDLES` and explicitly null standard handles, a ConPTY child can
+inherit redirected parent streams and bypass the terminal entirely. Version
+1.82 uses Microsoft's startup flags, with a regression checking the exact
+standard-handle configuration. Native CI validation remains required.
 
 ## CI runtime correction
 

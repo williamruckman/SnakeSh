@@ -209,6 +209,7 @@ class LocalShellWorkerTests(unittest.TestCase):
         handles = iter([101, 102, 103, 104])
         pseudo_console_value = (2**63) + 99
         recorded_attr_value: object | None = None
+        recorded_stdio: tuple | None = None
 
         def _create_pipe(read_ptr, write_ptr, _security, _size):
             read_ptr._obj.value = next(handles)
@@ -226,6 +227,9 @@ class LocalShellWorkerTests(unittest.TestCase):
             return 0
 
         def _create_process(_app, _cmdline, _proc_attrs, _thread_attrs, _inherit, _flags, _env, _cwd, _startup, process_info_ptr):
+            nonlocal recorded_stdio
+            startup = _startup._obj.StartupInfo
+            recorded_stdio = (startup.dwFlags, startup.hStdInput, startup.hStdOutput, startup.hStdError)
             process_info_ptr._obj.hProcess = 201
             process_info_ptr._obj.hThread = 202
             process_info_ptr._obj.dwProcessId = 203
@@ -271,6 +275,7 @@ class LocalShellWorkerTests(unittest.TestCase):
         self.assertEqual(getattr(recorded_attr_value, "value", None), pseudo_console_value)
         self.assertIsNotNone(fake_kernel32.CreatePseudoConsole.argtypes)
         self.assertIsNotNone(fake_kernel32.CreateProcessW.argtypes)
+        self.assertEqual(recorded_stdio, (0x100, None, None, None))
 
     def test_run_child_process_drops_static_columns_and_lines_from_environment(self) -> None:
         worker = _build_worker()

@@ -3575,6 +3575,7 @@ class _WindowsConPTYBackend:
     _ERROR_PIPE_NOT_CONNECTED = 233
     _HANDLE_FLAG_INHERIT = 0x00000001
     _EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+    _STARTF_USESTDHANDLES = 0x00000100
     _PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = 0x00020016
 
     def __init__(
@@ -3804,6 +3805,10 @@ class _WindowsConPTYBackend:
                 _raise_last_error("Failed to attach ConPTY to child process")
 
             startup_info.StartupInfo.cb = ctypes.sizeof(STARTUPINFOEXW)
+            # Explicit null standard handles make Windows attach the child to
+            # its pseudoconsole. Without this flag, redirected parent handles
+            # (CI capture, debug launches, IDEs) can silently bypass ConPTY.
+            startup_info.StartupInfo.dwFlags |= self._STARTF_USESTDHANDLES
             command_line = subprocess.list2cmdline([self._program, *self._arguments])
             command_line_buffer = ctypes.create_unicode_buffer(command_line)
             working_directory = self._working_directory or None
