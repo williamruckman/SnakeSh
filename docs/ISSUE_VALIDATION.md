@@ -337,8 +337,15 @@ substitutes a harmless console probe for the credential-writing command, and
 requires that the child has no console handle. It does not write credentials.
 Both the pre-draft Windows gate and Windows package job include this regression
 and the existing Sixel runtime checks. Local affected source checks passed:
-**79 tests**, with four native Windows checks skipped on Linux. Native Windows
-CI and CI-built package verification remain pending.
+**79 tests**, with four native Windows checks skipped on Linux.
+
+GitLab synchronization pipeline 209 passed for v1.83 at
+`b67d2e5607bb2865f66926095657c213a3f74b48`.
+[GitHub Windows gate 39822228418](https://github.com/williamruckman/SnakeSh/actions/runs/39822228418)
+passed the real GUI-parent console check, the RDP launcher tests, and the
+existing native Sixel checks, then created the release draft. CI-built package
+verification remains pending release publication and package builds. Confirmation
+on the affected Windows machine remains a separate validation step.
 
 ## Upstream references
 
