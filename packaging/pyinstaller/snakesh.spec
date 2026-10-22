@@ -83,6 +83,14 @@ pyside_binaries = _collect_selected_pyside_binaries()
 if sys.platform == "linux":
     hiddenimports.extend(collect_submodules("Xlib"))
     datas.extend(copy_metadata("python-xlib"))
+if sys.platform == "win32":
+    console_root = PROJECT_ROOT / "build" / "windows" / "conpty"
+    for filename in ("conpty.dll", "OpenConsole.exe", "LICENSE.txt"):
+        source = console_root / filename
+        if not source.is_file():
+            raise RuntimeError("Run packaging/windows/prepare_conpty.py before the Windows build.")
+        # Keep Microsoft's signed files byte-for-byte intact.
+        datas.append((str(source), "windows-conpty"))
 
 a = Analysis(
     [str(SRC_ROOT / "snakesh" / "__main__.py")],

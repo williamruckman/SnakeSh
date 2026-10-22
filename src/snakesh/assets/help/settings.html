@@ -62,6 +62,8 @@
   <h2>Need the Full Field List?</h2>
   <p>Open <strong>Settings Reference</strong> from the Help index for the full field-by-field breakdown of every setting, provider-specific secrets option, and bottom-of-dialog action button.</p>
   <h2>Minimize to Tray</h2><p>Minimize to Tray is disabled by default. When enabled and a system tray is available, minimizing hides the main window while sessions continue. Click the tray icon or use Show SnakeSh to restore it. Quit SnakeSh uses the normal session-close confirmation. Closing the main window still exits.</p>
-  <h2>Sixel Graphics</h2><p>Local Sixel and Remote Sixel are independent options, disabled by default. Saving Local Sixel installs missing image conversion tools on Linux Mint/Ubuntu with administrator authentication when needed. Try <code>img2sixel -w 800 picture.png</code>. Remote Sixel displays graphics from SSH, Telnet, and serial programs running on the remote host.</p>
+  <h2>Sixel Graphics</h2><p>Local Sixel and Remote Sixel are independent options, disabled by default. Saving Local Sixel installs missing image conversion tools on Linux Mint/Ubuntu with administrator authentication when needed, or through an existing Homebrew installation on macOS. On Windows, setup installs the Sixel PowerShell module for the current user. Setup shows an animated progress indicator. Open a new local terminal after enabling and try <code>img2sixel -w 800 picture.png</code>. Remote Sixel displays graphics from SSH, Telnet, and serial programs running on the remote host.</p>
+  <p>In a local PowerShell terminal:</p><pre><code>Import-Module Sixel
+ConvertTo-Sixel -Path .\picture.png -Protocol Sixel -Force</code></pre>
 </body>
 </html>

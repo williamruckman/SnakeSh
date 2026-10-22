@@ -24,6 +24,24 @@ license accompany the frozen Linux package.
 - Upstream source and license: https://github.com/python-xlib/python-xlib
 - Release source: https://pypi.org/project/python-xlib/0.33/#files
 
+## Microsoft Windows Console (ConPTY)
+
+Windows packages include Microsoft's MIT-licensed ConPTY and OpenConsole runtime
+1.25.260930003 for Sixel passthrough in opted-in local terminals. The build fetches
+the official NuGet package and verifies SHA256
+`02b07b349af66d801159bdf9e440d4a1ce78bb951f37fc8609731665afdae7ee`.
+The Microsoft license accompanies the files in `windows-conpty/LICENSE.txt`.
+
+- Package: https://www.nuget.org/packages/Microsoft.Windows.Console.ConPTY/1.25.260930003
+- Source: https://github.com/microsoft/terminal
+
+Local Sixel setup can separately install trackd's Sixel PowerShell module 0.7.1
+from PowerShell Gallery into the current user's module directories. This module
+is not redistributed in SnakeSh packages.
+
+- Module and license: https://github.com/trackd/Sixel
+- Package: https://www.powershellgallery.com/packages/Sixel/0.7.1
+
 ## Release Checklist
 
 Before publishing a source or binary release:

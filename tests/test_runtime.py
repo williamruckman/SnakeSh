@@ -9,6 +9,17 @@ from snakesh import runtime
 
 
 class RuntimeHelperTests(unittest.TestCase):
+    def test_finder_shell_path_adds_both_homebrew_prefixes_without_changing_user_precedence(self) -> None:
+        env = {"PATH": "/custom/bin:/usr/bin:/bin:/usr/local/bin"}
+        with patch("snakesh.runtime.sys.platform", "darwin"):
+            sanitized = runtime.sanitized_local_shell_environment(env)
+        paths = sanitized["PATH"].split(os.pathsep)
+        self.assertEqual(paths[:4], env["PATH"].split(os.pathsep))
+        self.assertEqual(paths.count("/usr/local/bin"), 1)
+        self.assertIn("/opt/homebrew/bin", paths)
+        self.assertIn("/usr/local/sbin", paths)
+        self.assertEqual(env["PATH"], "/custom/bin:/usr/bin:/bin:/usr/local/bin")
+
     def test_self_launch_command_uses_module_mode_when_not_frozen(self) -> None:
         with (
             patch("snakesh.runtime.is_frozen", return_value=False),

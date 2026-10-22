@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.79 source changes against `a9f02db` / version 1.72, October 22, 2026.
+Version 1.80 source changes against `a9f02db` / version 1.72, October 22, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
@@ -8,7 +8,7 @@ Source tests and package smoke checks have separate on-device validation gates.
 | --- | --- | --- |
 | 1. Crash-log folder button | Native Windows/macOS opening and a sanitized environment for Linux file-manager launchers. | Launcher regression tests; packaged OS checks still required. |
 | 2. SFTP preparation appears frozen | Show progress before overwrite checking and size discovery; run network/file work on workers. | GUI timer/tab-switch regression and real loopback transfers. |
-| 3. Sixel graphics | Independent local/remote settings, both off by default; optional local img2sixel installation on Mint/Ubuntu; bounded inline decoder and rendering. | Real img2sixel output, terminal framebuffer pixels, decoder limits, settings/install regressions, and terminal trace replays. |
+| 3. Sixel graphics | Independent local/remote settings, both off by default; optional converter installation on Mint/Ubuntu, macOS, and Windows; bounded inline decoder and rendering. | Real img2sixel output, terminal framebuffer pixels, decoder limits, settings/install regressions, and terminal trace replays. Windows integration runs on its CI runner. |
 | 4. Remove NoMachine | Remove launch module, dependency discovery, and session-editor controls. Keep legacy serialized records readable/exportable; reject their launch/edit explicitly. | Legacy-record and protocol-editor/dependency regressions. |
 | 5. Windows clipboard hangs | Plain-text clipboard helper with a deadline, separate from the GUI. Remove clipboard reads while opening terminal context menus. | Helper-timeout/UI responsiveness regression on Linux; Windows with an active RDP clipboard still needs reproduction. |
 | 6. SFTP Delete | Delete Selected buttons and Delete-key shortcuts in both file panes; retain configured confirmation. | SFTP UI regressions and loopback delete. |
@@ -160,6 +160,55 @@ affected Windows server. Final server connection/resizing and privileged Sixel
 installation checks on the affected Mint machines remain on-device checks using
 the published v1.79 package.
 
+## Sixel converter follow-up (v1.80)
+
+The user confirmed that Linux Mint RDP works with the v1.79 package. The Sixel
+red-bar test also worked, while `img2sixel -w 800 LinuxMintLogoIcon.png` returned
+without displaying an image. Reproducing with the supplied 211×211 RGBA PNG and
+img2sixel 1.10.3 identified the decoder's 100,000-command limit: it discarded the
+390,344-byte output partway through, despite being within the image and paint
+limits. The decoder now validates dimensions/work first and paints in a second
+pass, avoiding a large list of drawing-command objects. The existing encoded
+size, dimensions, paint-work, and retained-image bounds remain in force.
+
+An actual local PTY in the Linux source application ran the same converter
+command and displayed the 800×800 logo. A captured terminal framebuffer contained
+180,014 green image pixels. The supplied logo is not added to the repository;
+regressions use generated graphics, including more than 100,000 drawing commands,
+overpainting limits, and real img2sixel output.
+
+Local setup shows a separate indeterminate progress window while the GUI event
+loop continues. Settings retains only the local/remote switches; explanations
+and commands live in Help. Failed installations leave Settings open. On macOS,
+setup uses an existing Homebrew installation to install `libsixel` without root;
+new local shells include Homebrew's standard paths even when launched from Finder.
+
+Windows setup installs Sixel 0.7.1 from PowerShell Gallery in CurrentUser scope
+for available PowerShell editions. It verifies module import and the cmdlet;
+it does not change execution policy or repository trust. Windows packages include
+the pinned, SHA256-verified Microsoft ConPTY 1.25.260930003 and OpenConsole,
+with their MIT license. Opted-in new local terminals use that runtime so older
+system consoles do not discard image sequences. The Windows build runs real
+PowerShell conversion through a local terminal and checks image pixels, then
+checks that the native files and license survive freezing unchanged. Those
+Windows checks cannot execute on the Linux development host.
+
+Local source validation on Python 3.12.3 / PySide6 6.11.2: **1,257 passed,
+152 subtests passed**, with three package-dependent checks and two Windows
+runtime cases skipped. Workspace, theme, and remaining tests ran separately in
+a clean temporary source snapshot. Focused checks cover installer failures,
+GUI timer heartbeats while progress is visible, macOS executable discovery,
+Windows module installation arguments, and native package integrity. Release
+packages must still be built by GitLab/GitHub before compiled verification;
+on-device Windows and macOS image display remain separate validation gates.
+
+The session editor now hides terminal color overrides and the color preview,
+including their row labels, for RDP and VNC. SSH, SFTP, Telnet, and serial retain
+those controls. Switching back restores unsaved color choices; saving a remote
+desktop session excludes the irrelevant overrides. Protocol switching and saved
+payloads were checked directly; the existing editor, Settings, Sixel settings,
+and Help tests passed after the final UI changes.
+
 ## CI runtime correction
 
 The v1.73 GitHub build aborted during workspace tests with exit code 134; no
@@ -216,6 +265,9 @@ commits in this repository use the owner's GitHub no-reply address. Version
 - [FreeRDP scaling options are mutually exclusive](https://github.com/FreeRDP/FreeRDP/blob/stable-2.0/client/common/cmdline.c)
 - [FreeRDP X11 resize and dynamic resolution handling](https://github.com/FreeRDP/FreeRDP/blob/stable-2.0/client/X11/xf_event.c)
 - [libsixel image converters](https://github.com/libsixel/libsixel)
+- [Homebrew libsixel formula](https://formulae.brew.sh/formula/libsixel)
+- [Sixel PowerShell module 0.7.1](https://www.powershellgallery.com/packages/Sixel/0.7.1)
+- [Microsoft ConPTY package](https://www.nuget.org/packages/Microsoft.Windows.Console.ConPTY/1.25.260930003)
 - [Python X Library 0.33](https://pypi.org/project/python-xlib/0.33/)
 
 - [Cryptography: macOS static OpenSSL build](https://cryptography.io/en/latest/installation/#building-cryptography-on-macos)

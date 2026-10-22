@@ -77,7 +77,7 @@ def run_command(
 
 def _run_plain(command: list[str], *, timeout: float | None = None) -> CommandResult:
     environment = ({"env": runtime.sanitized_local_shell_environment()}
-                   if platform.system().lower() == "linux" else {})
+                   if platform.system().lower() in {"linux", "darwin"} else {})
     try:
         completed = subprocess.run(
             command,

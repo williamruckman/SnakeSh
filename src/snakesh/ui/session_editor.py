@@ -884,6 +884,7 @@ class SessionEditorDialog(QDialog):
         supports_remote_launch_mode = protocol == Protocol.RDP and platform.system().lower() == "linux"
         supports_terminal_automation = protocol in (Protocol.SSH, Protocol.TELNET, Protocol.SERIAL)
         supports_shell_banner = protocol in (Protocol.SSH, Protocol.SFTP, Protocol.TELNET, Protocol.SERIAL)
+        supports_terminal_colors = supports_shell_banner
         is_ssh_family = protocol in (Protocol.SSH, Protocol.SFTP)
         is_network_host = protocol != Protocol.SERIAL
         supports_password_storage = (
@@ -954,6 +955,12 @@ class SessionEditorDialog(QDialog):
         self.save_password_input.setEnabled(supports_password_storage)
         self.password_row.setVisible(supports_password_entry)
         self._set_form_label_visible(self.password_row, supports_password_entry)
+        for widget in (
+            self.terminal_color_override_input, self.terminal_bg_color_widget,
+            self.terminal_fg_color_widget, self.terminal_color_preview,
+        ):
+            widget.setVisible(supports_terminal_colors)
+            self._set_form_label_visible(widget, supports_terminal_colors)
         self.shell_banner_message_input.setVisible(supports_shell_banner)
         self._set_form_label_visible(self.shell_banner_message_input, supports_shell_banner)
         self.shell_banner_color_widget.setVisible(supports_shell_banner)
@@ -1131,7 +1138,10 @@ class SessionEditorDialog(QDialog):
             private_key_path=self.private_key_input.text().strip(),
             public_key_path=self.public_key_input.text().strip(),
             save_password=False if self._quick_connect else self.save_password_input.isChecked(),
-            terminal_color_override_enabled=self.terminal_color_override_input.isChecked(),
+            terminal_color_override_enabled=(
+                self.terminal_color_override_input.isChecked()
+                and protocol in (Protocol.SSH, Protocol.SFTP, Protocol.TELNET, Protocol.SERIAL)
+            ),
             terminal_bg_color=self.terminal_bg_color_input.text().strip(),
             terminal_fg_color=self.terminal_fg_color_input.text().strip(),
             shell_banner_message=self.shell_banner_message_input.text().strip(),

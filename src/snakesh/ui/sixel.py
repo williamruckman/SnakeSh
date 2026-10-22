@@ -26,6 +26,25 @@ class TerminalGraphic:
 
 
 def decode_sixel(payload: str, *, transparent: bool = False) -> QImage | None:
+    if len(payload) > MAX_PAYLOAD:
+        return None
+    # Measure and validate before allocating. Keeping a Python tuple for every
+    # drawing command both wasted memory and rejected ordinary detailed images
+    # after 100,000 commands, even when well within the pixel/work limits.
+    measured = _sixel_pass(payload)
+    if measured is None:
+        return None
+    width, height, background_rgb = measured
+    if not width or not height:
+        return None
+    background = bytes((*background_rgb, 0 if transparent else 255))
+    pixels = bytearray(background * (width * height))
+    _sixel_pass(payload, pixels=pixels, stride=width)
+    return QImage(bytes(pixels), width, height, width * 4, QImage.Format_RGBA8888).copy()
+
+
+def _sixel_pass(payload: str, *, pixels: bytearray | None = None,
+                stride: int = 0) -> tuple[int, int, tuple[int, int, int]] | None:
     palette = [(0, 0, 0), (51, 51, 204), (204, 33, 33), (51, 204, 51),
                (204, 51, 204), (51, 204, 204), (204, 204, 51), (136, 136, 136),
                (68, 68, 68), (85, 85, 255), (255, 85, 85), (85, 255, 85),
@@ -33,9 +52,6 @@ def decode_sixel(payload: str, *, transparent: bool = False) -> QImage | None:
     palette += [(0, 0, 0)] * (256 - len(palette))
     x = y = width = height = index = paint_work = 0
     color = 7
-    runs = []
-    if len(payload) > MAX_PAYLOAD:
-        return None
     while index < len(payload):
         char = payload[index]
         index += 1
@@ -87,23 +103,18 @@ def decode_sixel(payload: str, *, transparent: bool = False) -> QImage | None:
             if x + repeat > MAX_SIDE or y + 6 > MAX_SIDE:
                 return None
             paint_work += repeat * bits.bit_count()
-            if paint_work > MAX_PAINT_PIXELS or len(runs) >= 100000:
+            if paint_work > MAX_PAINT_PIXELS:
                 return None
-            runs.append((x, y, repeat, bits, palette[color]))
+            if pixels is not None and bits:
+                stripe = bytes((*palette[color], 255)) * repeat
+                for bit in range(6):
+                    if bits & (1 << bit):
+                        start = ((y + bit) * stride + x) * 4
+                        pixels[start:start + len(stripe)] = stripe
             x += repeat
             width = max(width, x)
             height = max(height, y + max(1, bits.bit_length()))
-    if not width or not height:
-        return None
-    background = bytes((*palette[0], 0 if transparent else 255))
-    pixels = bytearray(background * (width * height))
-    for x, y, repeat, bits, rgb in runs:
-        stripe = bytes((*rgb, 255)) * repeat
-        for bit in range(6):
-            if bits & (1 << bit) and y + bit < height:
-                start = ((y + bit) * width + x) * 4
-                pixels[start:start + len(stripe)] = stripe
-    return QImage(bytes(pixels), width, height, width * 4, QImage.Format_RGBA8888).copy()
+    return width, height, palette[0]
 
 
 class SixelStream:

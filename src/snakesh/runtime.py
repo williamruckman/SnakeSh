@@ -166,10 +166,17 @@ def _sanitize_bundle_runtime_path_variables(
 def sanitized_local_shell_environment(env: Mapping[str, str] | None = None) -> dict[str, str]:
     sanitized = dict(os.environ if env is None else env)
     roots = _bundle_owned_runtime_roots(sanitized)
-    if not roots:
-        return sanitized
-
-    _sanitize_bundle_runtime_path_variables(sanitized, roots=roots)
+    if roots:
+        _sanitize_bundle_runtime_path_variables(sanitized, roots=roots)
+    if sys.platform == "darwin":
+        # Finder-launched applications often inherit only the system PATH.
+        # Preserve user precedence while making Homebrew tools available to
+        # newly opened PTYs and package-manager subprocesses on either CPU.
+        paths = sanitized.get("PATH", _DEFAULT_POSIX_EXEC_PATH).split(os.pathsep)
+        for directory in ("/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin", "/usr/local/sbin"):
+            if directory not in paths:
+                paths.append(directory)
+        sanitized["PATH"] = os.pathsep.join(paths)
     return sanitized
 
 

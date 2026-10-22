@@ -258,8 +258,21 @@ SnakeSh checks protocol dependencies on demand (for example `xfreerdp`, `mstsc`,
 
 Settings has separate **Local Sixel** and **Remote Sixel** switches, both disabled
 by default. Saving Local Sixel on Linux Mint/Ubuntu installs `libsixel-bin` if
-`img2sixel` is missing, with administrator authentication when needed. Try
-`img2sixel -w 800 picture.png` in a local terminal. Remote Sixel renders graphics
+`img2sixel` is missing, with administrator authentication when needed. On macOS,
+it installs `libsixel` through an existing [Homebrew](https://brew.sh) installation.
+Setup shows an animated progress indicator while checking or installing tools.
+On Windows, it installs [Sixel 0.7.1](https://www.powershellgallery.com/packages/Sixel/0.7.1)
+for the current user in available PowerShell editions. Windows packages include
+Microsoft's console runtime for image passthrough; a separate Windows Terminal
+installation is not required by SnakeSh. Open a new local terminal after enabling.
+Try `img2sixel -w 800 picture.png` on Linux/macOS, or in PowerShell:
+
+```powershell
+Import-Module Sixel
+ConvertTo-Sixel -Path .\picture.png -Protocol Sixel -Force
+```
+
+Remote Sixel renders graphics
 sent over SSH, Telnet, or serial; the image program runs on the remote host.
 Graphics are limited to 2048 pixels per side, and searchable scrollback is text-only.
 

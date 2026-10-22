@@ -379,6 +379,14 @@ Assert-LastExitCode "pip upgrade"
 & $ResolvedPythonExe -m pip install -e . pyinstaller pytest
 Assert-LastExitCode "dependency installation"
 
+& $ResolvedPythonExe packaging/windows/prepare_conpty.py
+Assert-LastExitCode "Microsoft ConPTY runtime preparation"
+
+# Exercise real PowerShell conversion through the modern console transport,
+# rather than treating source-only renderer tests as Windows runtime proof.
+& $ResolvedPythonExe -m pytest -q tests/test_windows_sixel_runtime.py
+Assert-LastExitCode "Windows Sixel integration"
+
 if ($RunTests) {
     Write-Host "Running test suite..."
     & $ResolvedPythonExe -m pytest -q
@@ -390,6 +398,17 @@ else {
 
 & $ResolvedPythonExe -m PyInstaller --noconfirm --clean packaging/pyinstaller/snakesh.spec
 Assert-LastExitCode "PyInstaller build"
+
+foreach ($nativeFile in @("conpty.dll", "OpenConsole.exe", "LICENSE.txt")) {
+    $original = Join-Path "build\windows\conpty" $nativeFile
+    $bundled = Join-Path "dist\SnakeSh\_internal\windows-conpty" $nativeFile
+    if (-not (Test-Path $bundled)) {
+        throw "Missing packaged Windows console runtime file: $bundled"
+    }
+    if ((Get-FileHash $original -Algorithm SHA256).Hash -ne (Get-FileHash $bundled -Algorithm SHA256).Hash) {
+        throw "Packaged Microsoft console runtime changed during freezing: $nativeFile"
+    }
+}
 
 if (-not $SkipInstaller) {
     $IsccExe = Resolve-Iscc

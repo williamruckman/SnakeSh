@@ -187,6 +187,7 @@ from snakesh.services.tool_process_service import (
 )
 from snakesh.services.x11_service import X11Service
 from snakesh.ui.background import background_calls_active, run_background_call
+from snakesh.services.windows_conpty import load_bundled_conpty
 from snakesh.ui.clipboard import copy_text, paste_text
 from snakesh.ui.sixel import SixelStream, TerminalGraphic
 from snakesh.services.linux_rdp_window import LinuxRdpWindow
@@ -1792,6 +1793,8 @@ class TerminalTab(QWidget):
         backend_name: str = "conpty",
         backend_factory: Callable[..., _WindowsTerminalBackend] | None = None,
     ) -> bool:
+        if backend_factory is None and backend_name == "conpty" and self._settings.terminal_sixel_local_enabled:
+            backend_factory = lambda **kwargs: _WindowsConPTYBackend(**kwargs, prefer_bundled_console=True)
         self._windows_local_shell_backend = backend_name
         self._windows_local_shell_connected = False
         self._windows_local_process_backspace_mode = backend_name == "hidden-process"
@@ -3580,6 +3583,7 @@ class _WindowsConPTYBackend:
         working_directory: str | None,
         cols: int,
         rows: int,
+        prefer_bundled_console: bool = False,
     ) -> None:
         self._program = program
         self._arguments = list(arguments)
@@ -3591,6 +3595,8 @@ class _WindowsConPTYBackend:
         self._output_read_handle = None
         self._process_handle = None
         self._process_id: int | None = None
+        self._prefer_bundled_console = prefer_bundled_console
+        self._console_api = None
 
     @classmethod
     def is_supported(cls) -> bool:
@@ -3674,14 +3680,15 @@ class _WindowsConPTYBackend:
         kernel32.CreatePipe.restype = wintypes.BOOL
         kernel32.SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]
         kernel32.SetHandleInformation.restype = wintypes.BOOL
-        kernel32.CreatePseudoConsole.argtypes = [
+        self._console_api = load_bundled_conpty() if self._prefer_bundled_console else kernel32
+        self._console_api.CreatePseudoConsole.argtypes = [
             COORD,
             wintypes.HANDLE,
             wintypes.HANDLE,
             wintypes.DWORD,
             ctypes.POINTER(ctypes.c_void_p),
         ]
-        kernel32.CreatePseudoConsole.restype = ctypes.c_long
+        self._console_api.CreatePseudoConsole.restype = ctypes.c_long
         kernel32.InitializeProcThreadAttributeList.argtypes = [
             wintypes.LPVOID,
             wintypes.DWORD,
@@ -3716,8 +3723,6 @@ class _WindowsConPTYBackend:
         kernel32.CreateProcessW.restype = wintypes.BOOL
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel32.CloseHandle.restype = wintypes.BOOL
-        kernel32.ClosePseudoConsole.argtypes = [ctypes.c_void_p]
-        kernel32.ClosePseudoConsole.restype = None
 
         def _raise_last_error(action: str) -> None:
             error_code = ctypes.get_last_error() or 1
@@ -3766,7 +3771,7 @@ class _WindowsConPTYBackend:
                 _raise_last_error("Failed to mark ConPTY output pipe non-inheritable")
 
             size = COORD(self._cols, self._rows)
-            result = kernel32.CreatePseudoConsole(size, input_read, output_write, 0, ctypes.byref(pseudo_console))
+            result = self._console_api.CreatePseudoConsole(size, input_read, output_write, 0, ctypes.byref(pseudo_console))
             if result != 0:
                 raise OSError(int(result), f"Failed to create ConPTY session (HRESULT {int(result)})")
 
@@ -3961,10 +3966,10 @@ class _WindowsConPTYBackend:
         class COORD(ctypes.Structure):
             _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
 
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel32.ResizePseudoConsole.argtypes = [ctypes.c_void_p, COORD]
-        kernel32.ResizePseudoConsole.restype = ctypes.c_long
-        result = kernel32.ResizePseudoConsole(pseudo_console, COORD(self._cols, self._rows))
+        console_api = self._console_api
+        console_api.ResizePseudoConsole.argtypes = [ctypes.c_void_p, COORD]
+        console_api.ResizePseudoConsole.restype = ctypes.c_long
+        result = console_api.ResizePseudoConsole(pseudo_console, COORD(self._cols, self._rows))
         if result != 0:
             raise OSError(int(result), f"ConPTY resize failed (HRESULT {int(result)})")
 
@@ -4037,18 +4042,17 @@ class _WindowsConPTYBackend:
         except Exception:
             pass
 
-    @staticmethod
-    def _close_pseudo_console(handle) -> None:
+    def _close_pseudo_console(self, handle) -> None:
         raw_handle = getattr(handle, "value", handle)
         if raw_handle in (None, 0):
             return
         try:
             import ctypes
 
-            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-            kernel32.ClosePseudoConsole.argtypes = [ctypes.c_void_p]
-            kernel32.ClosePseudoConsole.restype = None
-            kernel32.ClosePseudoConsole(handle)
+            console_api = self._console_api
+            console_api.ClosePseudoConsole.argtypes = [ctypes.c_void_p]
+            console_api.ClosePseudoConsole.restype = None
+            console_api.ClosePseudoConsole(handle)
         except Exception:
             pass
 

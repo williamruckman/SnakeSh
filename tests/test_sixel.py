@@ -33,6 +33,22 @@ def test_hls_color_definition():
     assert image.pixelColor(0, 0).getRgb() == (255, 0, 0, 255)
 
 
+def test_detailed_image_can_exceed_100000_drawing_commands():
+    # A normal encoder can emit many separate commands for color planes. The
+    # old run-list limit silently dropped such images despite modest size/work.
+    band = '#1' + '@' * 800 + '$#2' + 'A' * 800
+    payload = '"1;1;800;800#1;2;100;0;0#2;2;0;100;0' + '-'.join([band] * 134)
+    image = decode_sixel(payload)
+    assert image is not None
+    assert (image.width(), image.height()) == (800, 800)
+    assert image.pixelColor(799, 798).getRgb() == (255, 0, 0, 255)
+    assert image.pixelColor(799, 799).getRgb() == (0, 255, 0, 255)
+
+
+def test_repeated_overpainting_stays_bounded():
+    assert decode_sixel(('#1!2048~$') * 1366) is None
+
+
 def test_bad_or_oversized_graphics_are_bounded():
     assert decode_sixel('!65535~') is None
     assert decode_sixel('"1;1;65535;65535~') is None

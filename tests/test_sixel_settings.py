@@ -3,14 +3,19 @@ from __future__ import annotations
 from unittest.mock import Mock, patch
 import shutil
 import subprocess
+import threading
+import base64
 
 import pytest
-from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication, QDialog, QProgressDialog
 from PySide6.QtGui import QColor, QImage
 
 from snakesh.services.settings_service import AppSettings
 from snakesh.services.sixel_setup import ensure_local_sixel_tools
 from snakesh.services.privilege_service import run_command
+from snakesh.services.privilege_service import CommandResult
+from snakesh.ui.background import run_background_call
 from snakesh.ui.main_window import TerminalTab, VT100Emulator
 from snakesh.ui.settings_dialog import SettingsDialog
 
@@ -113,6 +118,105 @@ def test_failed_local_install_keeps_settings_open(app):
         app.processEvents()
 
 
+def test_local_install_shows_progress_while_gui_timers_continue(app):
+    ticks = []
+    heartbeat = threading.Event()
+    timer = QTimer()
+    timer.setInterval(10)
+
+    def tick():
+        ticks.append(True)
+        if len(ticks) >= 2:
+            heartbeat.set()
+
+    timer.timeout.connect(tick)
+
+    def install():
+        if not heartbeat.wait(10):
+            raise TimeoutError("GUI timers stopped during installation")
+        return True, "Ready"
+
+    def setup():
+        progress = dialog.findChild(QProgressDialog)
+        assert progress is not None and progress.isVisible()
+        assert progress.minimum() == progress.maximum() == 0
+        timer.start()
+        try:
+            return run_background_call(install)
+        finally:
+            timer.stop()
+
+    dialog = SettingsDialog(AppSettings.defaults(), on_sixel_setup_requested=setup)
+    try:
+        dialog.show()
+        dialog.sixel_local.setChecked(True)
+        dialog._validate_and_accept()
+        assert dialog.result() == QDialog.Accepted
+        assert len(ticks) >= 2
+        assert not dialog.findChild(QProgressDialog).isVisible()
+    finally:
+        dialog.deleteLater()
+        app.processEvents()
+
+
+def test_macos_installs_with_existing_homebrew_without_elevation():
+    with (
+        patch("snakesh.services.sixel_setup.platform.system", return_value="Darwin"),
+        patch("snakesh.services.sixel_setup.resolve_executable",
+              side_effect=[None, "/opt/homebrew/bin/brew", "/opt/homebrew/bin/img2sixel"]),
+        patch("snakesh.services.sixel_setup.run_command", return_value=CommandResult(True, "Installed")) as install,
+    ):
+        assert ensure_local_sixel_tools()[0]
+        install.assert_called_once_with(["/opt/homebrew/bin/brew", "install", "libsixel"], require_elevation=False)
+
+
+def test_windows_installs_module_in_each_powershell_user_scope_without_elevation():
+    with (
+        patch("snakesh.services.sixel_setup.platform.system", return_value="Windows"),
+        patch("snakesh.services.sixel_setup.resolve_executable", side_effect=["pwsh.exe", "powershell.exe"]),
+        patch("snakesh.services.sixel_setup.run_command", return_value=CommandResult(True, "Ready")) as install,
+    ):
+        assert ensure_local_sixel_tools()[0]
+    assert install.call_count == 2
+    for call in install.call_args_list:
+        command = call.args[0]
+        assert "-NonInteractive" in command
+        script = base64.b64decode(command[-1]).decode("utf-16-le")
+        assert "-Scope CurrentUser" in script
+        assert "-RequiredVersion 0.7.1" in script
+        assert "-Repository PSGallery" in script
+        assert "Get-Command ConvertTo-Sixel" in script
+        assert call.kwargs["require_elevation"] is False
+        assert "Set-ExecutionPolicy" not in script and "Set-PSRepository" not in script
+
+
+def test_windows_install_failure_is_reported_and_does_not_claim_success():
+    with (
+        patch("snakesh.services.sixel_setup.platform.system", return_value="Windows"),
+        patch("snakesh.services.sixel_setup.resolve_executable", side_effect=[None, "powershell.exe"]),
+        patch("snakesh.services.sixel_setup.run_command", return_value=CommandResult(False, "Gallery unavailable")),
+    ):
+        success, message = ensure_local_sixel_tools()
+        assert not success and "Gallery unavailable" in message
+
+
+def test_macos_missing_homebrew_or_failed_install_leaves_settings_unsaved():
+    with (
+        patch("snakesh.services.sixel_setup.platform.system", return_value="Darwin"),
+        patch("snakesh.services.sixel_setup.resolve_executable", return_value=None),
+        patch("snakesh.services.sixel_setup.run_command") as install,
+    ):
+        success, message = ensure_local_sixel_tools()
+        assert not success and "https://brew.sh" in message
+        install.assert_not_called()
+    with (
+        patch("snakesh.services.sixel_setup.platform.system", return_value="Darwin"),
+        patch("snakesh.services.sixel_setup.resolve_executable", side_effect=[None, "/usr/local/bin/brew"]),
+        patch("snakesh.services.sixel_setup.run_command", return_value=CommandResult(False, "Download failed")),
+    ):
+        assert ensure_local_sixel_tools() == (False, "Download failed")
+
+
 def test_linux_mint_installs_official_sixel_tools_only_if_missing():
     with (
         patch("snakesh.services.sixel_setup.platform.system", return_value="Linux"),
@@ -130,22 +234,28 @@ def test_linux_mint_installs_official_sixel_tools_only_if_missing():
         install.assert_not_called()
 
 
-def test_system_img2sixel_output_renders_in_snakesh(app, tmp_path):
+@pytest.mark.parametrize("width", [40, 800])
+def test_system_img2sixel_output_renders_in_snakesh(app, tmp_path, width):
     converter = shutil.which("img2sixel")
     if converter is None:
         pytest.skip("img2sixel is required for the real encoder integration check.")
-    source = QImage(40, 12, QImage.Format_RGB32)
-    source.fill(QColor("red"))
+    source = QImage(211, 211, QImage.Format_RGB32)
+    for y in range(source.height()):
+        for x in range(source.width()):
+            source.setPixelColor(x, y, QColor(255, x, y))
     path = tmp_path / "red.png"
     assert source.save(str(path))
-    result = subprocess.run([converter, "-w", "40", str(path)], stdin=subprocess.DEVNULL,
+    result = subprocess.run([converter, "-w", str(width), str(path)], stdin=subprocess.DEVNULL,
                             capture_output=True, check=True, timeout=10)
     emulator = VT100Emulator(80, 24, sixel_enabled=True)
     output = result.stdout.decode("utf-8")
-    for start in range(0, len(output), 7):
-        emulator.feed(output[start:start + 7])
+    chunk_size = 7 if width == 40 else 4096
+    for start in range(0, len(output), chunk_size):
+        emulator.feed(output[start:start + chunk_size])
     assert len(emulator.screen.graphics) == 1
-    pixel = emulator.screen.graphics[0].image.pixelColor(2, 2)
+    image = emulator.screen.graphics[0].image
+    assert image.width() == width
+    pixel = image.pixelColor(2, 2)
     assert pixel.red() > 220 and pixel.green() < 30 and pixel.blue() < 30
 
 
