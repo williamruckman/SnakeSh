@@ -301,7 +301,9 @@ def test_terminal_context_menu_does_not_contact_a_stalled_clipboard(app):
 
 
 def test_sixel_image_reaches_the_terminal_framebuffer(app):
-    tab = TerminalTab(settings=AppSettings.defaults())
+    settings = AppSettings.defaults()
+    settings.terminal_sixel_local_enabled = True
+    tab = TerminalTab(settings=settings)
     try:
         tab.resize(640, 400)
         tab.show()

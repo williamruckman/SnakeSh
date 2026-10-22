@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 import PySide6
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
 
 
 PROJECT_ROOT = Path(SPECPATH).resolve().parents[1]
@@ -80,6 +80,9 @@ hiddenimports = [
     "PySide6.QtNetwork",
 ]
 pyside_binaries = _collect_selected_pyside_binaries()
+if sys.platform == "linux":
+    hiddenimports.extend(collect_submodules("Xlib"))
+    datas.extend(copy_metadata("python-xlib"))
 
 a = Analysis(
     [str(SRC_ROOT / "snakesh" / "__main__.py")],

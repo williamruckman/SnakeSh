@@ -50,7 +50,7 @@ def test_cancel_and_non_graphic_dcs_never_print_escape_payloads():
 
 
 def test_emulator_places_scrolls_and_clears_graphics():
-    emulator = VT100Emulator(40, 10)
+    emulator = VT100Emulator(40, 10, sixel_enabled=True)
     emulator.cell_height = 6
     emulator.feed('\x1bPq#1;2;100;0;0!3~\x1b\\')
     assert len(emulator.screen.graphics) == 1

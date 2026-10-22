@@ -302,6 +302,8 @@ class AppSettings:
     terminal_cursor_blink: bool = False
     terminal_bell_enabled: bool = False
     terminal_visual_bell_enabled: bool = False
+    terminal_sixel_local_enabled: bool = False
+    terminal_sixel_remote_enabled: bool = False
     local_shell_command_override: str = ""
     local_shell_start_dir_mode: str = "home"
     local_shell_custom_start_dir: str = ""
@@ -422,6 +424,8 @@ class AppSettings:
             "terminal_cursor_blink": self.terminal_cursor_blink,
             "terminal_bell_enabled": self.terminal_bell_enabled,
             "terminal_visual_bell_enabled": self.terminal_visual_bell_enabled,
+            "terminal_sixel_local_enabled": self.terminal_sixel_local_enabled,
+            "terminal_sixel_remote_enabled": self.terminal_sixel_remote_enabled,
             "local_shell_command_override": self.local_shell_command_override,
             "local_shell_start_dir_mode": self.local_shell_start_dir_mode,
             "local_shell_custom_start_dir": self.local_shell_custom_start_dir,
@@ -545,6 +549,8 @@ class AppSettings:
             terminal_cursor_blink=bool(payload["terminal_cursor_blink"]),
             terminal_bell_enabled=bool(payload["terminal_bell_enabled"]),
             terminal_visual_bell_enabled=bool(payload["terminal_visual_bell_enabled"]),
+            terminal_sixel_local_enabled=bool(payload.get("terminal_sixel_local_enabled", False)),
+            terminal_sixel_remote_enabled=bool(payload.get("terminal_sixel_remote_enabled", False)),
             local_shell_command_override=str(payload["local_shell_command_override"]),
             local_shell_start_dir_mode=str(payload["local_shell_start_dir_mode"]),
             local_shell_custom_start_dir=str(payload["local_shell_custom_start_dir"]),
@@ -800,6 +806,8 @@ class SettingsService:
         settings.terminal_cursor_blink = bool(settings.terminal_cursor_blink)
         settings.terminal_bell_enabled = bool(settings.terminal_bell_enabled)
         settings.terminal_visual_bell_enabled = bool(settings.terminal_visual_bell_enabled)
+        settings.terminal_sixel_local_enabled = bool(settings.terminal_sixel_local_enabled)
+        settings.terminal_sixel_remote_enabled = bool(settings.terminal_sixel_remote_enabled)
         settings.terminal_classic_default_colors = bool(settings.terminal_classic_default_colors)
         settings.local_shell_command_override = _sanitize_local_shell_override(settings.local_shell_command_override)
         local_shell_mode = settings.local_shell_start_dir_mode.strip().lower()

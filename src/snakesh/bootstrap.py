@@ -25,6 +25,7 @@ REQUIRED_MODULES = (
     RuntimeRequirement("pyasn1", "pyasn1>=0.6,<1"),
     RuntimeRequirement("pysnmp", "pysnmp>=7,<8"),
     RuntimeRequirement("pyte", "pyte>=0.8.2"),
+    *((RuntimeRequirement("Xlib.display", "python-xlib==0.33"),) if sys.platform == "linux" else ()),
 )
 
 

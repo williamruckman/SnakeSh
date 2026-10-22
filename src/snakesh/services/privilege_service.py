@@ -9,6 +9,8 @@ import shutil
 import subprocess
 from typing import Sequence
 
+from snakesh import runtime
+
 
 @dataclass(slots=True)
 class CommandResult:
@@ -74,6 +76,8 @@ def run_command(
 
 
 def _run_plain(command: list[str], *, timeout: float | None = None) -> CommandResult:
+    environment = ({"env": runtime.sanitized_local_shell_environment()}
+                   if platform.system().lower() == "linux" else {})
     try:
         completed = subprocess.run(
             command,
@@ -81,6 +85,7 @@ def _run_plain(command: list[str], *, timeout: float | None = None) -> CommandRe
             capture_output=True,
             text=True,
             timeout=timeout,
+            **environment,
         )
     except Exception as exc:  # noqa: BLE001
         return CommandResult(success=False, message=str(exc), exit_code=None)
@@ -115,6 +120,7 @@ def _run_linux_elevated(command: list[str], *, timeout: float | None = None) -> 
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=runtime.sanitized_local_shell_environment(),
         )
     except Exception as exc:  # noqa: BLE001
         return CommandResult(success=False, message=str(exc), exit_code=None, elevated=True)

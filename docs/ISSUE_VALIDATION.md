@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.78 source changes against `a9f02db` / version 1.72, October 21, 2026.
+Version 1.79 source changes against `a9f02db` / version 1.72, October 22, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
@@ -8,7 +8,7 @@ Source tests and package smoke checks have separate on-device validation gates.
 | --- | --- | --- |
 | 1. Crash-log folder button | Native Windows/macOS opening and a sanitized environment for Linux file-manager launchers. | Launcher regression tests; packaged OS checks still required. |
 | 2. SFTP preparation appears frozen | Show progress before overwrite checking and size discovery; run network/file work on workers. | GUI timer/tab-switch regression and real loopback transfers. |
-| 3. Sixel graphics | Incremental inline decoder and rendering, RGB/HLS colors, repeats, transparency, raster dimensions, and scroll/reset handling. | Decoder, malformed-input limits, terminal integration, and existing terminal trace replays. |
+| 3. Sixel graphics | Independent local/remote settings, both off by default; optional local img2sixel installation on Mint/Ubuntu; bounded inline decoder and rendering. | Real img2sixel output, terminal framebuffer pixels, decoder limits, settings/install regressions, and terminal trace replays. |
 | 4. Remove NoMachine | Remove launch module, dependency discovery, and session-editor controls. Keep legacy serialized records readable/exportable; reject their launch/edit explicitly. | Legacy-record and protocol-editor/dependency regressions. |
 | 5. Windows clipboard hangs | Plain-text clipboard helper with a deadline, separate from the GUI. Remove clipboard reads while opening terminal context menus. | Helper-timeout/UI responsiveness regression on Linux; Windows with an active RDP clipboard still needs reproduction. |
 | 6. SFTP Delete | Delete Selected buttons and Delete-key shortcuts in both file panes; retain configured confirmation. | SFTP UI regressions and loopback delete. |
@@ -18,7 +18,7 @@ Source tests and package smoke checks have separate on-device validation gates.
 | 10. Large deletes | Background recursive deletion with activity/count display, cancellation, and preserved completed changes. | Local/remote deletion regressions and real SFTP deletion. |
 | 11. Other tabs during SFTP | Progress is modeless; only the busy SFTP pane's controls are disabled. Protect closing an active operation's tab/window. | Switch to another tab while an overwrite scan is actively awaiting the server. |
 | 12. macOS-to-Windows RDP/XQuartz | Prefer installed native FreeRDP SDL; fall back to X11 clients. Prepare XQuartz off the UI thread and report a missing display instead of silently assuming `:0`. | Client/environment regressions; Tahoe 26.5.1, XQuartz 2.8.6 and the affected Windows server remain a manual reproduction gate. |
-| 13. Hidden certificate Y/N | Existing Linux/macOS GUI approval already uses default No before FreeRDP TOFU. Remove automatic deletion of FreeRDP certificate pins. No hidden automatic yes response is added. | RDP launch/trust regressions. A changed certificate must be reviewed rather than silently forgetting the pin. |
+| 13. Hidden certificate Y/N | Default-No GUI approval before TOFU; Linux certificate-change dialog compares previous/new fingerprints and updates only the reviewed matching host/port pin before reconnecting. | RDP launch/trust and explicit pin-replacement regressions. Refusal and concurrent pin changes preserve existing trust records. |
 
 Sixel limits: 2048 pixels per side, 2 MiB encoded input per image, bounded
 paint work, and at most 16 images / 32 MiB retained per terminal. Graphics appear
@@ -91,6 +91,49 @@ Qt's offscreen platform. These checks establish the packaged Linux runtime;
 the Windows clipboard/RDP and macOS Tahoe connection reproductions still need
 the affected machines.
 
+## Linux RDP and Sixel follow-up (v1.79)
+
+The Linux Mint 22.3 main-PC log identified the reported embedded exit code 143:
+FreeRDP rejected a changed saved certificate. The failure is distinct from the
+laptop's incorrect detached label and missing resize behavior. The new GUI
+approval requires review of both SHA256 fingerprints, defaults to No, and
+replaces only the matching previous pin after approval. Other host records are
+preserved; changed or missing prior records stop replacement. FreeRDP still
+checks the resulting exact saved pin on reconnect.
+
+Linux RDP now discovers FreeRDP's actual child beneath the Qt host with bundled
+python-xlib 0.33, including unmapped children. Missing observations and failed
+resize requests leave a running session's embedded state intact. Resizes use
+physical pixels and preserve the existing child. Default/fixed desktop sizes
+use smart sizing; Auto uses dynamic resolution, never both. In-tab launches
+require Qt's X11 backend, and the system FreeRDP environment excludes bundled
+AppImage library paths. Bounded background output capture exposes client errors
+and certificate changes in the GUI.
+
+Local Sixel and Remote Sixel are independent saved options, disabled by default.
+On Mint/Ubuntu, saving Local Sixel installs the official `libsixel-bin` package
+if `img2sixel` is missing; cancellation/failure leaves Settings open. Remote
+Sixel applies to SSH, Telnet, and serial streams. The remote image application
+runs on that host. Enabled local terminals now advertise Sixel despite the
+default automatic terminal type; disabled terminals do not advertise or decode
+images. The existing image/resource bounds still apply.
+
+Focused source tests include actual X11 child discovery/resizing/replacement
+without external utilities, real `img2sixel` conversion, terminal framebuffer
+pixels, independent settings, installer dispatch/failure, bounded client output,
+and explicit certificate approval/replacement. GitHub CI additionally runs the
+X11 integration checks under Xvfb and installs `libsixel-bin` for encoder checks.
+Combined local source validation on Python 3.12.3 / PySide6 6.11.2 passed
+**1,244 unique tests and 152 subtests**, with 3 package-dependent skips. This
+combines the 357 workspace and 2 theme checks with the remaining suite and
+targeted rechecks: four migration tests required removal of the test run's
+forced data-directory override, and an older framebuffer regression now opts
+into local Sixel. Native X11 and real encoder checks ran locally without skips.
+The final affected privilege, Resource Monitor, RDP, and Sixel group passed
+142 tests. The new CI package build is pending. Final RDP connection/resizing
+and privileged installation checks on the affected Mint machines require the
+new compiled package.
+
 ## CI runtime correction
 
 The v1.73 GitHub build aborted during workspace tests with exit code 134; no
@@ -143,6 +186,11 @@ commits in this repository use the owner's GitHub no-reply address. Version
 1.78 carries the same Linux CI change; existing tags and history are retained.
 
 ## Upstream references
+
+- [FreeRDP scaling options are mutually exclusive](https://github.com/FreeRDP/FreeRDP/blob/stable-2.0/client/common/cmdline.c)
+- [FreeRDP X11 resize and dynamic resolution handling](https://github.com/FreeRDP/FreeRDP/blob/stable-2.0/client/X11/xf_event.c)
+- [libsixel image converters](https://github.com/libsixel/libsixel)
+- [Python X Library 0.33](https://pypi.org/project/python-xlib/0.33/)
 
 - [Cryptography: macOS static OpenSSL build](https://cryptography.io/en/latest/installation/#building-cryptography-on-macos)
 - [Cryptography: macOS Intel wheel support removed in 49.0.0](https://cryptography.io/en/latest/changelog/#v49-0-0)

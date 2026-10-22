@@ -15,6 +15,15 @@ Qt runtime components.
   upstream Qt/PySide license texts and notices that accompany the bundled
   components.
 
+## Python X Library (Linux)
+
+Linux builds bundle python-xlib 0.33 for querying and resizing embedded FreeRDP
+windows. It is licensed under LGPL 2.1 or later. Its distribution metadata and
+license accompany the frozen Linux package.
+
+- Upstream source and license: https://github.com/python-xlib/python-xlib
+- Release source: https://pypi.org/project/python-xlib/0.33/#files
+
 ## Release Checklist
 
 Before publishing a source or binary release:

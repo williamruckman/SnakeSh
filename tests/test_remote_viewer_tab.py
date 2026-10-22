@@ -365,7 +365,7 @@ class RemoteViewerTabTests(unittest.TestCase):
         mock_resize.assert_called_once_with()
         tab.deleteLater()
 
-    def test_linux_parent_rdp_resize_uses_xdotool(self) -> None:
+    def test_linux_parent_rdp_resize_uses_native_child_window(self) -> None:
         session = _build_rdp_session()
 
         def detached_builder() -> tuple[list[str], str, dict[str, str] | None]:
@@ -386,18 +386,19 @@ class RemoteViewerTabTests(unittest.TestCase):
         tab._embedded_window_handle = 1234
         with (
             patch("snakesh.ui.main_window.platform.system", return_value="Linux"),
-            patch.object(tab, "_is_linux_window", return_value=True),
-            patch.object(tab, "_embed_target_size", return_value=(1440, 900)),
-            patch.object(tab, "_linux_window_size", side_effect=[(1200, 700), (1440, 900)]),
-            patch.object(tab, "_run_xdotool", return_value=True) as mock_xdotool,
+            patch.object(tab._embed_host, "isVisible", return_value=True),
+            patch.object(tab, "_linux_rdp_target_size", return_value=(1440, 900)),
+            patch.object(tab._linux_rdp_window, "resize", return_value=True) as resize,
+            patch.object(tab, "_run_xdotool") as xdotool,
         ):
             ok = tab._resize_linux_parent_rdp_embedded_window()
 
         self.assertTrue(ok)
-        mock_xdotool.assert_any_call("windowsize", "1234", "1440", "900")
+        resize.assert_called_once_with(1234, 1440, 900)
+        xdotool.assert_not_called()
         tab.deleteLater()
 
-    def test_linux_parent_rdp_resize_failures_trigger_fallback(self) -> None:
+    def test_linux_parent_rdp_resize_failures_preserve_embedded_state(self) -> None:
         session = _build_rdp_session()
 
         def detached_builder() -> tuple[list[str], str, dict[str, str] | None]:
@@ -418,17 +419,16 @@ class RemoteViewerTabTests(unittest.TestCase):
         tab._embedded_window_handle = 1234
         with (
             patch("snakesh.ui.main_window.platform.system", return_value="Linux"),
-            patch.object(tab, "_is_linux_window", return_value=True),
-            patch.object(tab, "_embed_target_size", return_value=(1440, 900)),
-            patch.object(tab, "_linux_window_size", return_value=(0, 0)),
-            patch.object(tab, "_run_xdotool", return_value=False),
+            patch.object(tab._embed_host, "isVisible", return_value=True),
+            patch.object(tab._linux_rdp_window, "resize", return_value=False),
             patch.object(tab, "_fallback_linux_embedded_to_detached") as mock_fallback,
         ):
             tab._resize_linux_parent_rdp_embedded_window()
             tab._resize_linux_parent_rdp_embedded_window()
             tab._resize_linux_parent_rdp_embedded_window()
 
-        mock_fallback.assert_called_once()
+        mock_fallback.assert_not_called()
+        self.assertEqual(tab._mode, "embedded")
         tab.deleteLater()
 
 

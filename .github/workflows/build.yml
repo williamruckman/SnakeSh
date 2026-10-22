@@ -68,7 +68,7 @@ jobs:
       - name: Install Linux test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install -y libegl1 libgl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth libsixel-bin
 
       - name: Install Python test dependencies
         run: |
@@ -77,6 +77,9 @@ jobs:
 
       - name: Check Qt runtime
         run: python3 -m pytest -vv tests/test_qt_runtime.py
+
+      - name: Check native X11 RDP window control
+        run: xvfb-run -a python3 -m pytest -vv tests/test_linux_rdp_window.py
 
       - name: Run workspace tests
         timeout-minutes: 10

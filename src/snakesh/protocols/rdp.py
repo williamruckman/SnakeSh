@@ -121,6 +121,10 @@ def build_rdp_command(
         elif resolution:
             width, height = resolution
             cmd.append(f"/size:{width}x{height}")
+        if embedded_parent and not auto_resolution:
+            # Scale a fixed/default desktop into the tab. FreeRDP rejects
+            # combining smart sizing with dynamic resolution.
+            cmd.append("/smart-sizing")
         if color_depth:
             cmd.append(f"/bpp:{color_depth}")
         if audio_mode == "local":
@@ -163,7 +167,10 @@ def launch_rdp(
 
 
 def prepare_rdp_launch_environment(executable: str | None = None) -> dict[str, str] | None:
-    if platform.system().lower() != "darwin":
+    system = platform.system().lower()
+    if system == "linux":
+        return runtime.sanitized_local_shell_environment()
+    if system != "darwin":
         return None
 
     env = runtime.sanitized_local_shell_environment()

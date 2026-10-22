@@ -107,7 +107,8 @@ def decode_sixel(payload: str, *, transparent: bool = False) -> QImage | None:
 
 
 class SixelStream:
-    def __init__(self):
+    def __init__(self, *, enabled: bool = True):
+        self.enabled = enabled
         self.pending = ""
         self.in_dcs = False
         self.discard = False
@@ -137,7 +138,7 @@ class SixelStream:
                 return
             body = self.pending[:end.start()]
             self.pending = self.pending[end.end():]
-            if not self.discard and end.group() not in ('\x18', '\x1a'):
+            if self.enabled and not self.discard and end.group() not in ('\x18', '\x1a'):
                 header = re.match(r"([0-9;]*)q", body)
                 if header:
                     params = header.group(1).split(';')

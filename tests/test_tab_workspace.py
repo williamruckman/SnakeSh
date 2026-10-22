@@ -2366,7 +2366,7 @@ class TabWorkspaceTests(unittest.TestCase):
         emulator.set_terminal_type("vt100")
         emulator.feed("\x1b[c")
 
-        self.assertEqual(replies, ["\x1b[?62;1;2;4;6;7;8;9;15;18;21;22c", "\x1b[?1;0c"])
+        self.assertEqual(replies, ["\x1b[?62;1;2;6;7;8;9;15;18;21;22c", "\x1b[?1;0c"])
         self.assertEqual(emulator.rendered_scrollback_text(), "(no scrollback data yet)")
 
     def test_vt100_emulator_reports_device_status(self) -> None:
@@ -2491,7 +2491,7 @@ class TabWorkspaceTests(unittest.TestCase):
 
             tab.append("\x1b[c")
 
-            tab._worker.send_text.assert_called_once_with("\x1b[?62;1;2;4;6;7;8;9;15;18;21;22c")
+            tab._worker.send_text.assert_called_once_with("\x1b[?62;1;2;6;7;8;9;15;18;21;22c")
         finally:
             tab.shutdown()
             tab.deleteLater()

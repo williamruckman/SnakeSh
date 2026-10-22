@@ -58,8 +58,11 @@ class SettingsDialog(QDialog):
         on_manage_tool_launchers_requested: Callable[[], None] | None = None,
         backend_auth_state: dict[str, bool] | None = None,
         on_preview_requested: Callable[[AppSettings], None] | None = None,
+        on_sixel_setup_requested: Callable[[], tuple[bool, str]] | None = None,
     ) -> None:
         super().__init__(parent)
+        self._on_sixel_setup_requested = on_sixel_setup_requested
+        self._sixel_setup_in_progress = False
         self.setWindowTitle("Settings")
         self.resize(760, 860)
         self.setMinimumSize(620, 540)
@@ -226,6 +229,18 @@ class SettingsDialog(QDialog):
         self.terminal_bell.setChecked(settings.terminal_bell_enabled)
         self.terminal_visual_bell = QCheckBox("Enable visual bell flash on BEL")
         self.terminal_visual_bell.setChecked(settings.terminal_visual_bell_enabled)
+        self.sixel_local = QCheckBox("Enable Sixel graphics in local terminals")
+        self.sixel_local.setChecked(settings.terminal_sixel_local_enabled)
+        self.sixel_remote = QCheckBox("Enable Sixel graphics over SSH, Telnet, and serial")
+        self.sixel_remote.setChecked(settings.terminal_sixel_remote_enabled)
+        self.sixel_help = QLabel(
+            "Both options are off by default. Saving local Sixel on Linux Mint/Ubuntu installs "
+            "img2sixel if missing and may request administrator authentication. "
+            "Display an image with: img2sixel -w 800 picture.png. "
+            "For remote graphics, run the image program on the remote host; "
+            "SnakeSh does not install software on remote hosts."
+        )
+        self.sixel_help.setWordWrap(True)
         self.local_shell_command_override = QLineEdit(settings.local_shell_command_override)
         self.local_shell_start_dir_mode = QComboBox()
         self.local_shell_start_dir_mode.addItem("Home directory", "home")
@@ -508,6 +523,9 @@ class SettingsDialog(QDialog):
         form.addRow(QLabel("Cursor Blink"), self.cursor_blink)
         form.addRow(QLabel("Terminal Bell"), self.terminal_bell)
         form.addRow(QLabel("Visual Bell"), self.terminal_visual_bell)
+        form.addRow(QLabel("Local Sixel"), self.sixel_local)
+        form.addRow(QLabel("Remote Sixel"), self.sixel_remote)
+        form.addRow("", self.sixel_help)
         form.addRow(QLabel("Minimize to Tray"), self.minimize_to_tray)
         form.addRow(QLabel("SFTP Delete Prompt"), self.warn_before_file_delete)
         form.addRow(QLabel("SFTP Overwrite Prompt"), self.warn_before_file_overwrite)
@@ -1066,6 +1084,8 @@ class SettingsDialog(QDialog):
                 "terminal_cursor_blink": self.cursor_blink.isChecked(),
                 "terminal_bell_enabled": self.terminal_bell.isChecked(),
                 "terminal_visual_bell_enabled": self.terminal_visual_bell.isChecked(),
+                "terminal_sixel_local_enabled": self.sixel_local.isChecked(),
+                "terminal_sixel_remote_enabled": self.sixel_remote.isChecked(),
                 "local_shell_command_override": self.local_shell_command_override.text().strip(),
                 "local_shell_start_dir_mode": self._selected_local_shell_start_dir_mode(),
                 "local_shell_custom_start_dir": self.local_shell_custom_start_dir.text().strip(),
@@ -1447,6 +1467,8 @@ class SettingsDialog(QDialog):
         self.cursor_blink.setChecked(settings.terminal_cursor_blink)
         self.terminal_bell.setChecked(settings.terminal_bell_enabled)
         self.terminal_visual_bell.setChecked(settings.terminal_visual_bell_enabled)
+        self.sixel_local.setChecked(settings.terminal_sixel_local_enabled)
+        self.sixel_remote.setChecked(settings.terminal_sixel_remote_enabled)
         self.local_shell_command_override.setText(settings.local_shell_command_override)
         self._set_local_shell_start_dir_mode(settings.local_shell_start_dir_mode)
         self.local_shell_custom_start_dir.setText(settings.local_shell_custom_start_dir)
@@ -1498,7 +1520,19 @@ class SettingsDialog(QDialog):
         self._update_local_shell_controls()
         self._update_secrets_rows()
 
+    def reject(self) -> None:
+        if not self._sixel_setup_in_progress:
+            super().reject()
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        if self._sixel_setup_in_progress:
+            event.ignore()
+        else:
+            super().closeEvent(event)
+
     def _validate_and_accept(self) -> None:
+        if self._sixel_setup_in_progress:
+            return
         new_password = self.master_password.text().strip()
         confirm_password = self.master_password_confirm.text().strip()
         if new_password or confirm_password:
@@ -1532,6 +1566,20 @@ class SettingsDialog(QDialog):
                 ),
             )
             return
+        if self.sixel_local.isChecked() and self._on_sixel_setup_requested is not None:
+            self._sixel_setup_in_progress = True
+            previous_text = self.sixel_help.text()
+            self.sixel_help.setText("Preparing local Sixel tools. Complete administrator authentication if requested…")
+            try:
+                success, message = self._on_sixel_setup_requested()
+            except Exception as exc:
+                success, message = False, str(exc)
+            finally:
+                self._sixel_setup_in_progress = False
+                self.sixel_help.setText(previous_text)
+            if not success:
+                QMessageBox.warning(self, "Sixel Setup", message)
+                return
         self.accept()
 
     def _shortcut_conflict(self) -> tuple[str, str, str] | None:

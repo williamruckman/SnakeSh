@@ -34,7 +34,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 - RDP launcher integration (`mstsc` on Windows, FreeRDP on Linux/macOS)
 - RDP launcher uses saved session credentials when available (Windows via `cmdkey`, Linux/macOS via FreeRDP stdin credential handoff)
 - Linux RDP sessions can run inside SnakeSh tabs (Open Mode: In tab) or detached; VNC and non-Linux RDP use detached window mode only
-- Linux RDP launches ask certificate trust in a GUI confirmation dialog before starting `xfreerdp` (no hidden terminal prompt)
+- Linux RDP launches ask certificate trust in a GUI confirmation dialog. A changed saved certificate displays its previous/new SHA256 fingerprints and requires approval before updating that host's pin and reconnecting.
 - VNC launcher integration with client auto-detection on Windows/Linux/macOS and optional default viewer auto-install where supported (TigerVNC)
 - RDP sessions support a dedicated domain field; X11 forwarding is only exposed for SSH/SFTP sessions
 - RDP and VNC sessions support per-session resolution, fullscreen, and color depth preferences
@@ -57,7 +57,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 - Windows X11 forwarding helper: prefers VcXsrv, falls back to other installed/running X servers, and can install/launch VcXsrv on demand
 - Tabbed multi-session workspace for concurrent connections
 - Built-in Local Shell tab launcher (PowerShell/cmd on Windows, shell detection on Linux/macOS)
-- In-app SSH terminal tabs with VT/ANSI emulation, bounded Sixel inline graphics, color, and full-screen TUIs like `top`/`htop`
+- In-app SSH terminal tabs with VT/ANSI emulation, opt-in Sixel inline graphics, color, and full-screen TUIs like `top`/`htop`
 - Optional minimize to system tray in Settings (disabled by default); restore and quit from the tray menu
 - Terminal key forwarding keeps `Tab`/`Shift+Tab` inside the SSH session instead of switching GUI focus
 - Terminal and command-bar paste handling reviews multi-line input before sending it to a live terminal
@@ -255,6 +255,19 @@ SnakeSh requires Python 3.11+.
 
 - Missing protocol tools:
 SnakeSh checks protocol dependencies on demand (for example `xfreerdp`, `mstsc`, `vncviewer`, `xauth`, `ssh-keygen`, and the Python SNMP runtime used by the Syslog / SNMP Monitor) and shows an in-app prompt if installation is needed.
+
+Settings has separate **Local Sixel** and **Remote Sixel** switches, both disabled
+by default. Saving Local Sixel on Linux Mint/Ubuntu installs `libsixel-bin` if
+`img2sixel` is missing, with administrator authentication when needed. Try
+`img2sixel -w 800 picture.png` in a local terminal. Remote Sixel renders graphics
+sent over SSH, Telnet, or serial; the image program runs on the remote host.
+Graphics are limited to 2048 pixels per side, and searchable scrollback is text-only.
+
+Linux RDP tabs inspect and resize the actual FreeRDP X11 child window using a
+bundled Python library, including hidden tabs. Default/fixed desktop sizes scale
+to fit the tab; Auto uses FreeRDP's dynamic resolution mode. The system client
+runs with AppImage library paths removed. Client errors appear in the tab, and
+an unavailable window lookup does not change the connection to detached mode.
 On macOS, automatic dependency installation is not offered; SnakeSh detects standard Homebrew paths such as `/opt/homebrew/bin` and `/usr/local/bin` plus supported app bundles.
 
 - Permission prompts:

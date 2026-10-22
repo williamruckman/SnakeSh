@@ -12,6 +12,7 @@ import csv
 from dataclasses import dataclass, field
 import errno
 import html
+import io
 import json
 import logging
 import math
@@ -188,6 +189,9 @@ from snakesh.services.x11_service import X11Service
 from snakesh.ui.background import background_calls_active, run_background_call
 from snakesh.ui.clipboard import copy_text, paste_text
 from snakesh.ui.sixel import SixelStream, TerminalGraphic
+from snakesh.services.linux_rdp_window import LinuxRdpWindow
+from snakesh.services.viewer_output import ViewerOutput
+from snakesh.services.rdp_certificates import certificate_change_from_output, replace_reviewed_certificate
 from snakesh.ui.tray import TrayController
 from snakesh.ui.settings_dialog import SettingsDialog
 from snakesh.ui.shortcut_preferences import normalize_shortcut_text
@@ -931,12 +935,13 @@ _IMMEDIATE_TERMINAL_QUERY_PROBE_TAIL_MAX = max(
 )
 
 
-def _terminal_device_attributes_reply(terminal_type: str) -> str:
+def _terminal_device_attributes_reply(terminal_type: str, *, sixel_enabled: bool = False) -> str:
     normalized = normalize_serial_terminal_type(terminal_type)
     if normalized in {"vt100", "ansi"}:
         return "\x1b[?1;0c"
-    if normalized in {"xterm", "xterm-256color"}:
-        return "\x1b[?62;1;2;4;6;7;8;9;15;18;21;22c"
+    if normalized in {"xterm", "xterm-256color"} or sixel_enabled:
+        graphics = ";4" if sixel_enabled else ""
+        return f"\x1b[?62;1;2{graphics};6;7;8;9;15;18;21;22c"
     return "\x1b[?6c"
 
 
@@ -1011,7 +1016,9 @@ class TerminalTab(QWidget):
             rows=48,
             history=scrollback_limit,
             process_input_writer=self._send_emulator_generated_input,
+            sixel_enabled=settings.terminal_sixel_local_enabled,
         )
+        self._sixel_remote_context = False
         self._scrollback_store = TerminalScrollbackStore(
             max_lines=scrollback_limit,
             line_source=self._emulator.rendered_scrollback_lines,
@@ -1521,6 +1528,7 @@ class TerminalTab(QWidget):
         self._reset_terminal_query_probe_tail()
         self._reset_backspace_adaptation()
         self._emulator.set_terminal_type("xterm-256color")
+        self._apply_sixel_context(remote=True)
         self._session_id = session.id
         self._configure_automation(session)
         self._thread = QThread(self)
@@ -1573,6 +1581,7 @@ class TerminalTab(QWidget):
         self._reset_terminal_query_probe_tail()
         self._reset_backspace_adaptation()
         self._emulator.set_terminal_type("auto")
+        self._apply_sixel_context(remote=False)
         self._stop_automation()
         self._automation_enabled = False
         self._automation_steps = []
@@ -1635,6 +1644,7 @@ class TerminalTab(QWidget):
         self._reset_terminal_query_probe_tail()
         self._reset_backspace_adaptation()
         self._emulator.set_terminal_type("auto")
+        self._apply_sixel_context(remote=True)
         self._configure_automation(session)
         self._session_id = session.id
         self._thread = QThread(self)
@@ -1669,6 +1679,7 @@ class TerminalTab(QWidget):
         self._reset_terminal_query_probe_tail()
         self._reset_backspace_adaptation()
         self._emulator.set_terminal_type(session.serial_terminal_type)
+        self._apply_sixel_context(remote=True)
         self._configure_automation(session)
         self._session_id = session.id
         self._thread = QThread(self)
@@ -2180,6 +2191,7 @@ class TerminalTab(QWidget):
 
     def apply_settings(self, settings: AppSettings) -> None:
         self._settings = settings
+        self._apply_sixel_context()
         scrollback_limit = max(100, settings.terminal_scrollback_lines)
         self._scrollback_store.set_max_lines(scrollback_limit)
         self._emulator.set_history_limit(scrollback_limit)
@@ -2196,6 +2208,13 @@ class TerminalTab(QWidget):
                 apply_runtime_settings(settings)
         self._sync_terminal_size()
         self._render()
+
+    def _apply_sixel_context(self, *, remote: bool | None = None) -> None:
+        if remote is not None:
+            self._sixel_remote_context = remote
+        enabled = (self._settings.terminal_sixel_remote_enabled if self._sixel_remote_context
+                   else self._settings.terminal_sixel_local_enabled)
+        self._emulator.set_sixel_enabled(enabled)
 
     def scrollback_text(self) -> str:
         if self._pending_output_chunks:
@@ -7183,7 +7202,9 @@ class _SnakeShHistoryScreen(HistoryScreen):
 
     def report_device_attributes(self, mode: int = 0, **kwargs: bool) -> None:
         if mode == 0 and not kwargs.get("private"):
-            self.write_process_input(_terminal_device_attributes_reply(self._terminal_type))
+            self.write_process_input(_terminal_device_attributes_reply(
+                self._terminal_type, sixel_enabled=getattr(self, "sixel_enabled", False)
+            ))
 
     def scroll_history_up(self, count: int) -> None:
         remaining = max(0, int(count))
@@ -7852,11 +7873,13 @@ class VT100Emulator:
         enable_fast_parser: bool = True,
         process_input_writer: Callable[[str], None] | None = None,
         terminal_type: str = "auto",
+        sixel_enabled: bool = False,
     ) -> None:
         self._history_limit = max(100, history)
         self._enable_fast_parser = bool(enable_fast_parser)
         self._process_input_writer = process_input_writer
         self._terminal_type = normalize_serial_terminal_type(terminal_type)
+        self._sixel_enabled = bool(sixel_enabled)
         self._screen = _SnakeShHistoryScreen(
             cols,
             rows,
@@ -7865,7 +7888,8 @@ class VT100Emulator:
             process_input_writer=process_input_writer,
             terminal_type=self._terminal_type,
         )
-        self._sixel_stream = SixelStream()
+        self._sixel_stream = SixelStream(enabled=self._sixel_enabled)
+        self._screen.sixel_enabled = self._sixel_enabled
         self.cell_height = 16
         self._stream = _SnakeShStream(self._screen, enable_fast_parser=enable_fast_parser)
         # pyte only handles SI/SO and ESC ( / ESC ) DEC charset switching when
@@ -7880,7 +7904,7 @@ class VT100Emulator:
             for event in self._sixel_stream.feed(data):
                 if isinstance(event, str):
                     self._stream.feed(event)
-                else:
+                elif self._sixel_enabled:
                     rows = max(1, math.ceil(event.height() / max(1, self.cell_height)))
                     self._screen.graphics.append(TerminalGraphic(event, self._screen.cursor.x, self._screen.cursor.y, rows))
                     while len(self._screen.graphics) > 16 or sum(g.image.sizeInBytes() for g in self._screen.graphics) > 32 * 1024 * 1024:
@@ -7896,6 +7920,16 @@ class VT100Emulator:
             dirty = set(self._screen.dirty)
             self._screen.dirty.clear()
         return dirty
+
+    def set_sixel_enabled(self, enabled: bool) -> None:
+        with self._lock:
+            if self._sixel_enabled == bool(enabled):
+                return
+            self._sixel_enabled = bool(enabled)
+            self._screen.sixel_enabled = self._sixel_enabled
+            self._sixel_stream = SixelStream(enabled=self._sixel_enabled)
+            self._screen.graphics.clear()
+            self._screen._mark_full_repaint_damage()
 
     def consume_render_damage(self) -> tuple[tuple[_TerminalScrollOperation, ...], bool]:
         with self._lock:
@@ -7989,6 +8023,7 @@ class VT100Emulator:
             terminal_type=self._terminal_type,
         )
         restored_stream = _SnakeShStream(restored_screen, enable_fast_parser=self._enable_fast_parser)
+        restored_screen.sixel_enabled = self._sixel_enabled
         restored_stream.use_utf8 = False
         snapshot_text = "\r\n".join(lines).strip("\r\n")
         if snapshot_text:
@@ -9978,6 +10013,9 @@ class RemoteViewerTab(QWidget):
         self._embedded_window_handle: int | None = None
         self._last_exit_code: int | None = None
         self._last_exit_mode: str = ""
+        self._viewer_output: ViewerOutput | None = None
+        self._last_viewer_error = ""
+        self._rdp_certificate_prompt_pending = False
         self._mode = "idle"
         self._viewer_name = ""
         self._is_windows_rdp_reparent = (
@@ -9993,6 +10031,7 @@ class RemoteViewerTab(QWidget):
         self._detached_external_handoff = False
         self._linux_embed_missing_window_count = 0
         self._linux_resize_failure_count = 0
+        self._linux_rdp_window = LinuxRdpWindow()
         self._debug_enabled = (
             os.getenv(REMOTE_VIEWER_DEBUG_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
             or os.getenv(LEGACY_REMOTE_VIEWER_DEBUG_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
@@ -10013,6 +10052,7 @@ class RemoteViewerTab(QWidget):
         layout.addWidget(self._title_label)
 
         self._state_label = QLabel("")
+        self._state_label.setTextFormat(Qt.PlainText)
         self._state_label.setWordWrap(True)
         layout.addWidget(self._state_label)
 
@@ -10049,6 +10089,9 @@ class RemoteViewerTab(QWidget):
         self._update_state_text()
 
     def supports_embedded_mode(self) -> bool:
+        if self._is_linux_parent_window_rdp_embed():
+            available, _ = self._linux_parent_rdp_support_status()
+            return available
         if self._embedded_command_builder is not None or self._windows_reparent_embed:
             return True
         if not self._linux_x11_reparent_embed:
@@ -10163,7 +10206,14 @@ class RemoteViewerTab(QWidget):
         if stdin_payload is not None:
             popen_kwargs["stdin"] = subprocess.PIPE
             popen_kwargs["text"] = True
+        capture_output = self.is_linux_rdp_viewer()
+        if capture_output:
+            popen_kwargs["stdout"] = subprocess.PIPE
+            popen_kwargs["stderr"] = subprocess.STDOUT
+            popen_kwargs.update(text=True, encoding="utf-8", errors="replace")
         process = subprocess.Popen(cmd, **popen_kwargs)
+        if capture_output and isinstance(process.stdout, (io.BufferedIOBase, io.TextIOBase)):
+            self._viewer_output = ViewerOutput(process.stdout)
         self._write_process_stdin(process, stdin_payload)
         return process
 
@@ -10180,6 +10230,10 @@ class RemoteViewerTab(QWidget):
 
     def attach_viewer(self) -> tuple[bool, str]:
         self._detached_external_handoff = False
+        if self._is_linux_parent_window_rdp_embed():
+            available, reason = self._linux_parent_rdp_support_status()
+            if not available:
+                return False, reason
         if self._windows_reparent_embed:
             return self._attach_windows_reparent()
         if self._linux_x11_reparent_embed:
@@ -10207,6 +10261,9 @@ class RemoteViewerTab(QWidget):
             return False, f"Failed to prepare embedded launch command: {exc}"
 
         try:
+            if self._is_linux_parent_window_rdp_embed() and not any(arg.startswith("/size:") for arg in cmd):
+                width, height = self._linux_rdp_target_size()
+                cmd = [*cmd, f"/size:{width}x{height}"]
             self._embedded_process = self._start_viewer_process(
                 cmd,
                 launch_env=launch_env,
@@ -10221,11 +10278,9 @@ class RemoteViewerTab(QWidget):
         self._clear_exit_state()
         self._update_state_text()
         if self._is_linux_parent_window_rdp_embed() and self._embedded_process is not None:
-            self._embedded_window_handle = self._wait_for_linux_main_window(
-                self._embedded_process.pid,
-                timeout_seconds=1.0,
-            )
-            self._resize_linux_parent_rdp_embedded_window()
+            # Authentication/window creation may take several seconds. The
+            # normal watcher discovers the child without blocking startup.
+            self._sync_linux_parent_rdp_embedded_window(self._embedded_process)
         return True, f"{self._protocol_name} viewer attached in tab ({viewer_name})."
 
     def detach_viewer(self) -> tuple[bool, str]:
@@ -10698,24 +10753,14 @@ class RemoteViewerTab(QWidget):
         if process.poll() is not None:
             return
 
-        current = self._embedded_window_handle
-        if current is not None and not self._is_linux_window(current):
-            self._debug(f"Embedded Linux RDP handle became invalid handle=0x{current:X}.")
-            self._embedded_window_handle = None
-
-        if self._embedded_window_handle is None:
-            recovered = self._wait_for_linux_main_window(process.pid, timeout_seconds=0.2)
-            if recovered is None:
-                self._linux_embed_missing_window_count += 1
-                if self._linux_embed_missing_window_count >= 5:
-                    self._fallback_linux_embedded_to_detached(
-                        "Embedded RDP window became unavailable; switched to detached mode."
-                    )
-                return
-            self._linux_embed_missing_window_count = 0
-            self._embedded_window_handle = recovered
-            self._debug(f"Recovered Linux RDP embedded window handle=0x{recovered:X}.")
-
+        recovered = self._linux_rdp_window.find_child(
+            int(self._embed_host.winId()), self._linux_process_tree_pids(process.pid)
+        )
+        self._embedded_window_handle = recovered
+        if recovered is None:
+            # A missing observation is not a detach operation. This includes
+            # hidden tabs and transient windows during authentication.
+            return
         self._resize_linux_parent_rdp_embedded_window()
 
     def _try_auto_attach_windows_detached(self, process: subprocess.Popen) -> bool:
@@ -10780,17 +10825,57 @@ class RemoteViewerTab(QWidget):
             return None
 
     def _mark_process_exited(self, exit_code: int, *, mode: str) -> None:
+        output, self._viewer_output = self._viewer_output, None
+        self._last_viewer_error = output.tail() if output is not None else ""
+        if self._last_viewer_error:
+            self._debug(f"Viewer output at exit:\n{self._last_viewer_error}")
         self._mode = "idle"
         self._last_exit_code = exit_code
         self._last_exit_mode = mode
         self._detached_external_handoff = False
         self._update_state_text()
+        if self.is_linux_rdp_viewer() and certificate_change_from_output(self._last_viewer_error) is not None:
+            if not self._rdp_certificate_prompt_pending:
+                self._rdp_certificate_prompt_pending = True
+                QTimer.singleShot(0, self._offer_changed_rdp_certificate)
+
+    def _offer_changed_rdp_certificate(self) -> None:
+        try:
+            change = certificate_change_from_output(self._last_viewer_error)
+            if change is None or not self._process_watch_timer.isActive():
+                return
+            mode = self._last_exit_mode
+            answer = QMessageBox.question(
+                self, "RDP Certificate Changed",
+                f"The certificate for {self._session.host}:{self._session.port} changed.\n\n"
+                f"Previous SHA256 fingerprint:\n{change.previous}\n\n"
+                f"New SHA256 fingerprint:\n{change.current}\n\n"
+                "Verify the new fingerprint with the server administrator.\n"
+                "Trust this exact certificate and reconnect?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            )
+            if answer != QMessageBox.Yes:
+                return
+            try:
+                replace_reviewed_certificate(self._session, change)
+            except (OSError, ValueError) as exc:
+                QMessageBox.warning(self, "RDP Certificate", str(exc))
+                return
+            success, message = self.attach_viewer() if mode == "embedded" else self.detach_viewer()
+            if not success:
+                QMessageBox.warning(self, "RDP Reconnect", message)
+        finally:
+            self._rdp_certificate_prompt_pending = False
 
     def _clear_exit_state(self) -> None:
         self._last_exit_code = None
         self._last_exit_mode = ""
+        self._last_viewer_error = ""
 
     def _embedded_mode_unavailable_reason(self) -> str:
+        if self._is_linux_parent_window_rdp_embed():
+            _, reason = self._linux_parent_rdp_support_status()
+            return reason
         if self._protocol_name.strip().upper() == "VNC":
             return "VNC sessions run in detached mode only."
         if self._linux_x11_reparent_embed:
@@ -10798,6 +10883,15 @@ class RemoteViewerTab(QWidget):
             if not available:
                 return reason
         return "This viewer does not support in-tab embedding on the current platform."
+
+    @staticmethod
+    def _linux_parent_rdp_support_status() -> tuple[bool, str]:
+        if not os.getenv("DISPLAY", "").strip():
+            return False, "In-tab RDP requires an X11 display."
+        backend = (QApplication.platformName() or "").lower()
+        if backend != "xcb":
+            return False, f"In-tab RDP requires Qt's X11 backend (current backend: {backend})."
+        return True, ""
 
     def _linux_x11_reparent_support_status(self) -> tuple[bool, str]:
         if not self._linux_x11_reparent_embed:
@@ -10862,6 +10956,8 @@ class RemoteViewerTab(QWidget):
             descriptor = f"{self._last_exit_mode} " if self._last_exit_mode else ""
             self._state_label.setText(
                 f"Viewer closed ({descriptor}exit code {self._last_exit_code})."
+                + ("\n\nClient output:\n" + "\n".join(self._last_viewer_error.splitlines()[-8:])[-3000:]
+                   if self._last_viewer_error else "")
             )
             self._hint_label.setText("Reconnect this session from the session list to launch the viewer again.")
             self.setProperty("remote_viewer_closed", True)
@@ -10891,6 +10987,7 @@ class RemoteViewerTab(QWidget):
         self._linux_embed_missing_window_count = 0
         self._linux_resize_failure_count = 0
         self._stop_process(process)
+        self._linux_rdp_window.close()
 
     def _stop_detached_process(self) -> None:
         process = self._detached_process
@@ -11662,57 +11759,21 @@ class RemoteViewerTab(QWidget):
             )
         return False
 
+    def _linux_rdp_target_size(self) -> tuple[int, int]:
+        rect = self._embed_host.rect()
+        scale = self._embed_host.devicePixelRatioF()
+        return max(1, round(rect.width() * scale)), max(1, round(rect.height() * scale))
+
     def _resize_linux_parent_rdp_embedded_window(self) -> bool:
         if not self._is_linux_parent_window_rdp_embed() or self._mode != "embedded":
             return False
-        if platform.system().lower() != "linux":
-            return False
-
         window_handle = self._embedded_window_handle
-        process = self._embedded_process
-        if window_handle is None:
-            if process is None or process.poll() is not None:
-                return False
-            recovered = self._wait_for_linux_main_window(process.pid, timeout_seconds=0.2)
-            if recovered is None:
-                return False
-            window_handle = recovered
-            self._embedded_window_handle = recovered
-            self._debug(f"Resolved Linux RDP window for resize handle=0x{recovered:X}.")
-        elif not self._is_linux_window(window_handle):
-            self._embedded_window_handle = None
-            self._debug(f"Linux RDP resize skipped: invalid handle=0x{window_handle:X}.")
+        if window_handle is None or not self._embed_host.isVisible():
             return False
-
-        self._configure_embed_host_layout()
-        width, height = self._embed_target_size()
-        actual_width, actual_height = self._linux_window_size(window_handle)
-        if actual_width == width and actual_height == height:
-            self._linux_resize_failure_count = 0
-            return True
-
-        # Avoid frequent map/move operations in parent-window mode; they can destabilize FreeRDP on resize.
-        sized = self._run_xdotool("windowsize", str(window_handle), str(width), str(height))
-        post_width, post_height = self._linux_window_size(window_handle)
-        size_ok = (
-            post_width >= max(120, int(width * 0.65))
-            and post_height >= max(90, int(height * 0.65))
-        )
-        if sized and size_ok:
-            self._linux_resize_failure_count = 0
-            return True
-
-        self._linux_resize_failure_count += 1
-        self._debug(
-            f"Linux RDP embedded resize failed handle=0x{window_handle:X} "
-            f"size={sized} actual={post_width}x{post_height} "
-            f"target={width}x{height} failure_count={self._linux_resize_failure_count}."
-        )
-        if self._linux_resize_failure_count >= 3:
-            self._fallback_linux_embedded_to_detached(
-                "Embedded RDP viewer could not be resized reliably; switched to detached mode."
-            )
-        return False
+        width, height = self._linux_rdp_target_size()
+        # Configure the existing child; do not remap/reparent it or infer that
+        # an asynchronous resize failure means the session was detached.
+        return self._linux_rdp_window.resize(window_handle, width, height)
 
     def _debug(self, message: str) -> None:
         if not self._debug_enabled:
@@ -15861,7 +15922,7 @@ class MainWindow(QMainWindow):
                 linux_trust_certificate=linux_trust_certificate,
             )
             stdin_payload = build_rdp_stdin_payload(session, password=password)
-            return cmd, "FreeRDP", None, stdin_payload
+            return cmd, "FreeRDP", prepare_rdp_launch_environment(cmd[0]), stdin_payload
 
         def embedded_builder(parent_window_id: int) -> RemoteLaunchSpec:
             cmd = build_rdp_command(
@@ -15871,7 +15932,7 @@ class MainWindow(QMainWindow):
                 linux_parent_window_id=parent_window_id,
             )
             stdin_payload = build_rdp_stdin_payload(session, password=password)
-            return cmd, "FreeRDP", None, stdin_payload
+            return cmd, "FreeRDP", prepare_rdp_launch_environment(cmd[0]), stdin_payload
 
         self._open_remote_viewer_tab(
             session,
@@ -19797,6 +19858,7 @@ class MainWindow(QMainWindow):
             ),
             backend_auth_state=self._secrets_service.backend_auth_state(),
             on_preview_requested=self._preview_settings_from_dialog,
+            on_sixel_setup_requested=self._setup_local_sixel_tools,
         )
         if not dialog.exec():
             self._apply_app_settings(
@@ -19817,6 +19879,12 @@ class MainWindow(QMainWindow):
                     f"Unable to save one or more backend auth values:\n{exc}",
                 )
         self._apply_app_settings(dialog.build_settings())
+
+    @staticmethod
+    def _setup_local_sixel_tools() -> tuple[bool, str]:
+        from snakesh.services.sixel_setup import ensure_local_sixel_tools
+
+        return run_background_call(ensure_local_sixel_tools)
 
     def _preview_settings_from_dialog(self, settings: AppSettings) -> None:
         self._apply_app_settings(
