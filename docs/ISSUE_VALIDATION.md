@@ -363,8 +363,9 @@ version 1.83. Bundled-help equality and both detached-tool lifetime/reuse checks
 passed against that compiled bundle: **3 tests and 36 subtests**, with no skips.
 The checks used a clean tagged source snapshot, temporary application data,
 Qt offscreen, a loopback test secrets endpoint, and a disabled OS keyring backend.
-Confirmation that RDP opens without the extra terminal on the affected Windows
-machine remains a separate validation step.
+The user confirmed on October 22, 2026 that the v1.83 Windows update resolves
+the extra terminal opening when connecting to RDP. The affected-machine
+validation gate for this issue is complete.
 
 ## Upstream references
 
