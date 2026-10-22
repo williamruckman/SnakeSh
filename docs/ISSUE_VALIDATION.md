@@ -130,9 +130,35 @@ targeted rechecks: four migration tests required removal of the test run's
 forced data-directory override, and an older framebuffer regression now opts
 into local Sixel. Native X11 and real encoder checks ran locally without skips.
 The final affected privilege, Resource Monitor, RDP, and Sixel group passed
-142 tests. The new CI package build is pending. Final RDP connection/resizing
-and privileged installation checks on the affected Mint machines require the
-new compiled package.
+142 tests. Settings, help, version, and packaging checks also passed after the
+final UI change (69 tests).
+
+GitLab synchronization pipeline 205 passed for tag v1.79 at
+`e40dab2c7d2164582971016c8c5550de140d7770`.
+[GitHub build 39781197237](https://github.com/williamruckman/SnakeSh/actions/runs/39781197237)
+passed all source checks, the native X11/Xvfb check, all four platform package
+jobs, and release attachment. [Release v1.79](https://github.com/williamruckman/SnakeSh/releases/tag/v1.79)
+contains all six platform assets and the checksum manifest; macOS packages are
+unsigned. The manifest matched GitHub's SHA256 metadata for all six assets.
+The downloaded Linux AppImage matched this SHA256:
+
+```text
+43e6fb03b0af877fa9657ad747d242b577ffea50b7c89c9e06e9ce34437d6d9b
+```
+
+The downloaded AppImage passed `--help`; its extracted bundle contained version
+1.79 and python-xlib's license metadata. The three package-dependent checks
+then passed against that CI bundle: **3 tests and 36 subtests**, with no skips.
+
+A separate probe launched the actual frozen executable under Qt X11 with a
+synthetic external FreeRDP-compatible viewer and isolated application data and
+test credentials. Its child fitted the tab at 1056×580, remained attached beyond
+the former failure interval, and resized to 806×430 when the main window changed
+size. This exercised the bundled Xlib implementation without `xdotool` or a live
+RDP server. It does not establish authentication or display negotiation with the
+affected Windows server. Final server connection/resizing and privileged Sixel
+installation checks on the affected Mint machines remain on-device checks using
+the published v1.79 package.
 
 ## CI runtime correction
 
