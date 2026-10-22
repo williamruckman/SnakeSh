@@ -88,6 +88,25 @@ def test_local_sixel_reaches_terminal_framebuffer_and_remote_switch_is_independe
         app.processEvents()
 
 
+def test_closing_local_shell_drains_image_bytes_before_printing_status(app):
+    settings = AppSettings.defaults()
+    settings.terminal_sixel_local_enabled = True
+    tab = TerminalTab(settings)
+    try:
+        split = IMAGE.index("100;") + len("100;")
+        tab.append(IMAGE[:split])
+        tab._queue_terminal_output(IMAGE[split:])
+        tab._on_local_worker_closed()
+        assert len(tab._emulator.screen.graphics) == 1
+        image = tab._emulator.screen.graphics[0].image
+        assert (image.width(), image.height()) == (40, 6)
+        assert image.pixelColor(2, 2).getRgb() == (255, 0, 0, 255)
+    finally:
+        tab.shutdown()
+        tab.deleteLater()
+        app.processEvents()
+
+
 @pytest.mark.parametrize("local,remote", [(False, True), (True, False)])
 def test_settings_save_installs_local_tools_only_when_local_is_enabled(app, local, remote):
     setup = Mock(return_value=(True, "Ready"))

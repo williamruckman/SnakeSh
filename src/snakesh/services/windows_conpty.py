@@ -25,5 +25,6 @@ def load_bundled_conpty():
         library=dll,
         CreatePseudoConsole=dll.ConptyCreatePseudoConsole,
         ResizePseudoConsole=dll.ConptyResizePseudoConsole,
+        ReleasePseudoConsole=dll.ConptyReleasePseudoConsole,
         ClosePseudoConsole=dll.ConptyClosePseudoConsole,
     )

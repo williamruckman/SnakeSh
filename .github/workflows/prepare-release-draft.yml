@@ -9,8 +9,40 @@ permissions:
   contents: write
 
 jobs:
+  windows-terminal:
+    name: Check Windows terminal graphics
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: python -m pip install -e . pytest
+      - name: Prepare Microsoft console runtime
+        run: python packaging/windows/prepare_conpty.py
+      - name: Check native terminal output and Sixel conversion
+        run: python -m pytest -vv --junitxml=windows-terminal-tests.xml tests/test_windows_sixel_runtime.py
+      - name: Report terminal failures
+        if: failure()
+        run: python packaging/windows/report_test_results.py windows-terminal-tests.xml
+      - name: Save terminal test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-terminal-tests
+          path: windows-terminal-tests.xml
+
   draft:
     name: Create Draft Release
+    needs: windows-terminal
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout

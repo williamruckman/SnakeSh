@@ -98,6 +98,16 @@ class _FakeWindowsConPTYBackend:
 
 
 class LocalShellWorkerTests(unittest.TestCase):
+    def test_modern_console_waits_for_output_eof_after_the_shell_process_exits(self) -> None:
+        backend = _WindowsConPTYBackend(program="powershell.exe", arguments=[], working_directory=None,
+                                       cols=80, rows=24, prefer_bundled_console=True)
+        backend._process_handle = 123
+        with patch("ctypes.WinDLL", create=True) as loader:
+            self.assertFalse(backend.has_exited())
+            loader.assert_not_called()
+        backend._output_eof = True
+        self.assertTrue(backend.has_exited())
+
     def test_windows_hidden_process_backend_uses_create_no_window(self) -> None:
         class _FakeStartupInfo:
             def __init__(self) -> None:

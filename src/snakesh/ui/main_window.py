@@ -2732,6 +2732,8 @@ class TerminalTab(QWidget):
             self._suppress_local_worker_closed_message = False
             return
         self._stop_automation()
+        if self._pending_output_chunks:
+            self._drain_pending_output(drain_all=True)
         self._append_local_status("Shell session closed.")
         self._mark_connection_closed(True)
         self.stop_logging()
@@ -3597,6 +3599,7 @@ class _WindowsConPTYBackend:
         self._process_id: int | None = None
         self._prefer_bundled_console = prefer_bundled_console
         self._console_api = None
+        self._output_eof = False
 
     @classmethod
     def is_supported(cls) -> bool:
@@ -3836,6 +3839,15 @@ class _WindowsConPTYBackend:
             self._output_read_handle = wintypes.HANDLE(output_read_value)
             self._process_handle = wintypes.HANDLE(process_handle_value)
             self._process_id = int(process_info.dwProcessId)
+            if self._prefer_bundled_console:
+                # Let the console host close its output after the last client
+                # disconnects. Process termination alone does not mean its
+                # asynchronously forwarded output has reached our pipe yet.
+                self._console_api.ReleasePseudoConsole.argtypes = [ctypes.c_void_p]
+                self._console_api.ReleasePseudoConsole.restype = ctypes.c_long
+                result = self._console_api.ReleasePseudoConsole(self._pseudo_console)
+                if result != 0:
+                    raise OSError(int(result), "Failed to release the ConPTY client reference")
         finally:
             if attribute_list_initialized and startup_info.lpAttributeList:
                 try:
@@ -3882,6 +3894,7 @@ class _WindowsConPTYBackend:
             return int(available.value)
         error_code = ctypes.get_last_error()
         if error_code in {self._ERROR_BROKEN_PIPE, self._ERROR_NO_DATA, self._ERROR_PIPE_NOT_CONNECTED}:
+            self._output_eof = True
             return 0
         raise OSError(error_code, f"ConPTY output poll failed (Windows error {error_code})")
 
@@ -3912,9 +3925,12 @@ class _WindowsConPTYBackend:
             None,
         )
         if ok:
+            if read_size.value == 0:
+                self._output_eof = True
             return buffer.raw[: read_size.value]
         error_code = ctypes.get_last_error()
         if error_code in {self._ERROR_BROKEN_PIPE, self._ERROR_NO_DATA, self._ERROR_PIPE_NOT_CONNECTED}:
+            self._output_eof = True
             return b""
         raise OSError(error_code, f"ConPTY output read failed (Windows error {error_code})")
 
@@ -3974,6 +3990,8 @@ class _WindowsConPTYBackend:
             raise OSError(int(result), f"ConPTY resize failed (HRESULT {int(result)})")
 
     def has_exited(self) -> bool:
+        if self._prefer_bundled_console:
+            return self._output_eof
         handle = self._process_handle
         if handle is None:
             return True
@@ -4107,6 +4125,7 @@ class WindowsLocalShellWorker(QObject):
             self.error.emit("Windows local-shell mode is only supported on Windows.")
             self.closed.emit()
             return
+        backend = None
         try:
             backend = self._backend_factory(
                 program=self._program,
@@ -4118,6 +4137,8 @@ class WindowsLocalShellWorker(QObject):
             backend.start()
             self._backend = backend
         except Exception as exc:
+            if backend is not None:
+                backend.close()
             self.error.emit(f"Failed to start local shell console: {exc}")
             self.closed.emit()
             return

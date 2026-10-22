@@ -17,6 +17,7 @@ def test_loader_uses_absolute_bundled_dll_and_matching_lifecycle_exports(tmp_pat
     for name in ("conpty.dll", "OpenConsole.exe"):
         (tmp_path / name).touch()
     dll = SimpleNamespace(ConptyCreatePseudoConsole=Mock(), ConptyResizePseudoConsole=Mock(),
+                          ConptyReleasePseudoConsole=Mock(),
                           ConptyClosePseudoConsole=Mock())
     with (
         patch("snakesh.services.windows_conpty.bundled_conpty_directory", return_value=tmp_path),
@@ -26,6 +27,7 @@ def test_loader_uses_absolute_bundled_dll_and_matching_lifecycle_exports(tmp_pat
     assert api.library is dll
     assert api.CreatePseudoConsole is dll.ConptyCreatePseudoConsole
     assert api.ResizePseudoConsole is dll.ConptyResizePseudoConsole
+    assert api.ReleasePseudoConsole is dll.ConptyReleasePseudoConsole
     assert api.ClosePseudoConsole is dll.ConptyClosePseudoConsole
     loader.assert_called_once_with(str(tmp_path / "conpty.dll"), use_last_error=True, winmode=0x00001100)
 

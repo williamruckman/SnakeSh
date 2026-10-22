@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.80 source changes against `a9f02db` / version 1.72, October 22, 2026.
+Version 1.81 source changes against `a9f02db` / version 1.72, October 22, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
@@ -208,6 +208,29 @@ those controls. Switching back restores unsaved color choices; saving a remote
 desktop session excludes the irrelevant overrides. Protocol switching and saved
 payloads were checked directly; the existing editor, Settings, Sixel settings,
 and Help tests passed after the final UI changes.
+
+## Windows Sixel CI follow-up (v1.81)
+
+The v1.80 CI source suite and Linux, Intel macOS, and Apple Silicon macOS package
+jobs passed. Windows stopped before freezing: both real PowerShell terminal
+tests connected and closed without an image. Converter installation and the
+verified Microsoft runtime download had succeeded. The combined release
+attachment job was skipped, so v1.80 has no published package assets.
+
+The new console path now releases its extra client reference after launching
+the shell, as Microsoft's terminal implementation does, and reads until the
+console output pipe closes. A shell process exiting is not sufficient evidence
+that ConPTY has forwarded its final output. The local terminal also drains
+queued bytes before inserting its own closed-session message, preserving a
+partially received Sixel sequence. Tests cover that ordering and waiting for
+console EOF. Native Windows coverage adds a short-lived child independent of
+PowerShell conversion and records encoder/child diagnostics on failure.
+
+Windows native checks now run before the release draft is created. Failures
+produce public GitHub check annotations and a JUnit artifact, avoiding the need
+to retrieve authenticated logs to see terminal test failures. Package builds
+still start when the user publishes the resulting draft. Compiled verification
+requires successful CI package jobs and remains pending for this version.
 
 ## CI runtime correction
 
