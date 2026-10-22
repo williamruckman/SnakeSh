@@ -239,6 +239,38 @@ inherit redirected parent streams and bypass the terminal entirely. Version
 1.82 uses Microsoft's startup flags, with a regression checking the exact
 standard-handle configuration. Native CI validation remains required.
 
+### Published v1.82 package verification
+
+GitLab synchronization pipeline 208 succeeded for tag v1.82 at `ef45cff`.
+The Windows terminal gate and draft creation both passed in
+[Prepare Release Draft 39793663594](https://github.com/williamruckman/SnakeSh/actions/runs/39793663594).
+That gate exercises PowerShell Sixel conversion through the actual local
+terminal and a short-lived child writing Sixel before exit. The explicit
+standard-handle configuration corrected the native Windows failures.
+
+[Build 39794170777](https://github.com/williamruckman/SnakeSh/actions/runs/39794170777)
+produced the six platform packages and checksum manifest attached to
+[release v1.82](https://github.com/williamruckman/SnakeSh/releases/tag/v1.82).
+The manifest matched GitHub's SHA256 metadata for every platform asset. The
+downloaded Linux AppImage matched:
+
+```text
+4a76bfe140d89ddce1ed33ebe68cad9d520af0665da60fb1df1196dbeb260ecd
+```
+
+The downloaded AppImage passed `--help`; its extracted bundle contained version
+1.82 and python-xlib's license metadata. Package-dependent Help and standalone
+tool checks passed against that CI bundle: **3 tests and 36 subtests**, no skips.
+
+The actual frozen executable then opened an isolated local PTY and ran
+img2sixel 1.10.3 against the supplied Mint PNG at width 800. Its terminal
+framebuffer displayed the logo with 180,014 green image pixels, matching the
+source check. This verifies the compiled Linux output path, decoder, and canvas.
+The probe used isolated application data and synthetic local credentials.
+Windows native CI validation and macOS package builds are separate from
+on-device graphical checks on the user's machines. macOS image display and
+privileged package-manager installation remain on-device validation items.
+
 ## CI runtime correction
 
 The v1.73 GitHub build aborted during workspace tests with exit code 134; no
