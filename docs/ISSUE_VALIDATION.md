@@ -343,9 +343,28 @@ GitLab synchronization pipeline 209 passed for v1.83 at
 `b67d2e5607bb2865f66926095657c213a3f74b48`.
 [GitHub Windows gate 39822228418](https://github.com/williamruckman/SnakeSh/actions/runs/39822228418)
 passed the real GUI-parent console check, the RDP launcher tests, and the
-existing native Sixel checks, then created the release draft. CI-built package
-verification remains pending release publication and package builds. Confirmation
-on the affected Windows machine remains a separate validation step.
+existing native Sixel checks, then created the release draft.
+
+After publication, [GitHub build 39823340844](https://github.com/williamruckman/SnakeSh/actions/runs/39823340844)
+passed the full source suite, all four platform package jobs, and release
+attachment. The Windows job repeated the RDP helper and native Sixel checks,
+then passed its frozen-app startup smoke check. [Release v1.83](https://github.com/williamruckman/SnakeSh/releases/tag/v1.83)
+contains all six platform packages and `SHA256SUMS.txt`; macOS packages remain
+unsigned. The manifest matches GitHub's SHA256 metadata for all six packages.
+Downloaded Windows and Linux assets matched their manifest hashes:
+
+```text
+87cf552c06743cbf98a476bb844458d9ab8ccce158d622167c0386d6c41a1496  SnakeSh-1.83-Setup.exe
+6f604cf790f25a0c28910df0a029a3ec8b841c881dd292d1250f165f422aadc5  SnakeSh-1.83-x86_64.AppImage
+```
+
+The downloaded CI AppImage passed `--help`, and the extracted bundle reports
+version 1.83. Bundled-help equality and both detached-tool lifetime/reuse checks
+passed against that compiled bundle: **3 tests and 36 subtests**, with no skips.
+The checks used a clean tagged source snapshot, temporary application data,
+Qt offscreen, a loopback test secrets endpoint, and a disabled OS keyring backend.
+Confirmation that RDP opens without the extra terminal on the affected Windows
+machine remains a separate validation step.
 
 ## Upstream references
 
