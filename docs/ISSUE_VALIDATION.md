@@ -391,6 +391,13 @@ The full workspace suite also passed: **357 tests and 40 subtests**, with the
 OS keyring disabled for that local test process. CI-built package checks remain
 pending.
 
+GitLab synchronization pipeline 212 passed for v1.84 at
+`722a03bd826913393bb9c793ecd114b4ce9325c6`.
+[GitHub gate 39952676049](https://github.com/williamruckman/SnakeSh/actions/runs/39952676049)
+passed the native Windows terminal/Sixel and RDP helper checks, then created
+the release draft. Package jobs start when that draft is published; compiled
+SFTP button and progress verification follows successful CI builds.
+
 ## Upstream references
 
 - [FreeRDP scaling options are mutually exclusive](https://github.com/FreeRDP/FreeRDP/blob/stable-2.0/client/common/cmdline.c)
