@@ -26,7 +26,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 - In-app Serial terminal tabs with configurable baud/data bits/parity/stop bits/flow control (native POSIX backend with PySerial fallback)
 - Dual-pane SFTP workspace (local left, remote right) with split navigation/list panes
 - SFTP Delete Selected buttons and the Delete key act on highlighted items with the configured deletion confirmation
-- SFTP transfers via double-click on remote files (download), double-click on local files (upload), right-click upload/download/rename/new-folder actions, `F5` refresh, and drag-drop upload
+- SFTP Upload (local pane) and Download (remote pane) buttons beside Delete Selected; transfers also support double-click, right-click actions, `F5` refresh, and drag-drop upload
 - Upload/download preparation and deletion progress with cancellation; file operations leave other workspace tabs usable
 - SFTP delete and overwrite actions can prompt for confirmation before replacing or removing files
 - Right-click SSH/SFTP session action to open an SFTP tab reusing the same session credentials

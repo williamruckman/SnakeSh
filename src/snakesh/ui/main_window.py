@@ -8262,6 +8262,7 @@ class UploadProgressDialog(QDialog):
         self._cancel_requested = False
         self._started_at = time.perf_counter()
         self._last_paint = 0.0
+        self._has_transfer_progress = False
 
         layout = QVBoxLayout(self)
         self.summary_label = QLabel(f"Preparing {operation_label.lower()}...")
@@ -8295,6 +8296,7 @@ class UploadProgressDialog(QDialog):
         if now - self._last_paint < 0.05 and not is_done:
             return
         self._last_paint = now
+        self._has_transfer_progress = True
 
         overall_total = max(1, progress.overall_bytes_total)
         overall_done = min(progress.overall_bytes_transferred, overall_total)
@@ -8318,6 +8320,9 @@ class UploadProgressDialog(QDialog):
 
     @Slot(str)
     def update_status(self, path: str) -> None:
+        # Activity callbacks also arrive during transfers; preserve the item summary.
+        if self._has_transfer_progress:
+            return
         self.summary_label.setText(f"Processing: {path}" if path else "Waiting for the server...")
 
     def reject(self) -> None:
@@ -8923,9 +8928,15 @@ class SFTPSessionTab(QWidget):
         lower_layout.addWidget(self.local_file_tree, 1)
         split.addWidget(lower)
         split.setSizes([260, 360])
+        local_actions = QHBoxLayout()
+        self.local_upload_btn = QPushButton("Upload")
+        self.local_upload_btn.setToolTip("Upload selected local items to the current remote directory.")
+        self.local_upload_btn.clicked.connect(self._upload_selected_local)
         self.local_delete_btn = QPushButton("Delete Selected")
         self.local_delete_btn.clicked.connect(self._delete_selected_local)
-        layout.addWidget(self.local_delete_btn)
+        local_actions.addWidget(self.local_upload_btn)
+        local_actions.addWidget(self.local_delete_btn)
+        layout.addLayout(local_actions)
         return panel
 
     def _build_remote_panel(self) -> QWidget:
@@ -8978,9 +8989,15 @@ class SFTPSessionTab(QWidget):
         lower_layout.addWidget(self.remote_file_tree, 1)
         split.addWidget(lower)
         split.setSizes([260, 360])
+        remote_actions = QHBoxLayout()
+        self.remote_download_btn = QPushButton("Download")
+        self.remote_download_btn.setToolTip("Download selected remote items to the current local directory.")
+        self.remote_download_btn.clicked.connect(self._download_selected_remote)
         self.remote_delete_btn = QPushButton("Delete Selected")
         self.remote_delete_btn.clicked.connect(self._delete_selected_remote)
-        layout.addWidget(self.remote_delete_btn)
+        remote_actions.addWidget(self.remote_download_btn)
+        remote_actions.addWidget(self.remote_delete_btn)
+        layout.addLayout(remote_actions)
         return panel
 
     @contextmanager
@@ -8991,7 +9008,8 @@ class SFTPSessionTab(QWidget):
         self._progress_signals.status.connect(dialog.update_status, Qt.QueuedConnection)
         controls = (self.local_file_tree, self.remote_file_tree, self.local_nav_tree,
                     self.remote_nav_tree, self.local_path_input, self.remote_path_input,
-                    self.local_up_btn, self.remote_up_btn, self.local_delete_btn, self.remote_delete_btn)
+                    self.local_up_btn, self.remote_up_btn, self.local_upload_btn, self.remote_download_btn,
+                    self.local_delete_btn, self.remote_delete_btn)
         enabled = [control.isEnabled() for control in controls]
         for control in controls:
             control.setEnabled(False)

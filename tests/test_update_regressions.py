@@ -17,7 +17,7 @@ from PySide6.QtWidgets import QApplication, QTabWidget, QWidget, QSystemTrayIcon
 from PySide6.QtTest import QTest
 
 from snakesh.core.models import Protocol, Session
-from snakesh.protocols.sftp_client import _ResponsiveSFTP, TransferCancelledError, SFTPEntry
+from snakesh.protocols.sftp_client import _ResponsiveSFTP, TransferCancelledError, SFTPEntry, TransferProgress
 from snakesh.protocols.rdp import build_rdp_command, prepare_rdp_launch_environment
 from snakesh.services.settings_service import AppSettings
 from snakesh.services.platform_deps import required_dependencies
@@ -79,19 +79,54 @@ def test_sftp_preparation_progress_is_modeless_and_other_tab_remains_usable(app)
         observations = []
         def switch():
             dialog = tab.findChild(UploadProgressDialog)
-            observations.append((dialog.isVisible(), dialog.windowModality(), tab._file_task_active))
+            observations.append((dialog.isVisible(), dialog.windowModality(), tab._file_task_active,
+                                 tab.local_upload_btn.isEnabled(), tab.remote_download_btn.isEnabled()))
             tabs.setCurrentWidget(other)
         tabs.show()
         QTimer.singleShot(20, switch)
         try:
             with patch.object(tab, '_refresh_remote_directory'):
                 tab._upload_local_paths([str(Path(directory) / 'file')])
-            assert observations == [(True, Qt.NonModal, True)]
+            assert observations == [(True, Qt.NonModal, True, False, False)]
             assert tabs.currentWidget() is other
             assert not tab._file_task_active
+            assert tab.local_upload_btn.isEnabled()
+            assert tab.remote_download_btn.isEnabled()
         finally:
             tabs.close()
             tabs.deleteLater()
+
+
+@pytest.mark.parametrize("operation", ["Uploading", "Downloading"])
+def test_sftp_transfer_keeps_item_summary_when_activity_updates_arrive(app, operation):
+    dialog = UploadProgressDialog(item_count=2, operation_label=operation)
+    try:
+        dialog.update_status('/scan/first.txt')
+        assert dialog.summary_label.text() == 'Processing: /scan/first.txt'
+        with patch('snakesh.ui.main_window.time.perf_counter', side_effect=[10, 11]):
+            dialog.update_progress(TransferProgress('/source/first.txt', '/target/first.txt', 1, 2, 10, 50, 10, 100))
+            assert dialog.summary_label.text() == 'Item 1/2: first.txt -> first.txt'
+            for status in ('/source/first.txt', '', '/scan/second.txt'):
+                dialog.update_status(status)
+                assert dialog.summary_label.text() == 'Item 1/2: first.txt -> first.txt'
+            dialog.update_progress(TransferProgress('/source/second.txt', '/target/second.txt', 2, 2, 10, 50, 60, 100))
+            dialog.update_status('/source/second.txt')
+            assert dialog.summary_label.text() == 'Item 2/2: second.txt -> second.txt'
+            assert dialog.progress_bar.value() == 60
+    finally:
+        dialog.deleteLater()
+
+
+def test_sftp_delete_progress_continues_showing_activity(app):
+    dialog = UploadProgressDialog(item_count=2, operation_label='Deleting remote files')
+    try:
+        for path in ('/remote/first.txt', '/remote/second.txt'):
+            dialog.update_status(path)
+            assert dialog.summary_label.text() == f'Processing: {path}'
+        dialog.update_status('')
+        assert dialog.summary_label.text() == 'Waiting for the server...'
+    finally:
+        dialog.deleteLater()
 
 
 def test_sftp_stalled_request_times_out_and_cancels_awaitable():

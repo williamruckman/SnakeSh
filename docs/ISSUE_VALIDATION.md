@@ -1,6 +1,6 @@
 # Issue fixes and validation
 
-Version 1.83 source changes against `a9f02db` / version 1.72, October 22, 2026.
+Version 1.84 source changes against `a9f02db` / version 1.72, October 23, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
@@ -366,6 +366,30 @@ Qt offscreen, a loopback test secrets endpoint, and a disabled OS keyring backen
 The user confirmed on October 22, 2026 that the v1.83 Windows update resolves
 the extra terminal opening when connecting to RDP. The affected-machine
 validation gate for this issue is complete.
+
+## SFTP transfer controls and stable progress (v1.84)
+
+The local pane now has an Upload button beside Delete Selected; the remote
+pane has Download beside Delete Selected. They use the existing selected-item
+actions, transferring into the opposite pane's current directory with the same
+overwrite confirmation and cancellation behavior. Both buttons are disabled
+during an active file operation and restored afterward; other tabs remain usable.
+
+Transfer progress and activity callbacks previously alternated the top line
+between Item and Processing. Once the first transfer progress update arrives,
+the dialog now keeps its Item counter and file names visible. Preparation and
+deletion continue showing activity messages. Percentage, speed, elapsed time,
+ETA, and subsequent item updates continue as before. Help describes the buttons
+and stable transfer summary.
+
+Focused SFTP source checks passed: **60 tests and 4 subtests**. Additional
+affected checks passed: **68 tests**, with the packaged-help comparison skipped
+because the clean source snapshot has no CI-built bundle. A direct Qt source
+probe clicked both buttons with selected items, verified the transfer direction
+and current destinations, and checked their placement beside Delete Selected.
+The full workspace suite also passed: **357 tests and 40 subtests**, with the
+OS keyring disabled for that local test process. CI-built package checks remain
+pending.
 
 ## Upstream references
 
