@@ -388,15 +388,44 @@ because the clean source snapshot has no CI-built bundle. A direct Qt source
 probe clicked both buttons with selected items, verified the transfer direction
 and current destinations, and checked their placement beside Delete Selected.
 The full workspace suite also passed: **357 tests and 40 subtests**, with the
-OS keyring disabled for that local test process. CI-built package checks remain
-pending.
+OS keyring disabled for that local test process.
 
 GitLab synchronization pipeline 212 passed for v1.84 at
 `722a03bd826913393bb9c793ecd114b4ce9325c6`.
 [GitHub gate 39952676049](https://github.com/williamruckman/SnakeSh/actions/runs/39952676049)
 passed the native Windows terminal/Sixel and RDP helper checks, then created
-the release draft. Package jobs start when that draft is published; compiled
-SFTP button and progress verification follows successful CI builds.
+the release draft.
+
+After publication, [GitHub build 39953040898](https://github.com/williamruckman/SnakeSh/actions/runs/39953040898)
+passed the full source suite, all four platform package jobs, and release
+attachment. [Release v1.84](https://github.com/williamruckman/SnakeSh/releases/tag/v1.84)
+contains all six platform packages and the checksum manifest. The manifest
+matches GitHub's SHA256 metadata for all six packages. Downloaded Linux and
+Windows assets also matched their manifest hashes:
+
+```text
+bd00be3076b85820357d5ddc67cc9404959e8038bb8d74c13ad2d9693c8aab4b  SnakeSh-1.84-x86_64.AppImage
+ce1052edc41a1c232dd4c26c569a5aab1ee04a17fac5b2901972e3f6216b15c3  SnakeSh-1.84-Setup.exe
+```
+
+The downloaded AppImage passed `--help`; the extracted bundle reports version
+1.84. Its bundled Help matches the tagged source: **1 test and 36 subtests**,
+with no skips.
+
+A graphical probe launched that actual frozen executable in a temporary private
+Xvfb display, with isolated application data, generated test credentials, a
+loopback test secrets endpoint, and the OS keyring disabled. Clicking Upload
+transferred the selected 9,100,000-byte local file into the displayed remote
+directory; clicking Download transferred the selected 9,000,000-byte remote
+file into the displayed local directory. Both destination files matched their
+source bytes exactly.
+
+The loopback SFTP server deliberately limited transfer speed. Once data flow
+was established, the visible summary prefix stayed on Item across 67 upload
+frames and 65 download frames, sampled about every 25 milliseconds. Captured
+progress windows showed Item 1/1 with the correct file names while percentages
+advanced. This validates the compiled Linux controls and sampled progress
+behavior; the user's own SFTP sessions remain the on-device check.
 
 ## Upstream references
 
