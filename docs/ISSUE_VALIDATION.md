@@ -8,6 +8,7 @@ October 29 RDP follow-up: [display and macOS responsiveness investigation](RDP_I
 records confirmed client limitations, local fullscreen launch corrections,
 source regression results, and the remaining affected-Mac/Windows checks.
 These follow-up changes are not part of the published v1.84 packages.
+Version 1.85 contains the RDP launch corrections; release packaging is pending.
 
 | Item | Source change | Validation boundary |
 | --- | --- | --- |

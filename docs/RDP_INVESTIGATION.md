@@ -113,6 +113,8 @@ An initial broader run was interrupted after it stopped producing output in
 the unrelated update-regression group. The successful affected-suite run above
 excludes the loopback/SFTP checks; it is not a full-suite result.
 Native Mac/Windows GUI validation and a released package remain outstanding.
+The release preparation uses version 1.85. Package publication does not close
+the affected-device validation gates described above.
 
 ## Primary references checked October 29, 2026
 
