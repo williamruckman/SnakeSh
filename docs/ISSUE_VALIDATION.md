@@ -9,6 +9,9 @@ records confirmed client limitations, local fullscreen launch corrections,
 source regression results, and the remaining affected-Mac/Windows checks.
 These follow-up changes are not part of the published v1.84 packages.
 Version 1.85 contains the RDP launch corrections; release packaging is pending.
+The release source is tagged `v1.85` at `e084918`. GitLab pipeline 271 could
+not create the tag because its HTTP credential was rejected. The tag was
+instead pushed through the existing SSH remote; CI tag mirroring is being retried.
 
 | Item | Source change | Validation boundary |
 | --- | --- | --- |
