@@ -4,6 +4,11 @@ Version 1.84 source changes against `a9f02db` / version 1.72, October 23, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
+October 29 RDP follow-up: [display and macOS responsiveness investigation](RDP_INVESTIGATION.md)
+records confirmed client limitations, local fullscreen launch corrections,
+source regression results, and the remaining affected-Mac/Windows checks.
+These follow-up changes are not part of the published v1.84 packages.
+
 | Item | Source change | Validation boundary |
 | --- | --- | --- |
 | 1. Crash-log folder button | Native Windows/macOS opening and a sanitized environment for Linux file-manager launchers. | Launcher regression tests; packaged OS checks still required. |

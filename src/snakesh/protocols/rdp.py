@@ -116,9 +116,11 @@ def build_rdp_command(
             cmd.append("/from-stdin:force")
         if session.display_fullscreen and not embedded_parent:
             cmd.append("/f")
-        elif auto_resolution:
+        # Fullscreen chooses the initial window state; Auto must still enable
+        # display-control updates, including after leaving fullscreen.
+        if auto_resolution:
             cmd.append("/dynamic-resolution")
-        elif resolution:
+        elif resolution and (not session.display_fullscreen or embedded_parent):
             width, height = resolution
             cmd.append(f"/size:{width}x{height}")
         if embedded_parent and not auto_resolution:
@@ -406,13 +408,10 @@ def _build_windows_rdp_file(
                 f"desktopheight:i:{height}",
             ]
         )
-    if auto_resolution and not fullscreen:
-        lines.extend(
-            [
-                "dynamic resolution:i:1",
-                "smart sizing:i:1",
-            ]
-        )
+    if auto_resolution:
+        # mstsc supports scaling, not live remote desktop resolution changes.
+        # Keep scaling enabled when a fullscreen launch returns to a window.
+        lines.append("smart sizing:i:1")
     if color_depth:
         lines.append(f"session bpp:i:{color_depth}")
     lines.append(f"audiomode:i:{_rdp_audio_mode_windows_value(audio_mode)}")
