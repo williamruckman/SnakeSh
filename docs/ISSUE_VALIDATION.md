@@ -8,10 +8,28 @@ October 29 RDP follow-up: [display and macOS responsiveness investigation](RDP_I
 records confirmed client limitations, local fullscreen launch corrections,
 source regression results, and the remaining affected-Mac/Windows checks.
 These follow-up changes are not part of the published v1.84 packages.
-Version 1.85 contains the RDP launch corrections; release packaging is pending.
+Version 1.85 contains the RDP launch corrections; [release packages are published](https://github.com/williamruckman/SnakeSh/releases/tag/v1.85).
 The release source is tagged `v1.85` at `e084918`. GitLab pipeline 271 could
 not create the tag because its HTTP credential was rejected. The tag was
-instead pushed through the existing SSH remote; CI tag mirroring is being retried.
+instead pushed through the existing SSH remote. [GitLab pipeline 272](https://gitlab.ruckman.net/wruckman/snakesh/-/pipelines/272)
+successfully synchronized it; GitLab and GitHub advertise the same annotated
+tag object and source commit. [GitHub Windows gate 40891596041](https://github.com/williamruckman/SnakeSh/actions/runs/40891596041)
+passed native terminal graphics/RDP helper checks and created the v1.85 draft.
+[GitHub build 40892252208](https://github.com/williamruckman/SnakeSh/actions/runs/40892252208)
+passed the full source suite, all four platform package jobs, and release asset
+attachment. The release contains the Linux AppImage, Windows installer, Intel
+and Apple Silicon macOS DMG/ZIP packages, and `SHA256SUMS.txt`. The manifest
+matches GitHub's SHA256 digests for all six packages. The downloaded Linux
+AppImage also matched its hash, reported bundled version 1.85, and passed the
+frozen `--help` startup check. macOS packages remain unsigned. These checks do
+not confirm the reported Mac pinwheel or affected-machine display behavior.
+
+Version 1.85 package digests:
+
+- Linux AppImage (manifest, GitHub metadata, and downloaded bytes):
+  `646a4d17ba3147fa0c1aa9a830212cf09493fc442b3278ca13539184c02dc8c2`
+- Windows installer (manifest and GitHub metadata):
+  `0880fee7f10ca53510f160bb48cdf4c9f3705bdeb4f8768e8f6edd063aae6da4`
 
 | Item | Source change | Validation boundary |
 | --- | --- | --- |

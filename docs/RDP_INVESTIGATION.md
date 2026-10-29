@@ -112,8 +112,13 @@ QT_QPA_PLATFORM=offscreen PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring \
 An initial broader run was interrupted after it stopped producing output in
 the unrelated update-regression group. The successful affected-suite run above
 excludes the loopback/SFTP checks; it is not a full-suite result.
-Native Mac/Windows GUI validation and a released package remain outstanding.
-The release preparation uses version 1.85. Package publication does not close
+Native Mac/Windows GUI validation remains outstanding.
+[Release v1.85](https://github.com/williamruckman/SnakeSh/releases/tag/v1.85)
+is published. [GitHub build 40892252208](https://github.com/williamruckman/SnakeSh/actions/runs/40892252208)
+passed the full source suite, all four platform package jobs, and release asset
+attachment. All six packages match the published manifest and GitHub's SHA256
+metadata. The downloaded Linux AppImage additionally passed byte-hash,
+bundled-version 1.85, and frozen `--help` startup checks. This does not close
 the affected-device validation gates described above.
 
 ## Primary references checked October 29, 2026
