@@ -1,6 +1,9 @@
 # Saved-session startup recovery
 
-November 1, 2026. Version 1.86 release preparation after v1.85 / `1cdba64`.
+November 1, 2026. Version 1.87 release preparation after v1.86 / `504d97d`.
+Version 1.86 passed the source suite, but GitHub cancelled its Apple Silicon
+package job during the scheduled macOS 14 runner brownout. Version 1.87 uses
+the supported macOS 15 ARM runner; the published v1.86 tag is preserved.
 Package publication is pending; native macOS verification remains separate.
 Report supplied by czargamingco. The supplied report is evidence, not
 authorization to execute its state-removal commands.
@@ -98,6 +101,7 @@ RDP pinwheel still needs an Activity Monitor **Sample Process** of the exact
 
 ## Primary references
 
+- [GitHub macOS 14 runner retirement and brownout schedule](https://github.com/actions/runner-images/issues/13518)
 - [Cryptography 50.0.2 Fernet decryption errors](https://cryptography.io/en/50.0.2/fernet/)
 - [FreeRDP 3.32.2 license blob parsing](https://github.com/FreeRDP/FreeRDP/blob/3.32.2/libfreerdp/core/license.c)
 - [FreeRDP 3.32.2 SDL display control](https://github.com/FreeRDP/FreeRDP/blob/3.32.2/client/SDL/SDL3/sdl_disp.cpp)
