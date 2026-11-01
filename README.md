@@ -112,6 +112,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 
 - Session store is encrypted with Fernet (AES128 + HMAC) in a local app data file.
 - Encryption key is generated once and stored in the configured secrets backend.
+- Unreadable saved sessions open a recovery dialog with Retry, Close, and an explicit encrypted-backup/start-fresh option; an existing database never silently receives a replacement key.
 - Saved session passwords are written through the configured secrets backend instead of the encrypted session store.
 - First-party export bundles include configuration metadata but do not embed passwords or backend auth values stored in the OS keyring or external secrets backend.
 - A master password can gate the main application at startup and, separately, standalone tool launches. SnakeSh stores only derived verification material for that gate, not the plaintext password.

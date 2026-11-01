@@ -4,6 +4,13 @@ Version 1.84 source changes against `a9f02db` / version 1.72, October 23, 2026.
 Published CI packages and Linux artifact verification are recorded below.
 Source tests and package smoke checks have separate on-device validation gates.
 
+Version 1.86 preparation, November 1: [saved-session startup recovery](SESSION_STORE_RECOVERY.md)
+addresses the reported `cryptography.fernet.InvalidToken` startup exit while
+preserving encrypted data. This is separate from the RDP pinwheel investigation
+and is not included in the published v1.85 packages. Source validation passed
+1,300 tests and 152 subtests; package builds and native macOS confirmation remain
+pending for v1.86.
+
 October 29 RDP follow-up: [display and macOS responsiveness investigation](RDP_INVESTIGATION.md)
 records confirmed client limitations, local fullscreen launch corrections,
 source regression results, and the remaining affected-Mac/Windows checks.

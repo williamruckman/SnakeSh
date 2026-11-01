@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from snakesh import runtime
 from snakesh.core.hostkeys import known_hosts_path
 from snakesh.core.paths import data_dir
+from snakesh.core.session_store import SessionStoreError, archive_unreadable_store, restore_archived_store
 from snakesh.services._instance_activation import process_is_running as _shared_process_is_running
 from snakesh.services.diagnostics_service import DiagnosticsSession, start_diagnostics_session
 from snakesh.services.main_instance_service import (
@@ -527,6 +528,82 @@ def _schedule_main_window_test_hooks(window: MainWindow) -> None:
         QTimer.singleShot(close_delay_ms, window.close)
 
 
+def _prompt_session_store_recovery(error: SessionStoreError) -> str:
+    dialog = QMessageBox()
+    dialog.setIcon(QMessageBox.Warning)
+    dialog.setWindowTitle("Saved Sessions Unavailable")
+    dialog.setText("SnakeSh could not open your saved sessions.")
+    dialog.setInformativeText(
+        f"{error}\n\nSession file: {error.path}\n\n"
+        "Retry after unlocking your secrets backend or restoring its configuration. "
+        "Back Up and Start Fresh preserves the encrypted session file before "
+        "opening an empty session library. It does not reset passwords or settings."
+    )
+    retry = dialog.addButton("Retry", QMessageBox.AcceptRole)
+    fresh = None
+    try:
+        can_archive = error.path.is_file()
+    except OSError:
+        can_archive = False
+    if can_archive:
+        fresh = dialog.addButton("Back Up and Start Fresh", QMessageBox.ActionRole)
+    close = dialog.addButton("Close", QMessageBox.RejectRole)
+    dialog.setDefaultButton(close)
+    dialog.setEscapeButton(close)
+    dialog.exec()
+    if dialog.clickedButton() is retry:
+        return "retry"
+    if fresh is not None and dialog.clickedButton() is fresh:
+        return "fresh"
+    return "close"
+
+
+def _load_session_service() -> SessionService | None:
+    backup: Path | None = None
+    original: Path | None = None
+    while True:
+        try:
+            service = SessionService()
+        except SessionStoreError as error:
+            if backup is not None and original is not None:
+                try:
+                    restore_archived_store(backup, original)
+                except OSError:
+                    QMessageBox.critical(
+                        None, "Session Recovery Stopped",
+                        f"A new session library could not be opened. Your encrypted "
+                        f"sessions are preserved at:\n{backup}\n\n"
+                        "Restore access to your secrets backend before trying again.",
+                    )
+                    return None
+                QMessageBox.warning(
+                    None, "New Session Library Unavailable",
+                    f"A new library could not be opened. The original file was restored. "
+                    f"An additional encrypted backup remains at:\n{backup}",
+                )
+                backup = None
+                original = None
+            action = _prompt_session_store_recovery(error)
+            if action == "retry":
+                continue
+            if action != "fresh":
+                return None
+            try:
+                backup = archive_unreadable_store(error.path)
+                original = error.path
+            except SessionStoreError as archive_error:
+                QMessageBox.warning(None, "Session Backup Failed", str(archive_error))
+        else:
+            if backup is not None:
+                QMessageBox.information(
+                    None, "Saved Sessions Preserved",
+                    f"The empty session library is ready. Your original encrypted "
+                    f"session file is preserved at:\n{backup}\n\n"
+                    "Recovering it requires its original encryption key or a readable exported backup.",
+                )
+            return service
+
+
 def main(
     import_file: str | None = None,
     *,
@@ -602,7 +679,9 @@ def main(
             known_hosts_path()
         except Exception:
             pass
-        session_service = SessionService()
+        session_service = _load_session_service()
+        if session_service is None:
+            return 0
 
         window = MainWindow(
             session_service=session_service,

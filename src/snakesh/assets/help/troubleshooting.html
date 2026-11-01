@@ -17,6 +17,10 @@
   <h2>Start Here for OS-Specific Behavior</h2>
   <p>If you are trying to understand why a feature behaves differently on Windows, Linux, or macOS, open the <strong>Platform Differences</strong> page from the Help index first. It explains which variations are expected and which ones usually indicate a real problem.</p>
 
+  <h2>Saved Sessions Unavailable at Startup</h2>
+  <p>Choose <strong>Retry</strong> after unlocking the OS keyring or configured secrets backend. The error can mean an unavailable or mismatched key as well as damaged data. <strong>Close</strong> preserves the session file. Use <strong>Back Up and Start Fresh</strong> only when you want an empty library; SnakeSh keeps an encrypted copy and displays its location. If the new library cannot be opened, SnakeSh attempts to restore the original file and keeps the backup.</p>
+  <p>The current default data folder on both macOS and Linux is <code>~/.local/share/snakesh</code>; Windows uses <code>%LOCALAPPDATA%/SnakeSh</code>. A <code>SNAKESH_DATA_DIR</code> override takes precedence. The recovery dialog identifies the exact <code>sessions.enc</code> file. Avoid deleting the whole data folder or clearing credentials to diagnose a decryption error.</p>
+
   <h2>Viewer or Protocol Dependency Missing</h2>
   <p>Some protocols depend on external programs such as <code>xfreerdp</code>, <code>mstsc</code>, <code>vncviewer</code>, <code>xauth</code>, or <code>ssh-keygen</code>. SnakeSh checks for these tools on demand and warns when the required dependency is unavailable.</p>
 

@@ -16,6 +16,7 @@
 
   <h2>Encrypted Session Store</h2>
   <p>Session data is encrypted locally with Fernet-based symmetric encryption. The encryption key is generated once and stored in the configured secrets backend or the default platform credential store when appropriate.</p>
+  <p>If saved sessions cannot be read or decrypted, SnakeSh shows <strong>Saved Sessions Unavailable</strong>. Unlock your secrets backend or restore its configuration, then choose <strong>Retry</strong>. <strong>Close</strong> leaves the session file untouched. If the file exists, <strong>Back Up and Start Fresh</strong> preserves an encrypted copy before opening an empty library. The backup location is displayed; recovering that copy requires its original encryption key. Passwords and settings are not reset. Keep readable encrypted exports as well as access to your secrets backend.</p>
 
   <h2>Secrets Backends</h2>
   <p>Supported backends include OS keyring, 1Password CLI, Bitwarden CLI, Keeper Commander, KeePassXC CLI, and HashiCorp Vault KV v2. Backend-specific setup and validation are available from Settings.</p>

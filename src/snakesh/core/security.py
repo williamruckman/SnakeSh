@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from base64 import urlsafe_b64encode
 from hashlib import sha256
+from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -54,18 +55,18 @@ def _candidate_sources(settings: AppSettings) -> list[tuple[str, AppSettings]]:
     return sources
 
 
-def _session_store_payload() -> bytes | None:
-    path = data_dir() / "sessions.enc"
-    if not path.exists():
-        return None
+def _session_store_payload(store_path: Path | None = None) -> bytes | None:
+    path = store_path if store_path is not None else data_dir() / "sessions.enc"
     try:
-        payload = path.read_bytes()
-    except Exception:  # pragma: no cover
+        return path.read_bytes()
+    except FileNotFoundError:
         return None
-    return payload or None
+    except OSError as exc:
+        raise SecurityError(f"Unable to read saved sessions at {path}.") from exc
 
 
-def get_or_create_key() -> bytes:
+def get_or_create_key(store_path: Path | None = None) -> bytes:
+    payload = _session_store_payload(store_path)
     settings_service = SettingsService()
     secrets_service = SecretsService(settings_service=settings_service)
     settings = settings_service.load()
@@ -91,6 +92,7 @@ def get_or_create_key() -> bytes:
             continue
         try:
             normalized = _normalize_key(raw_key)
+            Fernet(normalized)
         except Exception as exc:  # pragma: no cover
             backend_errors.append(str(exc))
             continue
@@ -101,8 +103,8 @@ def get_or_create_key() -> bytes:
 
     if found_keys:
         selected = found_keys[0]
-        payload = _session_store_payload()
         if payload is not None:
+            selected = None
             for candidate in found_keys:
                 _, _, _, normalized = candidate
                 try:
@@ -113,6 +115,11 @@ def get_or_create_key() -> bytes:
                     continue
                 selected = candidate
                 break
+            if selected is None:
+                raise SecurityError(
+                    "The available encryption keys cannot unlock the saved sessions. "
+                    "Restore access to the original secrets backend or encryption key."
+                )
 
         selected_service_name, selected_settings, selected_raw_key, selected_normalized_key = selected
         if (
@@ -130,6 +137,14 @@ def get_or_create_key() -> bytes:
             except Exception:
                 pass
         return selected_normalized_key
+
+    if payload is not None:
+        raise SecurityError(
+            "The saved session encryption key is unavailable. "
+            "No replacement key was created. Unlock the secrets backend and retry."
+        )
+    if backend_errors:
+        raise SecurityError("Unable to read the secrets backend. No new encryption key was created.")
 
     key = _generate_fernet_key()
     persisted = False
@@ -159,5 +174,5 @@ def get_or_create_key() -> bytes:
         raise SecurityError("Unable to normalize encryption key from configured secrets backend.") from exc
 
 
-def build_cipher() -> Fernet:
-    return Fernet(get_or_create_key())
+def build_cipher(store_path: Path | None = None) -> Fernet:
+    return Fernet(get_or_create_key(store_path))

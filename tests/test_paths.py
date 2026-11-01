@@ -10,6 +10,20 @@ from snakesh.core.paths import data_dir
 
 
 class DataDirMigrationTests(unittest.TestCase):
+    def test_macos_uses_the_existing_unix_data_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir) / "home"
+            preferred = home / ".local" / "share" / "snakesh"
+            preferred.mkdir(parents=True)
+            (preferred / "sessions.enc").write_bytes(b"preserve existing sessions")
+            with (
+                patch("snakesh.core.paths.Path.home", return_value=home),
+                patch("snakesh.core.paths.platform.system", return_value="Darwin"),
+                patch.dict("snakesh.core.paths.os.environ", {"SNAKESH_DATA_DIR": ""}),
+            ):
+                self.assertEqual(data_dir(), preferred)
+            self.assertEqual((preferred / "sessions.enc").read_bytes(), b"preserve existing sessions")
+
     def test_linux_legacy_directory_is_renamed_to_snakesh(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             home = Path(tmpdir) / "home"
