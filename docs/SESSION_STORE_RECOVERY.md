@@ -67,8 +67,8 @@ licensing failure: that source path logs a mismatch without immediately
 returning failure, and the supplied log subsequently initializes rendering.
 
 At 09:13:26 the client reports `ERRCONNECT_CONNECT_CANCELLED` and disconnects;
-the trailing `handleShow` message is incomplete. This does not establish why
-the connection was cancelled or what caused the earlier pinwheel. The supplied
+the trailing `handleShow` message contains no explanatory text. This does not
+establish why the connection was cancelled or what caused the earlier pinwheel. The supplied
 file is a startup traceback, not an Activity Monitor sample of a running SDL
 process. The pinwheel and the startup exception remain separate issues.
 

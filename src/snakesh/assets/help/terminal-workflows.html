@@ -58,6 +58,7 @@
 
   <h2>Copy and Keyboard Behavior</h2>
   <p>The terminal view keeps keyboard focus inside the remote session for keys such as <code>Tab</code> and <code>Shift+Tab</code>. Standard copy and paste behavior is available where appropriate, while control-key combinations still behave like terminal input when that is the safer default.</p>
+  <p>On macOS, use <strong>Command-C</strong> to copy selected terminal text and <strong>Command-V</strong> to paste. Command-C without a selection leaves the terminal unchanged. The physical <strong>Control-C</strong> key combination still interrupts the running terminal command. The bottom command bar also uses native Command-C, Command-X, and Command-V shortcuts.</p>
   <p>Double-click a visible terminal token to select the full contiguous non-whitespace word for quick copy from the context menu or keyboard shortcuts that use the current selection.</p>
   <p>When pasted text contains multiple lines, SnakeSh opens a <strong>Review Multi-line Paste</strong> dialog before sending it to the terminal. The same review flow applies to the bottom command bar when a grouped or active terminal target would receive a multi-line batch.</p>
   <p>Dropping local files onto a terminal view or the bottom command bar inserts full local paths in shell-safe single quotes, so commands keep working when filenames contain spaces or apostrophes.</p>

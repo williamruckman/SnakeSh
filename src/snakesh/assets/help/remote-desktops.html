@@ -28,6 +28,13 @@
 
   <h2>Display Preferences</h2>
   <p>RDP and VNC sessions can store options such as resolution, fullscreen, and color depth. These settings stay attached to the session definition so reconnects use the same viewing preference each time.</p>
+  <p>For the native macOS SDL RDP viewer, <strong>Default</strong> and fixed resolutions scale the desktop as its window is resized. <strong>Auto</strong> requests changes to the remote desktop resolution and requires server display-control support.</p>
+  <p>The native macOS SDL viewer maps both Command keys to remote Ctrl, so Command-C and Command-V use the remote application's Ctrl-C/Ctrl-V bindings. Other Command combinations also act as remote Ctrl combinations. For Linux terminals that use Ctrl-Shift-C/V to copy and paste, use Command-Shift-C/V.</p>
+
+  <h2>Automatic RDP Resize Recovery</h2>
+  <p>On Linux and macOS, SnakeSh detects the known FreeRDP error where an already connected desktop closes during an Auto resolution change. It makes one reconnect attempt with <strong>smart sizing</strong>. The viewer briefly closes and restarts; you may need to sign in again. Smart sizing lets you resize or maximize the window while keeping the remote desktop at a fixed resolution.</p>
+  <p>A popup appears once for the recovered connection, explains what happened, and suggests supported client/server updates. The tab continues to show the smart-sizing fallback. For affected older xrdp servers, a distribution repository update containing the resize fix from xrdp 0.10 or later may restore Auto. The fallback applies to the current connection; opening a new connection retries Auto.</p>
+  <p>This recovery handles the recognized resize error. Login failures, normal disconnects, user cancellations, and unrelated client exits keep their normal behavior. If the reconnect fails, SnakeSh reports it without repeatedly restarting the viewer.</p>
 
   <h2>Clipboard-Oriented Fast Commands</h2>
   <p>Saved Fast Commands behave differently on remote viewer tabs. Instead of trying to type into the remote desktop, SnakeSh copies the command text to the local clipboard and tells you to paste it manually inside the remote session. This keeps the behavior predictable across viewer implementations.</p>

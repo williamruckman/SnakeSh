@@ -28,6 +28,70 @@ def test_freerdp_auto_keeps_remote_resize_enabled_when_starting_fullscreen(syste
     assert "/smart-sizing" not in command
 
 
+@pytest.mark.parametrize("executable", ["/opt/homebrew/bin/sdl-freerdp", "/usr/local/bin/sdl-freerdp3"])
+@pytest.mark.parametrize("fullscreen", [False, True])
+@pytest.mark.parametrize("resolution", ["", "1920x1080"])
+def test_macos_sdl_default_and_fixed_desktops_allow_local_window_scaling(executable, fullscreen, resolution):
+    session = Session(
+        id="display-test", name="RDP", host="example.test", protocol=Protocol.RDP,
+        port=3389, display_resolution=resolution, display_fullscreen=fullscreen,
+    )
+    with (
+        patch("snakesh.protocols.rdp.platform.system", return_value="Darwin"),
+        patch("snakesh.protocols.rdp._freerdp_executable", return_value=executable),
+    ):
+        command = build_rdp_command(session)
+
+    # SDL disables window resizing after connection unless a resize mode is
+    # enabled. Fixed/default desktops need local scaling, without a remote
+    # resolution update when the window is dragged or leaves fullscreen.
+    assert command.count("/smart-sizing") == 1
+    assert "/dynamic-resolution" not in command
+    assert ("/f" in command) == fullscreen
+    assert ("/size:1920x1080" in command) == (resolution == "1920x1080" and not fullscreen)
+
+
+@pytest.mark.parametrize("system", ["Darwin", "Linux"])
+@pytest.mark.parametrize("resolution", ["", "1920x1080"])
+def test_detached_x11_clients_keep_their_existing_fixed_desktop_mode(system, resolution):
+    session = Session(
+        id="display-test", name="RDP", host="example.test", protocol=Protocol.RDP,
+        port=3389, display_resolution=resolution,
+    )
+    with (
+        patch("snakesh.protocols.rdp.platform.system", return_value=system),
+        patch("snakesh.protocols.rdp._freerdp_executable", return_value="/usr/local/bin/xfreerdp"),
+    ):
+        command = build_rdp_command(session)
+
+    assert "/smart-sizing" not in command
+    assert "/dynamic-resolution" not in command
+
+
+@pytest.mark.parametrize("system,executable,remapped", [
+    ("Darwin", "/opt/homebrew/bin/sdl-freerdp", True),
+    ("Darwin", "/usr/local/bin/sdl-freerdp3", True),
+    ("Darwin", "/opt/X11/bin/xfreerdp", False),
+    ("Linux", "/usr/bin/xfreerdp3", False),
+])
+@pytest.mark.parametrize("resolution", ["auto", "1920x1080", ""])
+def test_native_macos_sdl_maps_both_command_keys_to_remote_control(system, executable, remapped, resolution):
+    session = Session(id="kbd", name="RDP", host="example.test", protocol=Protocol.RDP,
+                      port=3389, display_resolution=resolution)
+    with (
+        patch("snakesh.protocols.rdp.platform.system", return_value=system),
+        patch("snakesh.protocols.rdp._freerdp_executable", return_value=executable),
+    ):
+        command = build_rdp_command(session)
+    keyboard_options = [arg for arg in command if arg.startswith("/kbd:")]
+    if remapped:
+        # RDP uses bit 0x100 for extended scancodes. Mac Command is sent as
+        # LWIN/RWIN (0x15b/0x15c); right Control retains the extended bit.
+        assert keyboard_options == ["/kbd:remap:0x15b=0x1d,remap:0x15c=0x11d"]
+    else:
+        assert not keyboard_options
+
+
 @pytest.mark.parametrize("fullscreen", [False, True])
 @pytest.mark.parametrize("resolution", ["auto", "1920x1080", ""])
 def test_mstsc_profiles_use_supported_scaling_for_auto_in_either_start_mode(tmp_path, fullscreen, resolution):

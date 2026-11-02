@@ -60,6 +60,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 - In-app SSH terminal tabs with VT/ANSI emulation, opt-in Sixel inline graphics, color, and full-screen TUIs like `top`/`htop`
 - Optional minimize to system tray in Settings (disabled by default); restore and quit from the tray menu
 - Terminal key forwarding keeps `Tab`/`Shift+Tab` inside the SSH session instead of switching GUI focus
+- macOS terminal views use Command-C/Command-V for copy/paste while physical Control-C retains terminal interrupt behavior; the command bar uses native copy/cut/paste shortcuts
 - Terminal and command-bar paste handling reviews multi-line input before sending it to a live terminal
 - SSH terminal context menu includes `Open SFTP Tab` for the active SSH session and terminal context menus include `Disconnect` for active shell tabs
 - Non-modal terminal scrollback window with live case-sensitive or regex search and configurable scrollback size
@@ -298,6 +299,11 @@ Open `Settings` and use `Manage Tool Launchers...` to install or remove per-user
 
 - RDP support on macOS:
 RDP requires an installed FreeRDP client, for example from Homebrew, and runs detached only. SnakeSh prefers `sdl-freerdp` on macOS to avoid XQuartz rendering problems; older installations can fall back to `xfreerdp` with a working XQuartz display. In-tab RDP remains Linux-only.
+For the native SDL viewer, Default and fixed resolutions use smart sizing so the desktop scales when its window is resized. Auto requests changes to the remote desktop resolution and depends on display-control support from the server.
+
+Native macOS SDL RDP launches map both Command keys to remote Ctrl. Command-C/Command-V therefore use the remote application's Ctrl-C/Ctrl-V bindings; this also applies to other remote Command combinations. Linux terminal applications that use Ctrl-Shift-C/V require Command-Shift-C/V through this mapping.
+
+On Linux and macOS, if FreeRDP exits with the recognized Auto resize reactivation error after a desktop was connected, SnakeSh makes one reconnect attempt using smart sizing. A popup explains the fallback and possible supported client/server updates; the tab shows that window resizing now scales a fixed remote desktop. You may need to sign in again. The fallback lasts for that connection, and opening a new connection retries Auto. Login failures, ordinary disconnects, and user cancellations do not trigger this recovery.
 
 - Fast Commands on remote desktops:
 When the active tab is RDP, VNC, Fast Commands copy the saved text to the clipboard instead of trying to inject keystrokes into the viewer. Paste manually inside the remote desktop session.

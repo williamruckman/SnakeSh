@@ -193,6 +193,7 @@ from snakesh.ui.sixel import SixelStream, TerminalGraphic
 from snakesh.services.linux_rdp_window import LinuxRdpWindow
 from snakesh.services.viewer_output import ViewerOutput
 from snakesh.services.rdp_certificates import certificate_change_from_output, replace_reviewed_certificate
+from snakesh.services.rdp_resize import RdpResizeMonitor, is_freerdp_command, same_rdp_connection, smart_sizing_command
 from snakesh.ui.tray import TrayController
 from snakesh.ui.settings_dialog import SettingsDialog
 from snakesh.ui.shortcut_preferences import normalize_shortcut_text
@@ -6066,18 +6067,22 @@ class TerminalView(QAbstractScrollArea):
             shift = bool(modifiers & self._enum_int(Qt.ShiftModifier))
             alt = bool(modifiers & self._enum_int(Qt.AltModifier))
             meta = bool(modifiers & self._enum_int(Qt.MetaModifier))
+            macos = platform.system().lower() == "darwin"
             is_plain_ctrl_c = (
-                ctrl
+                (meta if macos else ctrl)
                 and not shift
                 and not alt
-                and not meta
+                and not (ctrl if macos else meta)
                 and self._enum_int(event.key()) == self._enum_int(Qt.Key_C)
             )
-            if self._has_selection() and not is_plain_ctrl_c:
-                copy_text(self._selected_text())
+            if not is_plain_ctrl_c:
+                if self._has_selection():
+                    copy_text(self._selected_text())
+                event.accept()
                 return
         if event.matches(QKeySequence.Paste):
             paste_text(self.paste_requested.emit)
+            event.accept()
             return
         backspace_prefers_ctrl_h = self._emulator.backspace_sends_ctrl_h()
         if not backspace_prefers_ctrl_h and self._backspace_prefers_ctrl_h_override is not None:
@@ -6155,6 +6160,12 @@ class TerminalView(QAbstractScrollArea):
         alt = bool(modifiers & TerminalView._enum_int(Qt.AltModifier))
         shift = bool(modifiers & TerminalView._enum_int(Qt.ShiftModifier))
         meta = bool(modifiers & TerminalView._enum_int(Qt.MetaModifier))
+        if platform.system().lower() == "darwin":
+            # Qt swaps physical Command and Control on macOS. Command belongs
+            # to local shortcuts; physical Control still sends terminal codes.
+            ctrl, meta = meta, ctrl
+            if meta:
+                return None
 
         if key == TerminalView._enum_int(Qt.Key_Backspace):
             if ctrl and not alt and not shift and not meta:
@@ -10064,6 +10075,15 @@ class RemoteViewerTab(QWidget):
         self._viewer_output: ViewerOutput | None = None
         self._last_viewer_error = ""
         self._rdp_certificate_prompt_pending = False
+        self._rdp_resize_monitor: RdpResizeMonitor | None = None
+        self._rdp_resize_launch_command: list[str] | None = None
+        self._rdp_output_drain_deadline = 0.0
+        self._rdp_smart_sizing_fallback = False
+        self._shutdown_requested = False
+        self._rdp_resize_notice: QMessageBox | None = None
+        self._rdp_resize_retry_timer = QTimer(self)
+        self._rdp_resize_retry_timer.setSingleShot(True)
+        self._rdp_resize_retry_timer.timeout.connect(self._recover_rdp_resize_failure)
         self._mode = "idle"
         self._viewer_name = ""
         self._is_windows_rdp_reparent = (
@@ -10246,6 +10266,26 @@ class RemoteViewerTab(QWidget):
         stdin_payload: str | None = None,
         detached: bool = False,
     ) -> subprocess.Popen:
+        if self._shutdown_requested:
+            raise RuntimeError("The viewer tab was closed.")
+        freerdp = (
+            self._protocol_name.strip().upper() == "RDP"
+            and platform.system().lower() in {"linux", "darwin"}
+            and is_freerdp_command(cmd)
+        )
+        if self._rdp_smart_sizing_fallback and self._rdp_resize_launch_command is not None:
+            if not freerdp or not same_rdp_connection(self._rdp_resize_launch_command, cmd):
+                raise RuntimeError("The RDP connection settings changed. Open a new connection to use them.")
+        self._rdp_resize_monitor = None
+        self._rdp_output_drain_deadline = 0.0
+        if freerdp and self._rdp_smart_sizing_fallback:
+            cmd = smart_sizing_command(cmd)
+        elif freerdp and "/dynamic-resolution" in cmd:
+            # State transitions establish that this was a reactivation of a
+            # working desktop, rather than a failure during the first login.
+            self._rdp_resize_launch_command = list(cmd)
+            cmd = [*cmd, "/log-filters:com.freerdp.core.rdp:DEBUG"]
+            self._rdp_resize_monitor = RdpResizeMonitor()
         popen_kwargs: dict[str, object] = {}
         if detached:
             popen_kwargs.update(self._detached_popen_kwargs(launch_env))
@@ -10254,14 +10294,17 @@ class RemoteViewerTab(QWidget):
         if stdin_payload is not None:
             popen_kwargs["stdin"] = subprocess.PIPE
             popen_kwargs["text"] = True
-        capture_output = self.is_linux_rdp_viewer()
+        capture_output = self.is_linux_rdp_viewer() or freerdp
         if capture_output:
             popen_kwargs["stdout"] = subprocess.PIPE
             popen_kwargs["stderr"] = subprocess.STDOUT
             popen_kwargs.update(text=True, encoding="utf-8", errors="replace")
         process = subprocess.Popen(cmd, **popen_kwargs)
         if capture_output and isinstance(process.stdout, (io.BufferedIOBase, io.TextIOBase)):
-            self._viewer_output = ViewerOutput(process.stdout)
+            self._viewer_output = ViewerOutput(
+                process.stdout,
+                on_output=self._rdp_resize_monitor.feed if self._rdp_resize_monitor is not None else None,
+            )
         self._write_process_stdin(process, stdin_payload)
         return process
 
@@ -10372,7 +10415,11 @@ class RemoteViewerTab(QWidget):
         return True, f"{self._protocol_name} viewer detached ({viewer_name})."
 
     def shutdown(self) -> None:
+        self._shutdown_requested = True
         self._process_watch_timer.stop()
+        self._rdp_resize_retry_timer.stop()
+        if self._rdp_resize_notice is not None:
+            self._rdp_resize_notice.close()
         self._stop_embedded_process()
         self._stop_detached_process()
         self._mode = "idle"
@@ -10661,6 +10708,8 @@ class RemoteViewerTab(QWidget):
             exit_code = self._poll_exit_code(process)
             if exit_code is None:
                 return
+            if not self._rdp_exit_output_ready():
+                return
             self._embedded_process = None
             self._embedded_window_handle = None
             self._debug(f"Embedded process exited with code={exit_code}.")
@@ -10675,6 +10724,8 @@ class RemoteViewerTab(QWidget):
                 return
             exit_code = self._poll_exit_code(process)
             if exit_code is None:
+                return
+            if not self._rdp_exit_output_ready():
                 return
             if self._should_treat_detached_exit_as_external_handoff(exit_code):
                 self._detached_process = None
@@ -10872,6 +10923,20 @@ class RemoteViewerTab(QWidget):
         except Exception:
             return None
 
+    def _rdp_exit_output_ready(self) -> bool:
+        if self._rdp_resize_monitor is None or self._viewer_output is None or self._viewer_output.finished:
+            return True
+        # Do not decide before a late user-cancellation message is drained.
+        # Waiting happens on later watchdog ticks, never by blocking Qt. A
+        # descendant keeping the pipe open must not leave the tab stuck.
+        now = time.monotonic()
+        if not self._rdp_output_drain_deadline:
+            self._rdp_output_drain_deadline = now + 3.0
+        elif now >= self._rdp_output_drain_deadline:
+            self._rdp_resize_monitor = None
+            return True
+        return False
+
     def _mark_process_exited(self, exit_code: int, *, mode: str) -> None:
         output, self._viewer_output = self._viewer_output, None
         self._last_viewer_error = output.tail() if output is not None else ""
@@ -10886,6 +10951,54 @@ class RemoteViewerTab(QWidget):
             if not self._rdp_certificate_prompt_pending:
                 self._rdp_certificate_prompt_pending = True
                 QTimer.singleShot(0, self._offer_changed_rdp_certificate)
+            return
+        if (
+            self._process_watch_timer.isActive()
+            and not self._rdp_smart_sizing_fallback
+            and self._rdp_resize_monitor is not None
+            and self._rdp_resize_monitor.should_recover(exit_code)
+        ):
+            self._rdp_resize_retry_timer.start(0)
+
+    def _recover_rdp_resize_failure(self) -> None:
+        if (
+            self._shutdown_requested
+            or not self._process_watch_timer.isActive()
+            or self._mode != "idle"
+            or self._rdp_smart_sizing_fallback
+            or self._rdp_resize_monitor is None
+            or not self._rdp_resize_monitor.should_recover(self._last_exit_code or 0)
+        ):
+            return
+        mode = self._last_exit_mode
+        # This flag also caps recovery at one attempt for this connection.
+        # Reuse the builders so credentials still travel over stdin and all
+        # certificate/transport options retain their normal launch behavior.
+        self._rdp_smart_sizing_fallback = True
+        success, message = self.attach_viewer() if mode == "embedded" else self.detach_viewer()
+        if self._shutdown_requested:
+            return
+        notice = QMessageBox(self)
+        notice.setWindowTitle("RDP Auto Resize Failed")
+        notice.setTextFormat(Qt.PlainText)
+        notice.setIcon(QMessageBox.Warning)
+        if success:
+            notice.setText(
+                "Auto resolution failed while the RDP client was changing the display.\n\n"
+                "SnakeSh restarted the viewer with smart sizing. You may need to sign in again."
+            )
+        else:
+            notice.setText(f"Auto resolution failed. Reconnecting with smart sizing also failed.\n\n{message}")
+        notice.setInformativeText(
+            "Smart sizing lets you resize or maximize the window while keeping a fixed remote resolution. "
+            "It applies to this connection; start a new connection to retry Auto.\n\n"
+            "Possible fix: install supported updates for the RDP client and server. "
+            "For affected older xrdp servers, a distribution repository update containing the "
+            "resize fix from xrdp 0.10 or later may restore Auto resolution."
+        )
+        notice.setStandardButtons(QMessageBox.Ok)
+        self._rdp_resize_notice = notice
+        notice.open()
 
     def _offer_changed_rdp_certificate(self) -> None:
         try:
@@ -10978,6 +11091,7 @@ class RemoteViewerTab(QWidget):
             else:
                 self._state_label.setText(f"Embedded mode active via {viewer}.")
             self._hint_label.setText("Use tab context menu to detach this viewer.")
+            self._add_rdp_resize_fallback_hint()
             self.setProperty("remote_viewer_closed", False)
             self._notify_title_refresh()
             return
@@ -10997,6 +11111,7 @@ class RemoteViewerTab(QWidget):
             else:
                 self._state_label.setText(f"Detached mode active via {viewer}. Attach mode is unavailable.")
                 self._hint_label.setText(self._embedded_mode_unavailable_reason())
+            self._add_rdp_resize_fallback_hint()
             self.setProperty("remote_viewer_closed", False)
             self._notify_title_refresh()
             return
@@ -11025,7 +11140,16 @@ class RemoteViewerTab(QWidget):
             except Exception:
                 pass
 
+    def _add_rdp_resize_fallback_hint(self) -> None:
+        if self._rdp_smart_sizing_fallback:
+            self._hint_label.setText(
+                self._hint_label.text()
+                + "\nSmart sizing fallback: window resizing scales a fixed remote desktop. "
+                "Start a new connection to retry Auto."
+            )
+
     def _stop_embedded_process(self) -> None:
+        self._rdp_resize_retry_timer.stop()
         process = self._embedded_process
         self._embedded_process = None
         self._embedded_window_handle = None
@@ -11038,6 +11162,7 @@ class RemoteViewerTab(QWidget):
         self._linux_rdp_window.close()
 
     def _stop_detached_process(self) -> None:
+        self._rdp_resize_retry_timer.stop()
         process = self._detached_process
         self._detached_process = None
         self._embedded_window_handle = None

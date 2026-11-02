@@ -100,6 +100,7 @@ def build_rdp_command(
             raise ProtocolError("FreeRDP client was not found. Install FreeRDP to launch RDP sessions.")
         user = session.username or os.getenv("USER", "")
         embedded_parent = linux_parent_window_id is not None
+        macos_sdl_client = system == "darwin" and Path(freerdp_executable).name.startswith("sdl-freerdp")
         if embedded_parent and system != "linux":
             raise ProtocolError("Embedded RDP tabs are only supported on Linux.")
         cmd = [freerdp_executable, f"/v:{target}"]
@@ -112,6 +113,11 @@ def build_rdp_command(
             cmd.append(f"/d:{session.domain}")
         if user:
             cmd.append(f"/u:{user}")
+        if macos_sdl_client:
+            # SDL sends Command as LWIN/RWIN. Map both to the corresponding
+            # Control keys so native Mac copy/paste shortcuts reach the remote
+            # application as Ctrl-C/V, for both key-down and key-up events.
+            cmd.append("/kbd:remap:0x15b=0x1d,remap:0x15c=0x11d")
         if password:
             cmd.append("/from-stdin:force")
         if session.display_fullscreen and not embedded_parent:
@@ -123,8 +129,9 @@ def build_rdp_command(
         elif resolution and (not session.display_fullscreen or embedded_parent):
             width, height = resolution
             cmd.append(f"/size:{width}x{height}")
-        if embedded_parent and not auto_resolution:
-            # Scale a fixed/default desktop into the tab. FreeRDP rejects
+        if (embedded_parent or macos_sdl_client) and not auto_resolution:
+            # Scale a fixed/default desktop into its tab or native SDL window.
+            # SDL otherwise disables resizing after connection. FreeRDP rejects
             # combining smart sizing with dynamic resolution.
             cmd.append("/smart-sizing")
         if color_depth:
