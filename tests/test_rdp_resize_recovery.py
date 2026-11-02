@@ -76,7 +76,7 @@ def test_stream_monitor_remembers_activation_after_it_leaves_the_bounded_output_
 def test_smart_sizing_recovery_preserves_security_and_target_without_mutating_command(extra):
     command = ["sdl-freerdp", "/v:example.test:3390", "/u:tester", "/cert:tofu", "/sec:nla",
                "/from-stdin:force", "/dynamic-resolution", "/bpp:32", "/audio-mode:2",
-               "/kbd:remap:0x15b=0x1d,remap:0x15c=0x11d", *extra]
+               "/kbd:remap:347=29,remap:348=285", *extra]
     original = list(command)
     result = smart_sizing_command(command)
     assert command == original

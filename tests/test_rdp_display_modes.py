@@ -87,7 +87,7 @@ def test_native_macos_sdl_maps_both_command_keys_to_remote_control(system, execu
     if remapped:
         # RDP uses bit 0x100 for extended scancodes. Mac Command is sent as
         # LWIN/RWIN (0x15b/0x15c); right Control retains the extended bit.
-        assert keyboard_options == ["/kbd:remap:0x15b=0x1d,remap:0x15c=0x11d"]
+        assert keyboard_options == ["/kbd:remap:347=29,remap:348=285"]
     else:
         assert not keyboard_options
 

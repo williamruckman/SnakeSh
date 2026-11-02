@@ -47,6 +47,11 @@ jobs:
           fi
           echo "should_build=true" >> "${GITHUB_OUTPUT}"
 
+  freerdp-cli:
+    needs: release-version
+    if: github.event_name != 'release' || needs.release-version.outputs.should_build == 'true'
+    uses: ./.github/workflows/check-freerdp-cli.yml
+
   tests:
     name: Test Suite
     runs-on: ubuntu-22.04
@@ -96,6 +101,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - tests
+      - freerdp-cli
       - release-version
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     steps:
@@ -157,6 +163,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     needs:
       - tests
+      - freerdp-cli
       - release-version
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     strategy:
@@ -277,6 +284,7 @@ jobs:
     runs-on: windows-latest
     needs:
       - tests
+      - freerdp-cli
       - release-version
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && needs.release-version.outputs.should_build == 'true')
     steps:

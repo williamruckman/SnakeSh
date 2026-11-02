@@ -9,6 +9,9 @@ permissions:
   contents: write
 
 jobs:
+  freerdp-cli:
+    uses: ./.github/workflows/check-freerdp-cli.yml
+
   windows-terminal:
     name: Check Windows terminal graphics and RDP helpers
     runs-on: windows-latest
@@ -42,7 +45,7 @@ jobs:
 
   draft:
     name: Create Draft Release
-    needs: windows-terminal
+    needs: [windows-terminal, freerdp-cli]
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout

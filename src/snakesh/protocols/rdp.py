@@ -117,7 +117,9 @@ def build_rdp_command(
             # SDL sends Command as LWIN/RWIN. Map both to the corresponding
             # Control keys so native Mac copy/paste shortcuts reach the remote
             # application as Ctrl-C/V, for both key-down and key-up events.
-            cmd.append("/kbd:remap:0x15b=0x1d,remap:0x15c=0x11d")
+            # Decimal spelling also fits FreeRDP's 10-character entry limit;
+            # the right-side hexadecimal pair would be 11 characters long.
+            cmd.append("/kbd:remap:347=29,remap:348=285")
         if password:
             cmd.append("/from-stdin:force")
         if session.display_fullscreen and not embedded_parent:

@@ -5,7 +5,33 @@ tree was clean before this investigation. The reporter identified the latest
 SnakeSh release, native `sdl-freerdp` on macOS, and recent Windows/macOS builds.
 Exact OS builds and the installed FreeRDP/SDL versions were not supplied.
 
-## Release 1.88 preparation
+## Release 1.89 parser hotfix
+
+The native Mac screenshot after installing 1.88 shows FreeRDP exits with
+code 22 before connecting: the common command-line parser rejects the
+keyboard-remap argument with status **-1002**. The right-side hexadecimal
+entry `0x15c=0x11d` is 11 characters, exceeding FreeRDP's 10-character limit
+for each remap entry. The earlier launcher tests checked emitted strings but
+did not exercise this parser; they missed the startup regression.
+
+Version 1.89 uses `/kbd:remap:347=29,remap:348=285`. These decimal values
+preserve the same left/right Command-to-Control mapping and fit the limit.
+An actual FreeRDP **3.32.1** shared-library parser probe reproduced the old
+failure and then passed all six regression cases after correction. It
+checks the generated Default/fixed/Auto commands, fullscreen/windowed starts,
+the smart-sizing recovery command, actual decoded mapping values, and
+unchanged physical Control/C/V keys, without connecting to any server.
+The identical length check and base-0 integer parsing were verified in
+upstream **3.32.2** source. A new required FreeRDP SDK gate runs before draft
+creation and before package builds. Native Mac confirmation remains required.
+
+Local 1.89 validation passed **580 tests and 70 subtests**, including the
+required real-parser checks. One native Windows-only check was skipped and
+the old built-bundle Help comparison was deselected. The SDK was downloaded
+and extracted locally without installing host packages; the remote Mint
+server remains unchanged by this work.
+
+## Release 1.88 preparation and known regression
 
 The 1.88 source includes one-attempt smart-sizing recovery for the recognized
 FreeRDP resize failure, native macOS SDL window scaling, and Command-key
