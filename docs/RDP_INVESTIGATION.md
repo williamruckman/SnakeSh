@@ -23,13 +23,54 @@ the smart-sizing recovery command, actual decoded mapping values, and
 unchanged physical Control/C/V keys, without connecting to any server.
 The identical length check and base-0 integer parsing were verified in
 upstream **3.32.2** source. A new required FreeRDP SDK gate runs before draft
-creation and before package builds. Native Mac confirmation remains required.
+creation and before package builds. The subsequent native Mac result is
+recorded below.
 
 Local 1.89 validation passed **580 tests and 70 subtests**, including the
 required real-parser checks. One native Windows-only check was skipped and
 the old built-bundle Help comparison was deselected. The SDK was downloaded
 and extracted locally without installing host packages; the remote Mint
 server remains unchanged by this work.
+
+### Release 1.89 publication and validation
+
+Release [v1.89](https://github.com/williamruckman/SnakeSh/releases/tag/v1.89)
+is tagged at `5d31ebe`. GitLab synchronization pipeline **285** passed.
+[Prepare Release Draft 41504201037](https://github.com/williamruckman/SnakeSh/actions/runs/41504201037)
+passed both the real FreeRDP CLI parser gate and the native Windows gate.
+After publication,
+[Build 41505750517](https://github.com/williamruckman/SnakeSh/actions/runs/41505750517)
+passed the version check, full source suite, required parser gate, all four
+platform package jobs, their frozen startup checks, and asset attachment.
+
+All six packages and `SHA256SUMS.txt` were downloaded. Each package matches
+both the manifest and GitHub's published SHA256 digest; the manifest's own
+download also matches its GitHub digest. The extracted Linux AppImage reports
+runtime VERSION **1.89** and passes `--help`. Both Mac ZIPs contain runtime
+VERSION **1.89** and the expected x64/arm64 Mach-O bootloader architecture.
+Windows startup validation is from its native CI runner, rather than local
+execution of the installer on this Linux development host.
+
+The user then confirmed on their Mac that the updated build connects,
+copy/paste works properly, and they see no other errors. This confirms recovery
+from the 1.88 argument-parsing regression on that machine. The message does
+not separately establish that a failed Auto resize triggered the recovery
+popup. The user plans to have the original reporter update and retest later;
+the original persistent interaction pinwheel remains open pending that result.
+
+Archive inspection also found a pre-existing packaging metadata follow-up:
+`CFBundleShortVersionString` remains **0.0.0** in both Mac Info.plist files,
+as it did in 1.87. The packaged runtime VERSION files contain the correct
+release version. The remap hotfix does not change that plist metadata.
+
+| Package | Verified SHA-256 |
+| --- | --- |
+| Linux AppImage | `8dc407e66281169b672ad4d670decf0ada72854731ab2d3e9f97e32bb3c58b42` |
+| Windows Setup EXE | `efecae2c12ceabc60ec1708294b7bfd0f04b925fefa0391bf55f51a1df52d225` |
+| macOS arm64 DMG | `5440d615222c4c3ac23a126df460f276ef89db2545cf5903aec6beec4e678f09` |
+| macOS arm64 ZIP | `0ee1783337e97e5b9c36327a4d520276db3c2838ebedc11eed4e05cffabb3a48` |
+| macOS x64 DMG | `a4b2d32c161bf6285ea42f10f5861f842a10d35e62bdd219fcc6b0a474890cc5` |
+| macOS x64 ZIP | `7283c208fc8e45ef42188524b6d100835990d3a07f5c47f36228c21e5dff065e` |
 
 ## Release 1.88 preparation and known regression
 
@@ -38,8 +79,9 @@ FreeRDP resize failure, native macOS SDL window scaling, and Command-key
 copy/paste corrections in SnakeSh and the native SDL RDP viewer. Local affected
 checks passed 551 tests and 70 subtests. Another 23 version, packaging,
 bootstrap, and Qt runtime checks passed with VERSION set to 1.88.
-Package builds and native Mac validation remain
-pending. The original persistent pinwheel report remains unresolved.
+The 1.88 package builds completed, but native Mac testing revealed the parser
+regression corrected in 1.89. The original persistent pinwheel report remains
+unresolved.
 
 ## Findings
 
@@ -372,8 +414,9 @@ launcher/certificate/platform checks, macOS clipboard shortcuts, terminal trace
 replays, remote viewer and session-editor tests, Help rendering, and the
 complete tab workspace suite. The checks used the
 pinned PySide6 6.11.2 environment, Qt offscreen, isolated application data, and
-the null keyring backend. The source changes are prepared for release 1.88;
-package publication and native Mac validation are still pending.
+the null keyring backend. These changes first shipped in 1.88 and remain in
+1.89 with the parser correction and native connection/copy-paste confirmation
+above. The recovery popup still needs its own native confirmation.
 
 ### Noble package candidates, November 2
 
