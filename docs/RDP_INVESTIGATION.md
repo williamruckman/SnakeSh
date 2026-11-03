@@ -180,10 +180,39 @@ No credentials were copied to this workstation, and `v1.90` remains unchanged.
 GitLab pipeline **287** verified branch synchronization and left the existing
 GitHub tag unchanged, but the attempted failed-job retry was rejected by
 GitHub's Actions API with **HTTP 403**. That optional retry path was removed;
-the configured CI token is not sufficient for that operation. The user was
-asked to rerun failed jobs in the GitHub UI, then publish the resulting draft
-to trigger packages. Draft creation and package availability are not yet
-confirmed.
+the configured CI token is not sufficient for that operation. GitLab pipeline
+**288** then passed with that retry path removed. The user reran the failed
+draft job successfully and published
+[v1.90](https://github.com/williamruckman/SnakeSh/releases/tag/v1.90) at
+**2026-11-03 18:52:28 UTC**, triggering
+[Build 41697937789](https://github.com/williamruckman/SnakeSh/actions/runs/41697937789)
+at release commit `35d190c`. The build completed successfully: version check,
+full source suite, required FreeRDP parser gate, Linux/Windows/both Mac package
+jobs, native frozen startup checks, Mac Info.plist checks, and asset attachment.
+
+All six packages and `SHA256SUMS.txt` were downloaded. Every package matches
+both the manifest and GitHub's published SHA256 digest, and the manifest's own
+download matches its GitHub digest. Both Mac ZIPs contain runtime VERSION
+**1.90**, the correct x64/arm64 Mach-O architecture, bundle identifier
+`com.snakesh.app`, and the Local Network purpose text covering SSH, SFTP, RDP,
+VNC, and network tools. The pre-existing `CFBundleShortVersionString` **0.0.0**
+metadata follow-up remains; the actual runtime VERSION is correct. The extracted
+Linux AppImage reports bundled VERSION **1.90** and passes `AppRun --help`.
+Windows executable startup is validated by its native CI runner; the installer
+bytes were verified locally without installing it on this Linux host.
+
+The real macOS permission prompt and Settings shortcut still need Finder-launch
+validation on a Mac, as described above. The original reporter's connection and
+persistent pinwheel issues remain pending their retest and port-check result.
+
+| Package | Verified SHA-256 |
+| --- | --- |
+| Linux AppImage | `52989eb87a11cb7fff13aabccf78883dd99c63f1083d8100f828760490219977` |
+| Windows Setup EXE | `db5c08eb3678d599130b7d8d7149ba7181b6b553c3af7cd4381416bfaa9365be` |
+| macOS arm64 DMG | `6261c93d3b710d0e933c1f79876c67b3bee488e30c787bf3337ccb1037606f35` |
+| macOS arm64 ZIP | `85154c6a5fe96fddfe0cc47417a30f7fbea38b581fed0f58462a29f88f2b6e36` |
+| macOS x64 DMG | `580b5d8ef2aa4b4ab7d6af9e7a3190c056d9e7aa0363fb9f6059c72ac91765bb` |
+| macOS x64 ZIP | `36a252015dcd1f820582f84186e6d4fa0bd2f50c244394b66e17fc96805ff95d` |
 
 Reference: [GitHub Create a release token requirements](https://docs.github.com/en/rest/releases/releases#create-a-release).
 
