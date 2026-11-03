@@ -72,6 +72,94 @@ release version. The remap hotfix does not change that plist metadata.
 | macOS x64 DMG | `a4b2d32c161bf6285ea42f10f5861f842a10d35e62bdd219fcc6b0a474890cc5` |
 | macOS x64 ZIP | `7283c208fc8e45ef42188524b6d100835990d3a07f5c47f36228c21e5dff065e` |
 
+## November 3 original reporter connection failure
+
+The user forwarded a screenshot from the original reporter, rather than the
+Mac that had already passed the 1.89 connection/copy-paste check. The new image
+shows a private IPv4 target on TCP 3389, detached exit code 141,
+`ERRCONNECT_CONNECT_FAILED [0x00020006]`, `Couldn't get socket address`, and
+`ConnectLayer ... [15000ms] failed`. The user subsequently confirmed
+**SnakeSh 1.89** and supplied an About This Mac screenshot identifying an
+**M1 MacBook Air (2020), 16 GB RAM, macOS Tahoe 26.2**. A local Metal renderer
+was created, but no established remote desktop is shown. This prevents a
+meaningful retest of the persistent interaction lag. The hardware screenshot
+does not establish which SnakeSh package architecture or FreeRDP binary is
+running, and no architecture failure is shown by the connection error.
+
+In pinned FreeRDP 3.32.2 `tcp.c`, `freerdp_host_connect()` tries the resolved
+socket addresses and calls `get_next_addrinfo(..., FREERDP_ERROR_CONNECT_FAILED)`
+after a failed socket/connect attempt. The screenshot therefore identifies
+the pre-login connection stage without establishing a specific cause such as
+a stopped RDP listener, wrong endpoint, network/VPN route, filtering, or local
+application permissions. The 15000ms field is the configured limit, not proof
+that the attempt consumed 15 seconds. No target probe was made from this
+development host.
+
+The SnakeSh version is confirmed. A single-port `nc -nvz -G 5`
+check from Apple's Terminal on the affected Mac, outside SnakeSh, remains
+pending. Apple
+documents that Terminal-launched tools are exempt from local-network privacy,
+while a helper launched by a GUI app can be attributed to that app. A successful
+Terminal probe therefore does not by itself prove that SnakeSh has permission.
+If the port is reachable there, check SnakeSh under System Settings > Privacy
+& Security > Local Network and compare a direct RDP connection from another
+already installed client. Results are pending; no additional application fix
+is established by this screenshot alone.
+
+References: [FreeRDP 3.32.2 TCP connection handling](https://github.com/FreeRDP/FreeRDP/blob/3.32.2/libfreerdp/core/tcp.c),
+[Apple local-network privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).
+
+## Release 1.90 Local Network permission support
+
+The Mac bundle now declares `NSLocalNetworkUsageDescription` with a reason
+covering local SSH, SFTP, RDP, VNC, and network tools. On macOS 15 and later,
+the main GUI shows a nonmodal explanation once per Mac user and attempts the
+system permission request. A local QSettings flag records only that this
+explanation was shown; it is not exported and does not represent a permission
+grant. Safe mode skips this startup flow. Other platforms and older macOS
+versions do not show it.
+
+**Tools > Local Network Access...** reopens the explanation, offers **Request
+Access**, and provides an **Open System Settings** shortcut plus explicit
+navigation to Privacy & Security > Local Network. Prior denials still require
+the user to enable SnakeSh there and reconnect. The Settings shortcut is best
+effort; manual navigation remains visible if the OS opens a general page.
+
+The request follows Apple's TN3179 approach: enumerate active broadcast-capable
+interfaces, generate two random IPv6 link-local peers per local link-local
+address, then connect nonblocking UDP sockets to port 9 with the interface
+scope. The sockets run in the GUI process and close immediately without sending
+datagrams. There is no DNS lookup, server probe, helper launch, elevation,
+permission bypass, polling, or inferred permission result. Offline/no-IPv6
+and socket-error paths keep the dialog and workspace usable. Ordinary local
+connections can still trigger the system prompt.
+
+Tests cover the platform gate, interface filtering and IPv6 scope, no datagram
+sends, resource errors, denial without retry loops, one-time startup behavior,
+safe mode, dialog close/reopen, Settings fallback, and the Mac bundle's plist
+declaration. Mac package CI also checks the generated app's actual Info.plist.
+
+Local regression validation passed **652 tests and 40 subtests**, covering
+workspace startup, the new permission flow, packaging, Help, bootstrap,
+settings, Qt runtime, RDP launch/resize recovery, and Mac clipboard shortcuts.
+One comparison against pre-existing local Help build outputs was deselected;
+those bundles predate the current source. The new dialog was also rendered and
+visually inspected with Qt offscreen. Neither check verifies native macOS
+permission behavior.
+
+Native validation remains required on both Mac architectures: launch the app
+from Finder (Terminal-launched processes are exempt), test a fresh Mac user
+with an undetermined permission, allow access and reconnect, relaunch without
+the repeated explanation, and test a denied user through the Settings shortcut.
+Also check offline/no-link-local behavior and opening the Tools action while a
+session is running. Linux tests cannot establish that macOS displays the system
+alert, recognizes the unsigned app consistently, or honors the Settings URL.
+This feature does not establish that Local Network privacy caused the original
+reporter's connection failure; their port test is still pending.
+
+Reference: [Apple TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy),
+especially "macOS considerations" and "Trigger the local network alert".
+
 ## Release 1.88 preparation and known regression
 
 The 1.88 source includes one-attempt smart-sizing recovery for the recognized

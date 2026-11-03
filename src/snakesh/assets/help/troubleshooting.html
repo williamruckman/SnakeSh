@@ -39,6 +39,10 @@
   <h2>macOS Launch Warnings</h2>
   <p>Unsigned macOS builds can trigger Gatekeeper warnings on first launch. Use Finder's <code>Open</code> action if your security policy permits it.</p>
 
+  <h2>macOS Local Network Access</h2>
+  <p>On macOS 15 and later, SnakeSh explains Local Network access once and attempts to show the macOS permission prompt. Click <strong>Allow</strong> so SnakeSh can connect to computers and devices on your network. Open <strong>Tools &gt; Local Network Access...</strong> to request access again or open System Settings.</p>
+  <p>If access was previously denied, enable SnakeSh under <strong>System Settings &gt; Privacy &amp; Security &gt; Local Network</strong>, then retry the connection. SnakeSh cannot override or read your choice. No prompt can also mean access is already allowed or that the current network could not trigger a request; it does not prove a permission failure. Normal connections may also trigger the system prompt.</p>
+
   <h2>Desktop Integration on Linux</h2>
   <p>If the app-menu entry goes missing or stops launching the current build, open Settings and run the desktop integration repair or reinstall action.</p>
 

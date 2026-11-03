@@ -218,6 +218,14 @@ jobs:
         shell: bash
         run: |
           dist/SnakeSh.app/Contents/MacOS/SnakeSh --help >/tmp/snakesh-macos-help.txt
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          with Path("dist/SnakeSh.app/Contents/Info.plist").open("rb") as source:
+              info = plistlib.load(source)
+          assert info.get("NSLocalNetworkUsageDescription", "").strip(), "Missing Local Network permission explanation"
+          assert info["CFBundleIdentifier"] == "com.snakesh.app"
+          PY
 
       - name: Import macOS signing certificate
         if: env.MACOS_SIGNING_ENABLED == '1'

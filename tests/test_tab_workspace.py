@@ -4803,6 +4803,39 @@ class TabWorkspaceTests(unittest.TestCase):
         self.assertEqual(len(tracked or []), 1)
         self.assertFalse(hasattr(self.window, "_tool_windows"))
 
+    def test_mac_local_network_action_opens_permission_dialog(self) -> None:
+        with (
+            patch("snakesh.ui.main_window.local_network_privacy_supported", return_value=True),
+            patch.object(self.window, "_open_local_network_access") as opener,
+        ):
+            menu = self.window._build_tools_menu()
+            try:
+                next(a for a in menu.actions() if a.text() == "Local Network Access...").trigger()
+                opener.assert_called_once()
+            finally:
+                menu.deleteLater()
+                QApplication.processEvents()
+
+    def test_local_network_dialog_is_reused_without_blocking_workspace(self) -> None:
+        with patch("snakesh.ui.main_window.local_network_privacy_supported", return_value=True):
+            self.window._open_local_network_access()
+            first = self.window._local_network_access_dialog
+            first.reject()
+            self.window._open_local_network_access()
+            self.assertIs(self.window._local_network_access_dialog, first)
+            self.assertTrue(first.isVisible())
+            self.assertFalse(first.isModal())
+            first.reject()
+
+    def test_local_network_action_is_hidden_on_unsupported_platforms(self) -> None:
+        with patch("snakesh.ui.main_window.local_network_privacy_supported", return_value=False):
+            menu = self.window._build_tools_menu()
+            try:
+                self.assertNotIn("Local Network Access...", [a.text() for a in menu.actions()])
+            finally:
+                menu.deleteLater()
+                QApplication.processEvents()
+
     def test_resource_monitor_launches_new_process_each_time(self) -> None:
         self.window._open_resource_monitor_tool()
         self.window._open_resource_monitor_tool()

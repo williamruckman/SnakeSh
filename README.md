@@ -161,6 +161,13 @@ Use `Uninstall SnakeSh.command` from the macOS release package to remove SnakeSh
 
 Unsigned macOS builds may trigger Gatekeeper warnings on first launch.
 
+On macOS 15 and later, SnakeSh explains Local Network access once and attempts
+to show the macOS permission prompt. Click **Allow** to connect to computers
+and devices on your network. **Tools > Local Network Access...** lets you
+request access again or open System Settings. If you previously denied access,
+enable SnakeSh under **System Settings > Privacy & Security > Local Network**,
+then retry the connection. SnakeSh cannot override or read this permission.
+
 ### Linux (x64 AppImage)
 
 1. Download `SnakeSh-<version>-x86_64.AppImage` from Releases.

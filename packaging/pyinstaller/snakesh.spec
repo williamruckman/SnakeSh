@@ -136,6 +136,10 @@ if sys.platform == "darwin":
         icon=str(MACOS_ICON_PATH if MACOS_ICON_PATH.is_file() else ICON_PATH),
         bundle_identifier="com.snakesh.app",
         info_plist={
+            "NSLocalNetworkUsageDescription": (
+                "SnakeSh needs access to connect to computers and devices on your local "
+                "network using SSH, SFTP, RDP, VNC, and network tools."
+            ),
             "UTExportedTypeDeclarations": [
                 {
                     "UTTypeIdentifier": "com.snakesh.export",

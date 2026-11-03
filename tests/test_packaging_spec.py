@@ -1,11 +1,28 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
+import plistlib
 import re
 import unittest
 
 
 class PackagingSpecTests(unittest.TestCase):
+    def test_mac_bundle_declares_local_network_purpose(self) -> None:
+        spec_path = Path(__file__).resolve().parents[1] / "packaging" / "pyinstaller" / "snakesh.spec"
+        tree = ast.parse(spec_path.read_text(encoding="utf-8"))
+        bundle = next(
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "BUNDLE"
+        )
+        plist = ast.literal_eval(next(kw.value for kw in bundle.keywords if kw.arg == "info_plist"))
+        packaged = plistlib.loads(plistlib.dumps(plist))
+        purpose = packaged["NSLocalNetworkUsageDescription"]
+        self.assertTrue(purpose.strip())
+        self.assertIn("SnakeSh", purpose)
+        self.assertIn("local", purpose.lower())
+        self.assertIn("RDP", purpose)
+
     def test_project_version_source_is_root_version_file(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
         version_text = (project_root / "VERSION").read_text(encoding="utf-8").strip()

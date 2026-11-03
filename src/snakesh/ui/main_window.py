@@ -38,7 +38,7 @@ from uuid import uuid4
 import wave
 
 import asyncssh
-from PySide6.QtCore import QByteArray, QEvent, QMimeData, QObject, QRect, QSize, Qt, QProcess, QThread, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import QByteArray, QEvent, QMimeData, QObject, QRect, QSettings, QSize, Qt, QProcess, QThread, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import (
     QCloseEvent,
     QColor,
@@ -144,6 +144,7 @@ from snakesh.protocols.ssh_client import SSHClient
 from snakesh.protocols.vnc import build_vnc_launch, launch_vnc
 from snakesh.runtime import is_appimage, sanitized_local_shell_environment
 from snakesh.services.credential_service import CredentialService
+from snakesh.services.macos_local_network import local_network_privacy_supported
 from snakesh.services.linux_desktop_install_service import (
     LinuxDesktopIntegrationError,
     desktop_integration_needs_update,
@@ -187,6 +188,7 @@ from snakesh.services.tool_process_service import (
 )
 from snakesh.services.x11_service import X11Service
 from snakesh.ui.background import background_calls_active, run_background_call
+from snakesh.ui.local_network_access_dialog import LocalNetworkAccessDialog
 from snakesh.services.windows_conpty import load_bundled_conpty
 from snakesh.ui.clipboard import copy_text, paste_text
 from snakesh.ui.sixel import SixelStream, TerminalGraphic
@@ -13055,6 +13057,7 @@ class MainWindow(QMainWindow):
         self._next_ssh_probe_id = 1
         self._is_shutting_down = False
         self._safe_mode = safe_mode
+        self._local_network_access_dialog: LocalNetworkAccessDialog | None = None
         self._main_fullscreen_shortcut: QShortcut | None = None
         self._workspace_tab_shortcuts: list[QShortcut] = []
         self._pending_window_placement: _WindowPlacement | None = None
@@ -13262,6 +13265,7 @@ class MainWindow(QMainWindow):
         self._apply_session_list_mode(self._session_list_mode, persist=False)
         self._sync_main_fullscreen_control_visibility()
         self._refresh_tree()
+        QTimer.singleShot(0, self._offer_local_network_access_on_startup)
         QTimer.singleShot(0, self._handle_workspace_startup_restore)
         QTimer.singleShot(0, self._maybe_prune_session_logs)
         QTimer.singleShot(0, self._maybe_prune_web_server_logs)
@@ -19732,11 +19736,36 @@ class MainWindow(QMainWindow):
         menu.setStyle(style)
         menu._snakesh_tool_menu_icon_style = style  # type: ignore[attr-defined]
         for entry in TOOL_REGISTRY:
+            if entry.key == "help" and local_network_privacy_supported():
+                access_action = menu.addAction("Local Network Access...")
+                access_action.triggered.connect(self._open_local_network_access)
             action = menu.addAction(tool_menu_icon(entry.key), entry.label)
             action.triggered.connect(lambda _checked=False, key=entry.key: self._open_registered_tool(key))
         about_action = menu.addAction(app_menu_icon(), "About SnakeSh")
         about_action.triggered.connect(self._open_about_dialog)
         return menu
+
+    def _open_local_network_access(self) -> None:
+        if not local_network_privacy_supported():
+            return
+        if self._local_network_access_dialog is None:
+            self._local_network_access_dialog = LocalNetworkAccessDialog(self)
+        self._local_network_access_dialog.show()
+        self._local_network_access_dialog.raise_()
+        self._local_network_access_dialog.activateWindow()
+
+    def _offer_local_network_access_on_startup(self) -> None:
+        if self._safe_mode or not local_network_privacy_supported():
+            return
+        # Remember only that we explained the request, never an inferred grant.
+        # Keep this per-Mac preference separate from exported app settings.
+        preferences = QSettings("SnakeSh", "SnakeSh")
+        key = "macos_local_network/explanation_shown"
+        if preferences.value(key, False, type=bool):
+            return
+        self._open_local_network_access()
+        preferences.setValue(key, True)
+        self._local_network_access_dialog.request_access()
 
     def _open_about_dialog(self) -> None:
         author_website = "https://ruckman.net/support.html"
