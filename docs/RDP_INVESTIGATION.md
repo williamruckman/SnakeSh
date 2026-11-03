@@ -174,9 +174,16 @@ relative to its default branch. The tag can arrive before GitLab's asynchronous
 main-branch mirror, making that a plausible race; the exact main-branch state
 at the failed request was not captured. GitHub main and the tag were verified
 identical afterward. GitLab release synchronization now pushes its main branch
-without force before the tag, and accepts a numeric `RETRY_DRAFT_RUN_ID` to
-retry only failed jobs using the existing configured CI token. No credentials
-were copied to this workstation, and `v1.90` remains unchanged.
+without force before the tag, instead of relying on the asynchronous mirror.
+No credentials were copied to this workstation, and `v1.90` remains unchanged.
+
+GitLab pipeline **287** verified branch synchronization and left the existing
+GitHub tag unchanged, but the attempted failed-job retry was rejected by
+GitHub's Actions API with **HTTP 403**. That optional retry path was removed;
+the configured CI token is not sufficient for that operation. The user was
+asked to rerun failed jobs in the GitHub UI, then publish the resulting draft
+to trigger packages. Draft creation and package availability are not yet
+confirmed.
 
 Reference: [GitHub Create a release token requirements](https://docs.github.com/en/rest/releases/releases#create-a-release).
 
