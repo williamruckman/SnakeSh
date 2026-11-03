@@ -43,10 +43,26 @@ create_release_tag:
         exit 1
       fi
       GITHUB_REMOTE_URL="https://x-access-token:${GITHUB_RELEASE_TOKEN}@github.com/${GITHUB_TARGET_REPOSITORY}.git"
+      # Release creation with GITHUB_TOKEN can reject workflow changes that
+      # are not on GitHub's default branch yet. Sync the branch before the tag
+      # instead of racing the asynchronous repository mirror. No force pushes.
+      git push "${GITHUB_REMOTE_URL}" "${CI_COMMIT_SHA}:refs/heads/${CI_DEFAULT_BRANCH}"
       if git ls-remote --exit-code --tags "${GITHUB_REMOTE_URL}" "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
         echo "Tag ${TAG_NAME} already exists on GitHub; leaving it unchanged."
       else
         git push "${GITHUB_REMOTE_URL}" "refs/tags/${TAG_NAME}"
+      fi
+    - |
+      if [ -n "${RETRY_DRAFT_RUN_ID:-}" ]; then
+        if ! printf '%s\n' "${RETRY_DRAFT_RUN_ID}" | grep -Eq '^[0-9]+$'; then
+          echo "RETRY_DRAFT_RUN_ID must be a numeric GitHub Actions run ID." >&2
+          exit 1
+        fi
+        echo "Retrying failed draft jobs in GitHub Actions run ${RETRY_DRAFT_RUN_ID}."
+        curl --fail --silent --show-error --request POST \
+          --header "Authorization: Bearer ${GITHUB_RELEASE_TOKEN}" \
+          --header "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/${GITHUB_TARGET_REPOSITORY}/actions/runs/${RETRY_DRAFT_RUN_ID}/rerun-failed-jobs"
       fi
     - |
       if [ "${BUILD_PACKAGES:-0}" = "1" ]; then

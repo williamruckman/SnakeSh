@@ -160,6 +160,26 @@ reporter's connection failure; their port test is still pending.
 Reference: [Apple TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy),
 especially "macOS considerations" and "Trigger the local network alert".
 
+### Release 1.90 preparation status
+
+Release commit `35d190c` and annotated tag `v1.90` were pushed to GitLab, and
+pipeline **286** synchronized the identical tag to GitHub. Both native gates in
+[Prepare Release Draft 41693425267](https://github.com/williamruckman/SnakeSh/actions/runs/41693425267)
+passed: Windows terminal/RDP and the FreeRDP parser. Draft creation then failed
+with **Resource not accessible by integration** at the Create Release API.
+
+The workflow already grants `contents: write`. GitHub documents an additional
+workflow-write requirement when the release target changes workflow files
+relative to its default branch. The tag can arrive before GitLab's asynchronous
+main-branch mirror, making that a plausible race; the exact main-branch state
+at the failed request was not captured. GitHub main and the tag were verified
+identical afterward. GitLab release synchronization now pushes its main branch
+without force before the tag, and accepts a numeric `RETRY_DRAFT_RUN_ID` to
+retry only failed jobs using the existing configured CI token. No credentials
+were copied to this workstation, and `v1.90` remains unchanged.
+
+Reference: [GitHub Create a release token requirements](https://docs.github.com/en/rest/releases/releases#create-a-release).
+
 ## Release 1.88 preparation and known regression
 
 The 1.88 source includes one-attempt smart-sizing recovery for the recognized
