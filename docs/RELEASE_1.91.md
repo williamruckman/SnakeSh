@@ -66,3 +66,9 @@ for release commit `afe783dee20aaf7241ca33b8fdd0c1cf64c9c41f`. The run was
 verified in progress. The failed optional dispatch is superseded by the normal
 published-release build path; package completion and hashes remain to be
 checked once the platform jobs finish.
+
+At **14:59 UTC**, the published-release run passed its version check, full
+test suite, and required FreeRDP parser gate. All four platform jobs were
+verified **in progress**: Linux x64 AppImage, Windows x64 Setup EXE, macOS
+arm64 dmg/zip, and macOS x64 dmg/zip. Packages are building; completion and
+release-asset attachment are not yet confirmed.
