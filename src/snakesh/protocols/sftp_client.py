@@ -589,6 +589,29 @@ class SFTPClient:
                     replace=replace,
                 )
 
+    async def move_paths(
+        self,
+        session: Session,
+        remote_paths: list[str],
+        destination_dir: str,
+        *,
+        password: str | None = None,
+        trust_unknown: bool = False,
+        status_callback: Callable[[str], None] | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
+    ) -> int:
+        connect_kwargs = self._connect_kwargs(session, password=password)
+        if trust_unknown:
+            connect_kwargs["known_hosts"] = None
+        async with asyncssh.connect(**connect_kwargs) as conn:
+            if trust_unknown:
+                trust_host_key(session, conn.get_server_host_key())
+            async with _open_sftp(conn, cancel_requested, status_callback) as sftp:
+                return await self._move_remote_paths(
+                    sftp, remote_paths, destination_dir,
+                    status_callback=status_callback, cancel_requested=cancel_requested,
+                )
+
     async def remote_path_exists(
         self,
         session: Session,
@@ -939,6 +962,60 @@ class SFTPClient:
             deduped.values(),
             key=lambda conflict: (conflict.destination_path.lower(), conflict.source_path.lower()),
         )
+
+    async def _move_remote_paths(
+        self,
+        sftp: asyncssh.SFTPClient,
+        remote_paths: list[str],
+        destination_dir: str,
+        *,
+        status_callback: Callable[[str], None] | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
+    ) -> int:
+        destination = await self._resolve_directory(sftp, destination_dir)
+        plans: list[tuple[str, str]] = []
+        directories: list[str] = []
+        sources: set[str] = set()
+        targets: set[str] = set()
+        for path in remote_paths:
+            if cancel_requested and cancel_requested():
+                raise TransferCancelledError("Move cancelled. Completed moves remain in place.")
+            path = posixpath.normpath(path)
+            name = posixpath.basename(path)
+            if name in {"", ".", ".."}:
+                raise ValueError("Select a file or directory to move.")
+            # Resolve parent aliases while preserving a final symlink: moving
+            # a link renames the link itself, rather than its referent.
+            parent = await sftp.realpath(posixpath.dirname(path) or ".")
+            source = posixpath.join(parent, name)
+            if source in sources:
+                continue
+            sources.add(source)
+            target = posixpath.join(destination, name)
+            attrs = await sftp.lstat(source)
+            if source == target:
+                raise ValueError(f"Item is already in the destination: {source}")
+            if self._attrs_is_dir(attrs) and not self._attrs_is_symlink(attrs):
+                resolved = await sftp.realpath(source)
+                if destination == resolved or destination.startswith(resolved.rstrip("/") + "/"):
+                    raise ValueError(f"Cannot move a directory into itself: {source}")
+                directories.append(source)
+            if target in targets or await sftp.lexists(target):
+                raise FileExistsError(f"Move stopped: a remote item already exists at {target}")
+            targets.add(target)
+            plans.append((source, target))
+        if any(other != directory and other.startswith(directory.rstrip("/") + "/")
+               for directory in directories for other in sources):
+            raise ValueError("Move a directory separately from its selected contents.")
+        # Preflight the whole selection before changing any paths. Standard
+        # SFTP rename (without overwrite flags) also refuses new collisions.
+        for index, (source, target) in enumerate(plans, 1):
+            if cancel_requested and cancel_requested():
+                raise TransferCancelledError("Move cancelled. Completed moves remain in place.")
+            if status_callback:
+                status_callback(f"Moving item {index}/{len(plans)}: {source} -> {target}")
+            await sftp.rename(source, target)
+        return len(plans)
 
     async def _rename_remote_path(
         self,

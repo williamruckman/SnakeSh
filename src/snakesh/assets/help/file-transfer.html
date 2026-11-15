@@ -30,8 +30,9 @@
     <li>Double-click remote files to download.</li>
     <li>Double-click local files to upload.</li>
     <li>Use right-click upload, download, and <strong>New Folder...</strong> actions for explicit direction control and directory creation on either side.</li>
-    <li>Use drag and drop to upload files into the remote pane.</li>
-    <li>Press <code>F5</code> in an SFTP tab to refresh both the local and remote pane contents without changing directories.</li>
+    <li>Drag local files into the remote pane to upload them.</li>
+    <li>Drag selected remote files or directories onto a directory in the same remote pane, including its folder navigation list, to move them on the server. SnakeSh asks for confirmation before moving. Existing destination names stop the move; files are never silently replaced.</li>
+    <li>Press <code>F5</code> in an SFTP tab to refresh both panes without changing directories. On macOS, <code>Command-R</code> also refreshes both panes; your keyboard may require <code>Fn-F5</code> to send F5.</li>
   </ul>
 
   <h2>Progress and Cancellation</h2>
@@ -39,6 +40,7 @@
 
   <h2>Transfer Safety</h2>
   <p>Uploads and downloads can warn before overwriting existing files. For transfers with multiple conflicts, you can allow all overwrites for the current transfer from the confirmation dialog.</p>
+  <p>Remote moves use server-side rename operations. If a move is cancelled or interrupted, completed moves stay in the destination and the remaining items stay in their original locations. SnakeSh refreshes the remote listing afterward.</p>
 
   <h2>Delete Safety</h2>
   <p>Both local and remote delete operations are available from the context menu. A confirmation prompt is shown by default, and the global warning behavior can be adjusted in Settings.</p>

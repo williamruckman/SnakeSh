@@ -6,6 +6,18 @@ from snakesh.core.models import Protocol, SSHAutomationStep, SSHDynamicTunnel, S
 
 
 class SessionModelTests(unittest.TestCase):
+    def test_shell_auto_close_override_is_optional_and_roundtrips(self) -> None:
+        session = Session(name="Shell", host="example.test", protocol=Protocol.SSH, port=22)
+        self.assertIsNone(session.auto_close_shell_tab)
+        legacy = session.to_dict()
+        legacy.pop("auto_close_shell_tab")
+        self.assertIsNone(Session.from_dict(legacy).auto_close_shell_tab)
+        for value in (None, False, True):
+            session.auto_close_shell_tab = value
+            self.assertIs(Session.from_dict(session.to_dict()).auto_close_shell_tab, value)
+        for invalid in ("false", "true", 0, 1):
+            self.assertIsNone(Session.from_dict({**legacy, "auto_close_shell_tab": invalid}).auto_close_shell_tab)
+
     def test_session_roundtrip_includes_legacy_compatibility(self) -> None:
         session = Session(
             id="sess-model-legacy",

@@ -709,6 +709,14 @@ class SessionEditorDialog(QDialog):
         self.terminal_color_preview.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.terminal_color_preview.setFixedHeight(86)
         self.terminal_color_preview.setPlainText("user@host:~$ echo Session Preview\nSession Preview")
+        self.auto_close_shell_tab_input = QComboBox()
+        self.auto_close_shell_tab_input.addItem("Use global setting", None)
+        self.auto_close_shell_tab_input.addItem("Keep tab open", False)
+        self.auto_close_shell_tab_input.addItem("Close tab when session ends", True)
+        self.auto_close_shell_tab_input.setToolTip(
+            "Override Settings > Terminal > Auto-close Shell Tabs for this saved session. "
+            "Keeping the tab open preserves its output and scrollback after disconnecting."
+        )
         self.shell_banner_message_input = QLineEdit()
         self.shell_banner_message_input.setPlaceholderText("Optional warning or banner message")
         self.shell_banner_color_widget, self.shell_banner_color_input = self._build_color_input("#f59e0b")
@@ -813,6 +821,7 @@ class SessionEditorDialog(QDialog):
         form.addRow("Terminal Background Override", self.terminal_bg_color_widget)
         form.addRow("Terminal Foreground Override", self.terminal_fg_color_widget)
         form.addRow("Terminal Color Preview", self.terminal_color_preview)
+        form.addRow("Auto-close Shell Tab", self.auto_close_shell_tab_input)
         form.addRow("Shell Banner Message", self.shell_banner_message_input)
         form.addRow("Shell Banner Font Color", self.shell_banner_color_widget)
         form.addRow("", self.shell_banner_blink_input)
@@ -962,6 +971,9 @@ class SessionEditorDialog(QDialog):
             widget.setVisible(supports_terminal_colors)
             self._set_form_label_visible(widget, supports_terminal_colors)
         self.shell_banner_message_input.setVisible(supports_shell_banner)
+        show_auto_close = supports_terminal_automation and not self._quick_connect
+        self.auto_close_shell_tab_input.setVisible(show_auto_close)
+        self._set_form_label_visible(self.auto_close_shell_tab_input, show_auto_close)
         self._set_form_label_visible(self.shell_banner_message_input, supports_shell_banner)
         self.shell_banner_color_widget.setVisible(supports_shell_banner)
         self._set_form_label_visible(self.shell_banner_color_widget, supports_shell_banner)
@@ -1057,6 +1069,7 @@ class SessionEditorDialog(QDialog):
             self._set_serial_flow_control("none")
             self._set_serial_terminal_type("auto")
             self.terminal_color_override_input.setChecked(False)
+            self.auto_close_shell_tab_input.setCurrentIndex(0)
             self.terminal_bg_color_input.clear()
             self.terminal_fg_color_input.clear()
             self.shell_banner_message_input.clear()
@@ -1087,6 +1100,9 @@ class SessionEditorDialog(QDialog):
         else:
             self.password_input.setPlaceholderText("Optional")
         self.terminal_color_override_input.setChecked(self._session.terminal_color_override_enabled)
+        self.auto_close_shell_tab_input.setCurrentIndex(
+            self.auto_close_shell_tab_input.findData(self._session.auto_close_shell_tab)
+        )
         self.terminal_bg_color_input.setText(self._session.terminal_bg_color)
         self.terminal_fg_color_input.setText(self._session.terminal_fg_color)
         self.shell_banner_message_input.setText(self._session.shell_banner_message)
@@ -1144,6 +1160,11 @@ class SessionEditorDialog(QDialog):
             ),
             terminal_bg_color=self.terminal_bg_color_input.text().strip(),
             terminal_fg_color=self.terminal_fg_color_input.text().strip(),
+            auto_close_shell_tab=(
+                self.auto_close_shell_tab_input.currentData()
+                if not self._quick_connect and protocol in (Protocol.SSH, Protocol.TELNET, Protocol.SERIAL)
+                else None
+            ),
             shell_banner_message=self.shell_banner_message_input.text().strip(),
             shell_banner_color=self.shell_banner_color_input.text().strip(),
             shell_banner_blink=self.shell_banner_blink_input.isChecked(),

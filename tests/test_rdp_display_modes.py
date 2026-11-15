@@ -30,7 +30,7 @@ def test_freerdp_auto_keeps_remote_resize_enabled_when_starting_fullscreen(syste
 
 @pytest.mark.parametrize("executable", ["/opt/homebrew/bin/sdl-freerdp", "/usr/local/bin/sdl-freerdp3"])
 @pytest.mark.parametrize("fullscreen", [False, True])
-@pytest.mark.parametrize("resolution", ["", "1920x1080"])
+@pytest.mark.parametrize("resolution", ["", "1280x800", "1920x1080", "2560x1440"])
 def test_macos_sdl_default_and_fixed_desktops_allow_local_window_scaling(executable, fullscreen, resolution):
     session = Session(
         id="display-test", name="RDP", host="example.test", protocol=Protocol.RDP,
@@ -48,7 +48,8 @@ def test_macos_sdl_default_and_fixed_desktops_allow_local_window_scaling(executa
     assert command.count("/smart-sizing") == 1
     assert "/dynamic-resolution" not in command
     assert ("/f" in command) == fullscreen
-    assert ("/size:1920x1080" in command) == (resolution == "1920x1080" and not fullscreen)
+    sizes = [arg for arg in command if arg.startswith("/size:")]
+    assert sizes == ([f"/size:{resolution}"] if resolution else [])
 
 
 @pytest.mark.parametrize("system", ["Darwin", "Linux"])

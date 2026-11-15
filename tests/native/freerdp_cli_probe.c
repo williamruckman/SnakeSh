@@ -1,4 +1,4 @@
-/* Parse launch options without contacting a server, then inspect the key map. */
+/* Parse launch options without contacting a server, then inspect the settings. */
 #include <stdio.h>
 #include <freerdp/client/cmdline.h>
 #include <freerdp/locale/keyboard.h>
@@ -31,8 +31,13 @@ int main(int argc, char **argv)
         && freerdp_keyboard_remap_key(table, RDP_SCANCODE_KEY_V) == RDP_SCANCODE_KEY_V
         && freerdp_keyboard_remap_key(table, RDP_SCANCODE_LCONTROL) == RDP_SCANCODE_LCONTROL
         && freerdp_keyboard_remap_key(table, RDP_SCANCODE_RCONTROL) == RDP_SCANCODE_RCONTROL;
-    printf("{\"parse_status\":0,\"left_command\":%u,\"right_command\":%u,\"valid\":%s}\n",
-           (unsigned int)left, (unsigned int)right, valid ? "true" : "false");
+    printf("{\"parse_status\":0,\"left_command\":%u,\"right_command\":%u,\"valid\":%s,"
+           "\"desktop_width\":%u,\"desktop_height\":%u,\"smart_sizing\":%s,\"fullscreen\":%s}\n",
+           (unsigned int)left, (unsigned int)right, valid ? "true" : "false",
+           (unsigned int)freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+           (unsigned int)freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight),
+           freerdp_settings_get_bool(settings, FreeRDP_SmartSizing) ? "true" : "false",
+           freerdp_settings_get_bool(settings, FreeRDP_Fullscreen) ? "true" : "false");
     freerdp_keyboard_remap_free(table);
     freerdp_settings_free(settings);
     return valid ? 0 : 3;

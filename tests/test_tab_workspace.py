@@ -15,7 +15,7 @@ import unittest
 import warnings
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from PySide6.QtCore import QByteArray, QEvent, QMimeData, QPoint, QPointF, QRect, QSize, QTimer, Qt, QUrl
+from PySide6.QtCore import QByteArray, QEvent, QMimeData, QPoint, QPointF, QProcess, QRect, QSize, QTimer, Qt, QUrl
 from PySide6.QtGui import QKeyEvent, QPainter, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
@@ -7779,18 +7779,128 @@ class TabWorkspaceTests(unittest.TestCase):
                 patch.object(tab, "_refresh_local_directory") as mock_local_refresh,
                 patch.object(tab, "_refresh_remote_directory") as mock_remote_refresh,
             ):
-                for widget in (tab.local_path_input, tab.local_file_tree, tab.remote_path_input, tab.remote_file_tree):
+                for widget in (tab.local_path_input, tab.local_file_tree, tab.local_nav_tree,
+                               tab.remote_path_input, tab.remote_file_tree, tab.remote_nav_tree):
                     with self.subTest(widget=type(widget).__name__):
                         widget.setFocus(Qt.OtherFocusReason)
                         QApplication.processEvents()
                         QTest.keyClick(widget, Qt.Key_F5)
                         QApplication.processEvents()
 
-            self.assertEqual(mock_local_refresh.call_count, 4)
-            self.assertEqual(mock_remote_refresh.call_count, 4)
+            self.assertEqual(mock_local_refresh.call_count, 6)
+            self.assertEqual(mock_remote_refresh.call_count, 6)
         finally:
             tab.deleteLater()
             QApplication.processEvents()
+
+    def test_sftp_mac_command_r_refreshes_both_panes(self) -> None:
+        with patch("snakesh.ui.main_window.platform.system", return_value="Darwin"):
+            tab = self._build_sftp_tab_for_transfers(sftp=MagicMock())
+        try:
+            self.window._add_session_tab(_build_session("SFTP", "mac-refresh"), tab, "SFTP")
+            with patch.object(tab, "_refresh_local_directory") as local, patch.object(tab, "_refresh_remote_directory") as remote:
+                for widget in (tab.local_file_tree, tab.remote_file_tree):
+                    widget.setFocus(Qt.OtherFocusReason)
+                    QApplication.processEvents()
+                    QTest.keyClick(widget, Qt.Key_R, Qt.ControlModifier)
+                    # Offscreen Qt can retain the synthetic shortcut modifier.
+                    QTest.keyRelease(widget, Qt.Key_Control)
+                    QApplication.processEvents()
+            self.assertEqual(local.call_count, 2)
+            self.assertEqual(remote.call_count, 2)
+        finally:
+            location = self.window._find_widget_location(tab)
+            if location is not None:
+                self.window._close_tab_in_host(*location, show_progress=False)
+            QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+            QApplication.processEvents()
+
+    def test_shell_auto_close_only_removes_the_ended_tab_instance(self) -> None:
+        session = _build_session("Two shells", "auto-close-twins")
+        ended = TerminalTab(settings=self.window._settings)
+        other = TerminalTab(settings=self.window._settings)
+        self.window._add_session_tab(session, ended, "SSH")
+        self.window._add_session_tab(session, other, "SSH")
+        self.window._settings.auto_close_shell_tabs = True
+        ended._on_worker_closed()
+        QApplication.processEvents()
+        self.assertIsNone(self.window._find_widget_location(ended))
+        self.assertIsNotNone(self.window._find_widget_location(other))
+
+    def test_shell_auto_close_default_keeps_closed_scrollback(self) -> None:
+        tab = TerminalTab(settings=self.window._settings)
+        self.window._add_session_tab(_build_session("Keep closed", "keep-closed"), tab, "SSH")
+        tab._on_worker_closed()
+        QApplication.processEvents()
+        self.assertIsNotNone(self.window._find_widget_location(tab))
+        self.assertTrue(tab.is_session_closed())
+
+    def test_shell_auto_close_saved_session_override_takes_priority(self) -> None:
+        for global_setting in (False, True):
+            for override in (None, False, True):
+                with self.subTest(global_setting=global_setting, override=override):
+                    session = _build_session("Override", f"override-{global_setting}-{override}")
+                    session.auto_close_shell_tab = override
+                    self.session_service.add_or_update(session)
+                    self.window._settings.auto_close_shell_tabs = global_setting
+                    tab = TerminalTab(settings=self.window._settings)
+                    self.window._add_session_tab(session, tab, "SSH")
+                    tab._on_worker_closed()
+                    QApplication.processEvents()
+                    closed = self.window._find_widget_location(tab) is None
+                    self.assertEqual(closed, global_setting if override is None else override)
+
+    def test_shell_status_text_and_reconnected_session_do_not_auto_close(self) -> None:
+        tab = TerminalTab(settings=self.window._settings)
+        self.window._add_session_tab(_build_session("Reconnected", "reconnected"), tab, "SSH")
+        self.window._settings.auto_close_shell_tabs = True
+        tab._on_worker_output("Shell session closed.\r\n")
+        QApplication.processEvents()
+        self.assertIsNotNone(self.window._find_widget_location(tab))
+        tab._on_worker_closed()
+        tab._mark_connection_closed(False)
+        QApplication.processEvents()
+        self.assertIsNotNone(self.window._find_widget_location(tab))
+
+    def test_local_shell_completion_auto_closes_tab(self) -> None:
+        for handler in ("_on_local_worker_closed", "_on_local_process_finished"):
+            tab = TerminalTab(settings=self.window._settings)
+            self.window._add_session_tab(_build_session("Local", handler), tab, "LOCAL")
+            self.window._settings.auto_close_shell_tabs = True
+            if handler == "_on_local_process_finished":
+                tab._on_local_process_finished(0, QProcess.NormalExit)
+            else:
+                tab._on_local_worker_closed()
+            QApplication.processEvents()
+            self.assertIsNone(self.window._find_widget_location(tab))
+
+    def test_explicit_disconnect_keeps_tab_until_a_later_shell_ends(self) -> None:
+        tab = TerminalTab(settings=self.window._settings)
+        self.window._add_session_tab(_build_session("Disconnect", "explicit-disconnect"), tab, "SSH")
+        self.window._settings.auto_close_shell_tabs = True
+        self.assertTrue(tab.disconnect_session())
+        tab._on_worker_closed()
+        QApplication.processEvents()
+        self.assertIsNotNone(self.window._find_widget_location(tab))
+        tab._mark_connection_closed(False)
+        tab._on_worker_closed()
+        QApplication.processEvents()
+        self.assertIsNone(self.window._find_widget_location(tab))
+
+    @unittest.skipUnless(os.name == "posix", "Requires a POSIX local shell")
+    def test_real_local_shell_exit_auto_closes_after_worker_cleanup(self) -> None:
+        tab = TerminalTab(settings=self.window._settings)
+        self.window._settings.auto_close_shell_tabs = True
+        self.window._add_session_tab(_build_session("Local exit", "real-local-exit"), tab, "LOCAL")
+        self.assertTrue(tab.start_local_shell(program="/bin/sh", arguments=["-c", "printf finished; exit 0"]))
+        deadline = time.monotonic() + 5
+        def still_in_workspace():
+            return any(widget is tab for _host, _index, widget in self.window._session_tab_locations())
+        while still_in_workspace() and time.monotonic() < deadline:
+            QTest.qWait(10)
+        self.assertFalse(still_in_workspace())
+        # A second already-queued close notification must tolerate deletion.
+        self.window._on_shell_session_closed(tab)
 
     def test_sftp_remote_rename_prompts_before_replace(self) -> None:
         session = _build_session("SFTP Host", "sess-sftp-remote-replace")

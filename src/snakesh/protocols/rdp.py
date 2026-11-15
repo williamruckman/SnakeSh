@@ -128,7 +128,10 @@ def build_rdp_command(
         # display-control updates, including after leaving fullscreen.
         if auto_resolution:
             cmd.append("/dynamic-resolution")
-        elif resolution and (not session.display_fullscreen or embedded_parent):
+        elif resolution and (not session.display_fullscreen or embedded_parent or macos_sdl_client):
+            # SDL can scale the requested desktop into its fullscreen window.
+            # Preserve an explicit remote size instead of using the client's
+            # default desktop dimensions when Fullscreen is checked.
             width, height = resolution
             cmd.append(f"/size:{width}x{height}")
         if (embedded_parent or macos_sdl_client) and not auto_resolution:

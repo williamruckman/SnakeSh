@@ -216,6 +216,344 @@ persistent pinwheel issues remain pending their retest and port-check result.
 
 Reference: [GitHub Create a release token requirements](https://docs.github.com/en/rest/releases/releases#create-a-release).
 
+## November 5 forwarded MacBook Air retest
+
+The user forwarded a batch of original-reporter screenshots and text. The
+SnakeSh Local Network explanation is visible, and System Settings > Privacy
+& Security > Local Network lists two SnakeSh entries, both enabled. The
+reporter says RDP opens again and making it fullscreen works, while the
+pinwheel and interaction lag persist. This confirms the explanation renders
+on a real Mac and that access is currently enabled in the displayed settings.
+It does not show Apple's native consent alert, establish that the Settings
+button rather than manual navigation opened the pane, or prove that a denied
+permission caused the earlier connection failure. Duplicate entries do not
+by themselves identify a conflict or two currently running app instances.
+Fullscreen success does not establish window-edge resize or remote pixel
+resolution changes. The earlier port probe is no longer the priority now that
+the reporter can connect.
+
+The pasted **17:29 / PID 13027** log matches the previously supplied November 1
+excerpt, including the cancellation timestamp and context address. It is not
+independent evidence of a new run or its installed dependency versions. Newer
+screenshots show separate SDL processes: **16549** initializes the framebuffer
+at **18:31:03.300** and logs `Signal Terminated: 15` at **18:32:21.705**;
+**16871** initializes at **19:20:08.891** and logs `Network disconnect!` at
+**19:22:13.533**. Both closed tabs display exit **131**. macOS explicitly says
+the user forced `sdl-freerdp` to quit, and the reporter confirms a forced quit
+during their clipboard test. The shutdown messages therefore do not establish
+the cause of the preceding stall or a spontaneous crash. FreeRDP 3.32.2
+`sdl_utils.hpp` defines `sdl::error::CONN_FAILED = 131`; the established-session
+run loop can also produce that code after event handling/reconnect failure.
+It must not be decoded as a shell's `128 + SIGQUIT` without process evidence.
+
+The "clipboard disabled" experiment writes `ClipboardSharingEnabled=0` in
+Apple's `com.apple.coreservices.useractivityd` preferences, then restores it
+to **1**. This targets Apple's Continuity/Universal Clipboard preference; it
+does not pass **`-clipboard`** to FreeRDP or disable the RDP `cliprdr` channel.
+The report does not establish whether that undocumented preference change
+took effect in the system service. It therefore does not rule out FreeRDP's
+own clipboard handling. The screenshots do not unambiguously pair each PID
+with a particular preference state. SnakeSh does not translate that Apple
+preference into an RDP option; FreeRDP 3.32.2 defaults `RedirectClipboard` to
+true and parses `-clipboard` into false. Its SDL clipboard callback can wait
+for a remote data response on the main thread, leaving clipboard handling a
+plausible hypothesis rather than a confirmed cause. The absence of `cliprdr`
+from the visible dynamic-channel list is not proof it was disabled; it is a
+static virtual channel.
+
+Next evidence: reproduce the stall, select the live **sdl-freerdp** process
+in Activity Monitor, and save **Sample Process** before force quitting.
+Sample SnakeSh separately only if its own windows also hang. Capture the
+current client path/version and, when installed through Homebrew, FreeRDP/SDL
+versions. A main-thread pasteboard/clipboard wait, a renderer wait, or lock
+contention would narrow different causes; an idle background network wait
+alone would not. An optional standalone A/B comparison must change only
+`+clipboard` to `-clipboard`, reproduce the symptom in the enabled baseline,
+and keep display/audio/security settings constant within that pair.
+
+As of November 5, Homebrew advertises **FreeRDP 3.33.0**, released upstream on
+November 2 with further SDL/clipboard changes. The reporter's earlier known
+version was **3.32.2**; the current installed version has not been supplied.
+SnakeSh launches this external dependency. Updating through Homebrew is a
+supported follow-up after capturing a baseline, but the release notes do not
+establish a fix for this particular pinwheel. No remote server changes,
+application-code fix, or new release are justified by these logs alone.
+
+References: [FreeRDP 3.32.2 exit codes](https://github.com/FreeRDP/FreeRDP/blob/3.32.2/client/SDL/SDL3/sdl_utils.hpp),
+[SDL connection loop](https://github.com/FreeRDP/FreeRDP/blob/3.32.2/client/SDL/SDL3/sdl_context.cpp),
+[FreeRDP clipboard option](https://github.com/FreeRDP/FreeRDP/blob/3.32.2/client/common/cmdline.c),
+[SDL clipboard callback](https://github.com/FreeRDP/FreeRDP/blob/3.32.2/client/SDL/SDL3/sdl_clip.cpp),
+[Apple process sampling](https://support.apple.com/guide/activity-monitor/run-system-diagnostics-actmntr2225/mac),
+[Apple Universal Clipboard](https://support.apple.com/guide/mac-help/copy-and-paste-between-devices-mchl70368996/mac),
+[Homebrew FreeRDP](https://formulae.brew.sh/formula/freerdp),
+[FreeRDP 3.33.0 release](https://www.freerdp.com/2026/11/02/3_33_0-release).
+
+## November 12 process samples, received November 14
+
+The reporter supplied a completed Homebrew upgrade log: FreeRDP
+**3.32.2_1 -> 3.33.1** and SDL **3.4.18 -> 3.4.20**, with dependencies installed
+under `/opt/homebrew`. They report smoother interaction afterward but a
+persistent pinwheel, then manually close the viewer using its X button.
+The new screenshot shows a separate process **45000**, framebuffer setup at
+**16:47:49.541**, disconnect at **16:48:30.806**, and exit **145**. In the
+3.33.1 SDL exit-code definitions, 145 is `CONNECT_CANCELLED`, consistent with
+the reported manual close; the screenshot does not independently identify
+that process's FreeRDP/SDL versions or the earlier stall's cause.
+
+Both supplied process samples describe the same native **ARM64** process
+**41568**, parent SnakeSh **41534**, launched **2026-11-12 16:37:38.509 -0500**.
+They identify **macOS 27.0 (26A428)**, replacing the earlier reported 26.2
+baseline for these captures. Crucially, both Binary Images lists contain
+**libfreerdp-client3.3.32.2.dylib**, **libfreerdp3.3.32.2.dylib**, and
+**libwinpr3.3.32.2.dylib**, with matching image UUIDs across the pair. These
+are samples of a 3.32.2-library process, not proof of the upgraded 3.33.1
+runtime. Their SDL image is versioned **0** and has a masked path, so its
+exact release cannot be established from these reports. Installing an update
+does not replace libraries already mapped by a running viewer. The upgrade's
+completion is established by the installation log; the samples and the later
+45000 session must be assessed separately.
+
+The comparison sample at **16:42:03.021** records **2478** main-thread
+observations in SDL's Cocoa event loop (`SDL_WaitEventTimeoutNS` -> Cocoa /
+AppKit event wait). This is consistent with waiting for events, without by
+itself proving what the user was experiencing at that instant.
+
+The explicitly named **PINWHEEL** sample at **16:43:29.583** records **220 of
+227** main-thread observations under `SdlContext::drawToWindows`, including
+`SDL_RenderPresent_REAL` -> `METAL_RunCommandQueue` ->
+`METAL_ActivateRenderCommandEncoder` -> `CAMetalLayer nextDrawable` ->
+semaphore wait (**96** observations in that branch). Other observations are
+in texture upload and Metal command handling. Neither sample contains
+`ClipDataCb`, clipboard, or pasteboard stack frames. This materially shifts
+the next test toward SDL/Metal rendering and drawable/presentation waits for
+the captured process, rather than treating the previous clipboard hypothesis
+as established. These sample counts are observations, not measured CPU
+percentages, stall durations, or proof of an indefinite deadlock. The evidence
+does not yet isolate an SDL bug from FreeRDP redraw behavior or Apple's
+graphics/compositor handling, and does not assign the same wait to the later
+reported 3.33.1 run.
+
+The next controlled test is a fresh launch using SDL's **OpenGL** renderer.
+Close the RDP viewer, fully quit SnakeSh (Cmd-Q), and confirm
+`/opt/homebrew/bin/sdl-freerdp /version` reports the upgraded version. Compare
+the usual profile under a fresh normal launch against a fresh launch with:
+
+```sh
+SDL_RENDER_DRIVER=opengl /Applications/SnakeSh.app/Contents/MacOS/SnakeSh
+```
+
+Keep clipboard, display, audio, credentials, and the remote host unchanged
+within this comparison. Check the client output for **Created renderer:
+opengl**. Fully quitting first matters because another SnakeSh invocation
+can activate the existing instance instead of applying new environment
+variables. A normal restart removes this one-launch override. If the alternate
+renderer fails to initialize, that is an unavailable rendering path, not a
+successful workaround. If lag persists, capture the newly launched process
+during the stall so its actual libraries and backend can be checked.
+
+FreeRDP 3.33.1's `SdlWindow` calls `SDL_CreateRenderer(window, nullptr)`, which
+allows the renderer hint to select the backend. Existing SnakeSh launch
+environment preparation was checked to preserve `SDL_RENDER_DRIVER=opengl`;
+no application release is required for the experiment. Native Mac behavior
+remains untested here. A successful device comparison could justify an
+explicit Mac RDP renderer compatibility option; these files alone do not
+justify changing the default renderer for all Macs.
+
+Renderer-selection detail: a software renderer alone need not avoid Metal
+window-surface presentation. SDL 3.4.20 Cocoa has no native framebuffer
+callbacks, and disabling framebuffer acceleration can produce "Window
+framebuffer support not available." The targeted OpenGL comparison avoids
+claiming that a generic software-renderer setting guarantees a Metal-free
+presentation path.
+
+References: [SDL renderer hint](https://wiki.libsdl.org/SDL3/SDL_HINT_RENDER_DRIVER),
+[FreeRDP 3.33.1 window creation](https://github.com/FreeRDP/FreeRDP/blob/3.33.1/client/SDL/SDL3/sdl_window.cpp),
+[FreeRDP 3.33.1 exit codes](https://github.com/FreeRDP/FreeRDP/blob/3.33.1/client/SDL/SDL3/sdl_utils.hpp),
+[Apple nextDrawable](https://developer.apple.com/documentation/quartzcore/cametallayer/nextdrawable()),
+[SDL 3.4.20 renderer selection](https://github.com/libsdl-org/SDL/blob/release-3.4.20/src/render/SDL_render.c),
+[SDL 3.4.20 window framebuffer](https://github.com/libsdl-org/SDL/blob/release-3.4.20/src/video/SDL_video.c),
+[SDL 3.4.20 Cocoa video hooks](https://github.com/libsdl-org/SDL/blob/release-3.4.20/src/video/cocoa/SDL_cocoavideo.m).
+
+## November 14 OpenGL comparison and parent/viewer samples
+
+The reporter supplies `/opt/homebrew/bin/sdl-freerdp /version` output
+identifying **3.33.1**, followed by the one-launch
+`SDL_RENDER_DRIVER=opengl` command. They report that **windowed mode works**,
+but **fullscreen still pinwheels**. This establishes a reported partial
+workaround on that device, not a complete fix.
+
+`Sample_of_SnakeSh_try_2.txt` captures **SnakeSh 48259**, launched
+**17:52:00.949 -0500**, sampled **17:54:19.855 -0500** on **macOS 27.0
+(26A428)**, native **ARM64**. Its main thread has **840 of 841** observations
+in the Cocoa/CoreFoundation event wait, with one handling a Qt timer.
+Other Python threads wait in `poll` and a pipe `read`; they are not the GUI
+thread. This short capture shows no sustained SnakeSh main-thread blockage.
+It cannot rule out intermittent stalls outside its interval. The app bundle's
+0.0.0 metadata does not establish SnakeSh's runtime release version.
+
+The accompanying `Sample_of_sdl-freerdp_opengl.txt` was also available through
+this chat's bridge artifact list before its forwarded attachment message
+arrived. Its exact SHA-256 is
+`500bdda4fa5f8577f779a55e88095c32c23edbec01f7bb23af8ddda7a3c3cc05`;
+multiple received copies have identical content. It captures **sdl-freerdp
+48271**, parent **SnakeSh 48259**, launched **17:52:55.600 -0500**, sampled
+**17:56:20.290 -0500**, on the same OS and native architecture. The header
+identifies **3.33.1**, and the loaded client/core/WinPR library names all
+identify **3.33.1**. Unlike the older samples, this confirms the updated
+viewer runtime actually in use. The SDL image is versioned 0 with a masked
+path, so the sample does not independently establish its exact SDL release.
+
+The viewer main thread records **444** observations: **278** under
+`SdlContext::drawToWindows`, **165** in the Cocoa event wait, and one elsewhere
+in `sdl_run`. Of the drawing observations, **225** follow
+`SDL_RenderPresent_REAL` -> `Cocoa_GL_SwapWindow` ->
+`NSOpenGLContext flushBuffer` -> `CGLFlushDrawable`. Those branch through
+Apple's `AppleMetalOpenGLRenderer`, GPU submission, and SkyLight/WindowServer
+surface flushing; **88** observations reach `_CGSWindowIsOrderedIn` and a
+Mach-message wait. Other observations perform GL drawing and texture updates.
+This confirms an active **OpenGL** presentation path. Apple still implements
+parts of that path through its Metal-backed driver, so OpenGL does not imply
+that all Metal-related code has been avoided.
+
+There are no clipboard/pasteboard or `ClipDataCb` frames in this viewer sample.
+Its RDP thread alternates ordinary event waiting with received desktop bitmap
+processing. Combined with the reported windowed/fullscreen difference, the
+samples strengthen the graphics/presentation lead. They do not isolate a
+FreeRDP, SDL, or macOS defect, measure stall duration/CPU usage, or prove a
+permanent deadlock: the viewer also returns to its event loop. The sample
+itself does not encode whether the window was fullscreen at capture time.
+
+**Right Shift + M minimizes the viewer** as expected for the SDL client's
+built-in shortcut. Right Shift + Return is its default fullscreen toggle.
+FreeRDP handles these window shortcuts before forwarding remapped keys to the
+remote desktop; this is not evidence of a SnakeSh Command-key remap regression.
+
+The next single-variable test retains OpenGL and disables SDL's native macOS
+fullscreen Spaces integration for one fresh launch:
+
+```sh
+SDL_RENDER_DRIVER=opengl SDL_VIDEO_MAC_FULLSCREEN_SPACES=0 /Applications/SnakeSh.app/Contents/MacOS/SnakeSh
+```
+
+Close all RDP viewers and fully quit SnakeSh first. Enter fullscreen with
+**Right Shift + Return**, since disabling Spaces can remove the green native
+fullscreen control; alternatively use the saved profile's Fullscreen option.
+Keep the same remote computer, clipboard, audio, and resolution. Record
+whether fullscreen lag changes and whether returning to windowed mode removes
+it. This tests the native fullscreen presentation route; it is not a verified
+fix. If it persists, a sample specifically captured during this new fullscreen
+stall would distinguish its wait from the existing OpenGL capture. A normal
+restart after quitting removes both environment overrides. No default renderer,
+clipboard policy, or remote-server package change has been made.
+
+The earlier outgoing `snakesh-mac-fullscreen-capture-2026-11-14.txt` requested
+a viewer sample before that attachment's chat message arrived. That request
+is superseded by the received viewer capture and the updated Spaces test;
+there is no need to repeat the same capture simply to confirm OpenGL.
+
+References: [FreeRDP 3.33.1 SDL input handling](https://github.com/FreeRDP/FreeRDP/blob/3.33.1/client/SDL/SDL3/sdl_input.cpp),
+[SDL fullscreen Spaces hint](https://wiki.libsdl.org/SDL3/SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES),
+[SDL 3.4.20 Cocoa hint initialization](https://github.com/libsdl-org/SDL/blob/release-3.4.20/src/video/cocoa/SDL_cocoavideo.m).
+
+## November 15 fullscreen Spaces and resolution/load comparison
+
+The reporter ran the exact one-launch `SDL_RENDER_DRIVER=opengl
+SDL_VIDEO_MAC_FULLSCREEN_SPACES=0` comparison. They report that a normal
+window mostly works and can be enlarged by dragging. **Right Shift + Return
+still produces pinwheel/lag**, and toggling back to windowed mode restores
+better interaction. A remote desktop explicitly set to **2560x1440** is much
+slower than the **1280x800** base desktop enlarged locally; the latter still
+has some lag when made larger. Clicks at the larger desktop reportedly take
+**1–2 seconds**, with visibly delayed refresh/animation. This means the
+Spaces override has not solved the problem and the symptoms are not confined
+to fullscreen. Remote resolution and local presentation size must be varied
+independently. A 2560x1440 desktop contains **3.6 times** the pixels of
+1280x800; this is pixel count, not a measured multiplier for bandwidth or lag.
+
+Two fresh native ARM64 macOS **27.0 (26A428)** viewer samples identify
+FreeRDP **3.33.1** in their headers and client/core/WinPR images. Both have
+parent **SnakeSh 51173**. Their FreeRDP and SDL binary UUIDs match the prior
+OpenGL sample. The SDL image's version remains 0, so it still does not
+independently establish the exact SDL release.
+
+- `Sample_of_sdl-freerdp_Right-shift_and_return.txt`: viewer **51176**,
+  launched **06:56:41.014 -0500**, captured **06:59:04.086 -0500**.
+  All **766** main-thread observations wait in SDL/Cocoa's ordinary event
+  loop. All **766** RDP-thread observations wait for event handles in `poll`.
+  There is no continuous render, clipboard, or fullscreen-transition lock in
+  this capture. Its name and reported behavior do not establish which part
+  of the fullscreen/return sequence the short capture covers. This limits
+  the previous graphics-blocking hypothesis: no such block appears here.
+- `Sample_of_sdl-freerdp_Manual_scailed_larger_with_pinwheel.txt`: viewer
+  **51321**, launched **07:16:51.621 -0500**, captured **07:17:52.339 -0500**.
+  Of **515** main-thread observations, **389** are under SDL's event-wait
+  branch, **120** draw through `SdlContext::drawToWindows`, and six follow
+  other event-loop work. Within drawing, **95** observations present through
+  `Cocoa_GL_SwapWindow` / `CGLFlushDrawable`; **33** reach the SkyLight
+  `_CGSWindowIsOrderedIn` Mach-message wait. Other observations upload GL
+  textures, with Apple's Metal-backed OpenGL renderer below them. The RDP
+  thread spends **461** observations in its event-wait branch, **53** in
+  receive/desktop update processing (bitmap and bulk decompression), and
+  one checking abort state. The sample confirms rendering and incoming
+  desktop processing continue; it does not show a permanent deadlock or
+  establish server, network, decoder, or GPU saturation.
+
+Neither new sample contains clipboard/pasteboard or `ClipDataCb` frames.
+These brief observations do not rule out intermittent waits or prove where
+a reported 1–2 second action delay was spent. Do not describe the fullscreen
+sample as proof of a graphics deadlock or dismiss the reproduced lag because
+its main thread happened to wait for events. The strongest current device
+observation is the repeatable dependence on desktop/presentation size.
+
+### Separate fixed-resolution launch correction
+
+Review found that `build_rdp_command()` omitted `/size:WxH` for a macOS SDL
+profile starting with Fullscreen checked, even when the user selected a
+fixed remote resolution. It kept `/smart-sizing`, leaving the remote size
+at client defaults. The local correction preserves the explicit size for
+macOS SDL fullscreen starts as well as windowed starts; Default and Auto
+retain their previous behavior, as do Windows and X11 launch paths.
+
+For example, a Mac SDL profile set to **1280x800 + Fullscreen** now requests
+`/f /size:1280x800 /smart-sizing`, rather than `/f /smart-sizing`. FreeRDP's
+SDL pre-connect path retains explicit desktop dimensions with smart sizing,
+while the local fullscreen window can use the display size. This fixes an
+application launch inconsistency. It does **not** explain or claim to fix
+the tester's lag when toggling fullscreen after connecting windowed, because
+that path already received the fixed size when one was explicitly selected.
+
+Affected tests passed **137 checks**, including **10** real FreeRDP parser
+cases exercising fixed 1280x800, 1920x1080 and 2560x1440 desktop dimensions,
+fullscreen state, smart sizing, Auto fallback, and Command-key remapping.
+The local parser SDK is repository FreeRDP **3.32.2** extracted under `/tmp`
+without installing host packages or changing the remote computer. This is
+Linux parser validation, not native Mac UI/performance validation. The
+subsequent v1.91 release preparation is recorded in `docs/RELEASE_1.91.md`;
+affected-device validation is still needed for this correction.
+
+### Workaround and next comparison
+
+Use the reported OpenGL **windowed**, explicitly fixed **1280x800** profile
+and enlarge it moderately. Do not describe arbitrary enlargement, 2560x1440,
+or fullscreen as solved. Auto can change the remote desktop workload when
+resizing and is not interchangeable with local smart sizing.
+
+The next comparison runs the same installed **sdl-freerdp** directly from
+Terminal with a fixed 1280x800 desktop and `/smart-sizing`, keeping the same
+renderer/Spaces settings and host. First quit SnakeSh completely. Compare
+windowed -> larger window -> fullscreen -> windowed at that fixed remote
+size, then optionally compare a fresh 2560x1440 connection at the same local
+window size. Confirm the actual desktop dimensions in the remote system's
+Display settings. If standalone shows the same lag, it reproduces without
+SnakeSh and can be taken upstream with these samples; otherwise compare the
+actual launch arguments/environment. This comparison has not yet been run.
+No additional graphics, codec, clipboard, network, or server flags have been
+changed speculatively.
+
+References: [FreeRDP 3.33.1 SDL desktop sizing](https://github.com/FreeRDP/FreeRDP/blob/3.33.1/client/SDL/SDL3/sdl_context.cpp),
+[FreeRDP 3.33.1 SDL scaling/presentation](https://github.com/FreeRDP/FreeRDP/blob/3.33.1/client/SDL/SDL3/sdl_window.cpp),
+[SDL fullscreen Spaces hint](https://wiki.libsdl.org/SDL3/SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES).
+
 ## Release 1.88 preparation and known regression
 
 The 1.88 source includes one-attempt smart-sizing recovery for the recognized
@@ -233,7 +571,7 @@ unresolved.
 | --- | --- | --- |
 | Mac RDP opens detached and cannot attach | The session editor and `MainWindow._open_rdp_tab` explicitly force detached RDP on macOS and Windows. Only Linux has a supported embedded RDP path. | Confirmed implementation behavior, independent of recent OS updates. |
 | Mac desktop is small and does not resize | Detached FreeRDP Auto does not provide an initial `/size`; it leaves initial geometry to the external client. More significantly, the fullscreen branch suppresses `/dynamic-resolution` even when Auto is selected. Default/fixed resolution also does not request dynamic resolution. | Confirmed launch behavior; the reported windowed SDL failure still needs native reproduction. |
-| Mac clicks/paste cause delays and a pinwheel | The detached SDL process owns these input, drawing, and clipboard operations. SnakeSh does not forward each click or paste. SDL FreeRDP's clipboard callback can synchronously wait for a remote data response. A stall there could also prevent window resize events from being handled. | Plausible clipboard/event-loop diagnosis; no affected-machine stack sample or log confirms the cause yet. |
+| Mac clicks/paste cause delays and a pinwheel | The detached SDL process owns these input/drawing operations. The November 12 PINWHEEL sample places its main thread predominantly in SDL/Metal drawing, including drawable waits. On November 14, OpenGL works windowed but fullscreen still pinwheels. The new 3.33.1 viewer sample confirms OpenGL presentation through Apple graphics/WindowServer; the parent SnakeSh sample is in ordinary event waiting. | Spaces=0 did not solve the lag. November 15 shows resolution/size dependence, with no continuous graphics block in the new captures. A direct fixed-size FreeRDP comparison is next; exact upstream cause and a complete fix remain unverified. |
 | Windows Auto does not change desktop resolution despite Smart sizing being checked | SnakeSh launches `mstsc.exe`. Microsoft's feature matrix lists smart sizing as supported and dynamic resolution as unsupported for MSTSC. Smart sizing scales existing desktop pixels; it does not cause remote applications to reflow at a new resolution. | Confirmed client limitation. |
 | Windows Auto behaves differently with fullscreen selected | The generated profile omits both sizing settings for a fullscreen launch. For a windowed Auto launch it writes both `smart sizing:i:1` and the unsupported `dynamic resolution:i:1`. | Confirmed generated-profile defect/unsupported option. |
 
@@ -613,6 +951,11 @@ control with display-update handling. macOS in-tab support would likewise
 require a new native embedding integration.
 
 ## Native checks still needed
+
+November 14 update: the requested process samples have arrived. Prioritize
+the fresh-client/OpenGL comparison described above; the broader baseline
+checks below need not all be repeated, and the earlier clipboard theory is
+not a confirmed diagnosis.
 
 1. On the affected Mac, record `sw_vers`, `sdl-freerdp /version`, and
    `sdl-freerdp /buildconfig`, plus `brew list --versions freerdp sdl3` if it is

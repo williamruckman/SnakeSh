@@ -163,6 +163,13 @@ class SettingsDialog(QDialog):
         self.minimize_to_tray.setToolTip("Keep sessions running when minimized. Requires an available system tray. Closing still exits.")
         self.workspace_tab_stacking_enabled = QCheckBox("Stack workspace tabs into multiple rows")
         self.workspace_tab_stacking_enabled.setChecked(settings.workspace_tab_stacking_enabled)
+        self.auto_close_shell_tabs = QCheckBox("Close shell tabs automatically when the session ends")
+        self.auto_close_shell_tabs.setChecked(settings.auto_close_shell_tabs)
+        self.auto_close_shell_tabs.setToolTip(
+            "Applies to SSH, Telnet, Serial, and Local Shell tabs. Disabled by default. "
+            "Saved sessions can override this choice in their session settings. "
+            "The explicit Disconnect action keeps the tab open."
+        )
         tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
         tab_jump_defaults = list(self._defaults.workspace_tab_jump_shortcuts)
         self.workspace_tab_jump_shortcuts: list[ShortcutPreferenceEditor] = []
@@ -468,6 +475,7 @@ class SettingsDialog(QDialog):
         )
 
         form.addRow(self._section_label("Terminal"))
+        form.addRow(QLabel("Auto-close Shell Tabs"), self.auto_close_shell_tabs)
         form.addRow(
             self._hint_label(
                 "Terminal Background",
@@ -1065,6 +1073,7 @@ class SettingsDialog(QDialog):
                 "workspace_split_horizontal_shortcut": self.workspace_split_horizontal_shortcut.shortcut_text(),
                 "minimize_to_tray": self.minimize_to_tray.isChecked(),
                 "workspace_tab_stacking_enabled": self.workspace_tab_stacking_enabled.isChecked(),
+                "auto_close_shell_tabs": self.auto_close_shell_tabs.isChecked(),
                 "terminal_scrollback_lines": self.scrollback.value(),
                 "terminal_log_dir": self.log_dir.text().strip() or self._defaults.terminal_log_dir,
                 "global_session_logging_enabled": self.global_session_logging_enabled.isChecked(),
@@ -1442,6 +1451,7 @@ class SettingsDialog(QDialog):
         self.workspace_split_horizontal_shortcut.set_shortcut_text(settings.workspace_split_horizontal_shortcut)
         self.minimize_to_tray.setChecked(settings.minimize_to_tray)
         self.workspace_tab_stacking_enabled.setChecked(settings.workspace_tab_stacking_enabled)
+        self.auto_close_shell_tabs.setChecked(settings.auto_close_shell_tabs)
         tab_jump_shortcuts = list(settings.workspace_tab_jump_shortcuts)
         for index, editor in enumerate(self.workspace_tab_jump_shortcuts):
             editor.set_shortcut_text(tab_jump_shortcuts[index] if index < len(tab_jump_shortcuts) else "")

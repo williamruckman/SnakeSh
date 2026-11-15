@@ -11,6 +11,13 @@ from snakesh.services.settings_service import AppSettings, SettingsService
 
 
 class SettingsServiceTests(unittest.TestCase):
+    def test_shell_tab_auto_close_defaults_off_and_roundtrips(self) -> None:
+        self.assertFalse(AppSettings.defaults().auto_close_shell_tabs)
+        self.assertFalse(AppSettings.from_dict({}).auto_close_shell_tabs)
+        settings = AppSettings.defaults()
+        settings.auto_close_shell_tabs = True
+        self.assertTrue(AppSettings.from_dict(settings.to_dict()).auto_close_shell_tabs)
+
     def test_defaults_use_default_theme(self) -> None:
         settings = AppSettings.defaults()
         self.assertEqual(settings.theme_name, DEFAULT_THEME_ID)

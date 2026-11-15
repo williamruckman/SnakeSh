@@ -189,6 +189,7 @@ from snakesh.services.tool_process_service import (
 from snakesh.services.x11_service import X11Service
 from snakesh.ui.background import background_calls_active, run_background_call
 from snakesh.ui.local_network_access_dialog import LocalNetworkAccessDialog
+from snakesh.ui.sftp_remote_tree import SFTPRemoteTree
 from snakesh.services.windows_conpty import load_bundled_conpty
 from snakesh.ui.clipboard import copy_text, paste_text
 from snakesh.ui.sixel import SixelStream, TerminalGraphic
@@ -957,6 +958,7 @@ class TerminalTab(QWidget):
     start_logging_requested = Signal(object)
     stop_logging_requested = Signal(object)
     logging_error = Signal(object, str)
+    shell_session_closed = Signal(object)
     _OUTPUT_DRAIN_INTERVAL_MS = 4
     _OUTPUT_DRAIN_BURST_INTERVAL_MS = 6
     _OUTPUT_DRAIN_MAX_CHARS = 16 * 1024
@@ -1881,6 +1883,7 @@ class TerminalTab(QWidget):
         self._append_local_status("Shell session closed.")
         self._mark_connection_closed(True)
         self._windows_local_shell_backend = ""
+        self.shell_session_closed.emit(self)
         return True
 
     def execute_command(self, command: str) -> bool:
@@ -2430,6 +2433,8 @@ class TerminalTab(QWidget):
 
     def _mark_connection_closed(self, closed: bool) -> None:
         is_closed = bool(closed)
+        if not is_closed:
+            self.setProperty("keep_open_after_disconnect", False)
         self.setProperty("terminal_session_closed", is_closed)
         self.output.set_session_connected(not is_closed)
         self._notify_title_refresh()
@@ -2496,6 +2501,9 @@ class TerminalTab(QWidget):
         )
 
     def disconnect_session(self, *, wait_seconds: float | None = None) -> bool:
+        # The explicit Disconnect action promises to retain the tab. A later
+        # connection resets this choice; exiting that shell uses auto-close.
+        self.setProperty("keep_open_after_disconnect", True)
         self._stop_automation()
         self._reset_terminal_query_probe_tail()
         if self._pending_output_chunks:
@@ -2697,6 +2705,7 @@ class TerminalTab(QWidget):
             except RuntimeError:
                 self._thread = None
                 self._worker = None
+        self.shell_session_closed.emit(self)
 
     @Slot()
     def _on_thread_finished(self) -> None:
@@ -2748,6 +2757,7 @@ class TerminalTab(QWidget):
             except RuntimeError:
                 self._thread = None
                 self._worker = None
+        self.shell_session_closed.emit(self)
 
     @Slot()
     def _on_local_process_output(self) -> None:
@@ -2790,6 +2800,7 @@ class TerminalTab(QWidget):
         self._local_process = None
         if process is not None:
             process.deleteLater()
+        self.shell_session_closed.emit(self)
 
     @Slot(QProcess.ProcessError)
     def _on_local_process_error(self, error: QProcess.ProcessError) -> None:
@@ -8816,6 +8827,9 @@ class SFTPSessionTab(QWidget):
         split.addWidget(self._build_remote_panel())
         split.setSizes([620, 620])
         self._refresh_shortcut = QShortcut(QKeySequence("F5"), self)
+        if platform.system().lower() == "darwin":
+            # Qt maps Control to the Command key on macOS.
+            self._refresh_shortcut.setKeys([QKeySequence("F5"), QKeySequence("Ctrl+R")])
         self._refresh_shortcut.setContext(Qt.WidgetWithChildrenShortcut)
         self._refresh_shortcut.activated.connect(self._refresh_directories)
         for tree, delete in ((self.local_file_tree, self._delete_selected_local),
@@ -8976,7 +8990,7 @@ class SFTPSessionTab(QWidget):
         remote_nav.addWidget(self.remote_up_btn)
         upper_layout.addLayout(remote_nav)
 
-        self.remote_nav_tree = QTreeWidget()
+        self.remote_nav_tree = SFTPRemoteTree(self, navigation=True)
         self.remote_nav_tree.setHeaderHidden(True)
         self.remote_nav_tree.setAlternatingRowColors(True)
         self.remote_nav_tree.itemDoubleClicked.connect(self._on_remote_nav_activated)
@@ -8989,7 +9003,7 @@ class SFTPSessionTab(QWidget):
         lower_layout.setSpacing(6)
         lower_layout.addWidget(QLabel("Selected Directory Contents"))
 
-        self.remote_file_tree = QTreeWidget()
+        self.remote_file_tree = SFTPRemoteTree(self)
         self.remote_file_tree.setColumnCount(4)
         self.remote_file_tree.setHeaderLabels(["Name", "Type", "Size", "Modified"])
         self.remote_file_tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -9406,6 +9420,46 @@ class SFTPSessionTab(QWidget):
         self._refresh_local_directory()
         self._refresh_remote_directory()
 
+    def _remote_move_available(self) -> bool:
+        return not self._file_task_active and self._remote_load_worker is None and not self._remote_load_closing
+
+    def _move_remote_paths(self, paths: list[str], destination: str) -> bool:
+        if not paths or not self._remote_move_available():
+            return False
+        known_paths = {entry.path for entry in self._remote_entries}
+        if any(path not in known_paths for path in paths):
+            return False
+        preview = "\n".join(paths[:8])
+        if len(paths) > 8:
+            preview += f"\n(and {len(paths) - 8} more)"
+        with self._suspend_focus_tracking():
+            answer = QMessageBox.question(
+                self, "Move Remote Items",
+                f"Move {len(paths)} selected remote item(s) into:\n{destination}\n\n{preview}",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            )
+        if answer != QMessageBox.Yes:
+            return False
+        moved = None
+        try:
+            with self._file_task("Moving remote items", len(paths)) as progress:
+                moved = self._run_remote(lambda password, trust_unknown: asyncio.run(
+                    self._sftp.move_paths(
+                        self._session, paths, destination,
+                        password=password, trust_unknown=trust_unknown,
+                        status_callback=self._progress_signals.report_status,
+                        cancel_requested=progress.is_cancel_requested,
+                    )
+                ))
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, "Move Failed", f"Could not complete the move:\n{exc}\n\nCompleted moves remain in the destination.")
+        finally:
+            self._refresh_remote_directory()
+        if moved is not None:
+            self._status_callback(f"Moved {moved} remote item(s) into {destination}.", 6000)
+            return True
+        return False
+
     def _begin_remote_directory_load(
         self,
         path: str,
@@ -9573,6 +9627,7 @@ class SFTPSessionTab(QWidget):
         if parent != self._remote_dir:
             parent_item = QTreeWidgetItem([".."])
             parent_item.setData(0, self.REMOTE_PATH_ROLE, parent)
+            parent_item.setData(0, self.REMOTE_IS_DIR_ROLE, True)
             self.remote_nav_tree.addTopLevelItem(parent_item)
 
         dir_count = 0
@@ -9582,6 +9637,7 @@ class SFTPSessionTab(QWidget):
             dir_count += 1
             item = QTreeWidgetItem([self._entry_label(entry.name, is_dir=True)])
             item.setData(0, self.REMOTE_PATH_ROLE, entry.path)
+            item.setData(0, self.REMOTE_IS_DIR_ROLE, True)
             self.remote_nav_tree.addTopLevelItem(item)
 
         if dir_count == 0 and parent == self._remote_dir:
@@ -20764,6 +20820,7 @@ class MainWindow(QMainWindow):
             widget.stop_logging_requested.connect(self._on_terminal_tab_stop_logging_requested)
             widget.disconnect_requested.connect(self._on_terminal_tab_disconnect_requested)
             widget.logging_error.connect(self._on_terminal_tab_logging_error)
+            widget.shell_session_closed.connect(self._on_shell_session_closed, Qt.QueuedConnection)
             if normalized_kind != "LOCAL":
                 self._maybe_start_global_logging_for_tab(widget, session)
 
@@ -20775,6 +20832,27 @@ class MainWindow(QMainWindow):
         self._apply_tab_styles()
         self._refresh_session_instance_titles()
         self._focus_new_session_tab(widget)
+
+    @Slot(object)
+    def _on_shell_session_closed(self, tab: TerminalTab) -> None:
+        if self._is_shutting_down:
+            return
+        # A user may have closed, moved, or reconnected the tab before this
+        # queued notification runs. Close only this still-ended instance.
+        try:
+            location = self._find_widget_location(tab)
+        except RuntimeError:
+            # Qt may already have processed the removed tab's deleteLater().
+            return
+        if location is None or not tab.is_session_closed() or tab.property("keep_open_after_disconnect"):
+            return
+        session = self._session_for_tab(tab)
+        override = session.auto_close_shell_tab if session is not None else None
+        auto_close = self._settings.auto_close_shell_tabs if override is None else override
+        if not auto_close:
+            return
+        host, index = location
+        self._close_tab_in_host(host, index, show_progress=False)
 
     def _prepare_existing_terminal_tab_for_session(
         self,

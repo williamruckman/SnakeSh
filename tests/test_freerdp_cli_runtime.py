@@ -35,7 +35,7 @@ def probe(tmp_path_factory):
     return executable
 
 
-@pytest.mark.parametrize("resolution", ["auto", "1920x1080", ""])
+@pytest.mark.parametrize("resolution", ["auto", "1280x800", "1920x1080", "2560x1440", ""])
 @pytest.mark.parametrize("fullscreen", [False, True])
 def test_generated_mac_launch_parses_and_maps_command_to_the_correct_control_keys(probe, resolution, fullscreen):
     session = Session(id="parse", name="Parse only", host="example.test", protocol=Protocol.RDP,
@@ -55,3 +55,9 @@ def test_generated_mac_launch_parses_and_maps_command_to_the_correct_control_key
         assert parsed["valid"] is True
         assert parsed["left_command"] == 0x1D
         assert parsed["right_command"] == 0x11D
+        if resolution not in ("auto", ""):
+            width, height = map(int, resolution.split("x"))
+            assert parsed["desktop_width"] == width
+            assert parsed["desktop_height"] == height
+            assert parsed["smart_sizing"] is True
+            assert parsed["fullscreen"] is fullscreen

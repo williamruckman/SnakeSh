@@ -15,6 +15,34 @@ class SessionEditorDialogTests(unittest.TestCase):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         cls._app = QApplication.instance() or QApplication([])
 
+    def test_saved_shell_auto_close_override_loads_and_saves_all_choices(self) -> None:
+        for protocol in (Protocol.SSH, Protocol.TELNET, Protocol.SERIAL):
+            for value in (None, False, True):
+                with self.subTest(protocol=protocol, value=value):
+                    session = Session(name="Shell", host="example.test", protocol=protocol, port=22,
+                                      auto_close_shell_tab=value)
+                    dialog = SessionEditorDialog(session=session)
+                    try:
+                        self.assertFalse(dialog.auto_close_shell_tab_input.isHidden())
+                        self.assertIs(dialog.auto_close_shell_tab_input.currentData(), value)
+                        self.assertIs(dialog.build_session().auto_close_shell_tab, value)
+                        dialog.auto_close_shell_tab_input.setCurrentIndex(1)
+                        self.assertIs(dialog.build_session().auto_close_shell_tab, False)
+                    finally:
+                        dialog.deleteLater()
+                        QApplication.processEvents()
+
+    def test_remote_viewers_and_sftp_have_no_shell_close_override(self) -> None:
+        dialog = SessionEditorDialog()
+        try:
+            for protocol in ("SFTP", "RDP", "VNC", "NOMACHINE"):
+                dialog.protocol_input.setCurrentText(protocol)
+                self.assertTrue(dialog.auto_close_shell_tab_input.isHidden())
+                self.assertIsNone(dialog.build_session().auto_close_shell_tab)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
     def test_automation_controls_visible_for_telnet_and_serial(self) -> None:
         dialog = SessionEditorDialog()
         try:

@@ -34,6 +34,19 @@ class SettingsDialogTests(unittest.TestCase):
             dialog.deleteLater()
             QApplication.processEvents()
 
+    def test_shell_auto_close_is_opt_in_and_saved_without_previewing(self) -> None:
+        preview = []
+        dialog = SettingsDialog(settings=AppSettings.defaults(), on_preview_requested=preview.append)
+        try:
+            self.assertFalse(dialog.auto_close_shell_tabs.isChecked())
+            dialog.auto_close_shell_tabs.setChecked(True)
+            QApplication.processEvents()
+            self.assertEqual(preview, [])
+            self.assertTrue(dialog.build_settings().auto_close_shell_tabs)
+        finally:
+            dialog.deleteLater()
+            QApplication.processEvents()
+
     def test_active_tab_close_prompt_defaults_checked(self) -> None:
         dialog = SettingsDialog(settings=AppSettings.defaults())
         try:

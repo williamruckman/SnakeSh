@@ -180,6 +180,7 @@ class Session:
     terminal_color_override_enabled: bool = False
     terminal_bg_color: str = ""
     terminal_fg_color: str = ""
+    auto_close_shell_tab: bool | None = None
     shell_banner_message: str = ""
     shell_banner_color: str = ""
     shell_banner_blink: bool = False
@@ -235,6 +236,7 @@ class Session:
             "terminal_color_override_enabled": self.terminal_color_override_enabled,
             "terminal_bg_color": self.terminal_bg_color,
             "terminal_fg_color": self.terminal_fg_color,
+            "auto_close_shell_tab": self.auto_close_shell_tab,
             "shell_banner_message": self.shell_banner_message,
             "shell_banner_color": self.shell_banner_color,
             "shell_banner_blink": self.shell_banner_blink,
@@ -338,6 +340,10 @@ class Session:
             terminal_color_override_enabled=bool(raw.get("terminal_color_override_enabled", False)),
             terminal_bg_color=str(raw.get("terminal_bg_color", "")),
             terminal_fg_color=str(raw.get("terminal_fg_color", "")),
+            auto_close_shell_tab=(
+                raw.get("auto_close_shell_tab")
+                if isinstance(raw.get("auto_close_shell_tab"), bool) else None
+            ),
             shell_banner_message=_normalize_shell_banner_message(raw.get("shell_banner_message", "")),
             shell_banner_color=str(raw.get("shell_banner_color", "")).strip(),
             shell_banner_blink=bool(raw.get("shell_banner_blink", False)),

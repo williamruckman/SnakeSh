@@ -26,7 +26,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 - In-app Serial terminal tabs with configurable baud/data bits/parity/stop bits/flow control (native POSIX backend with PySerial fallback)
 - Dual-pane SFTP workspace (local left, remote right) with split navigation/list panes
 - SFTP Delete Selected buttons and the Delete key act on highlighted items with the configured deletion confirmation
-- SFTP Upload (local pane) and Download (remote pane) buttons beside Delete Selected; transfers also support double-click, right-click actions, `F5` refresh, and drag-drop upload
+- SFTP Upload (local pane) and Download (remote pane) buttons beside Delete Selected; transfers also support double-click, right-click actions, `F5` refresh (`Command-R` on macOS), drag-drop upload, and confirmed same-server drag-drop moves into remote folders
 - Upload/download preparation and deletion progress with cancellation; file operations leave other workspace tabs usable
 - SFTP delete and overwrite actions can prompt for confirmation before replacing or removing files
 - Right-click SSH/SFTP session action to open an SFTP tab reusing the same session credentials
@@ -65,6 +65,7 @@ Supported protocols currently include SSH, SFTP, RDP, VNC, Telnet, and Serial.
 - SSH terminal context menu includes `Open SFTP Tab` for the active SSH session and terminal context menus include `Disconnect` for active shell tabs
 - Non-modal terminal scrollback window with live case-sensitive or regex search and configurable scrollback size
 - Terminal session logging supports per-tab manual logging and optional global auto-logging with folder-based paths by session folder hierarchy
+- Optional shell-tab auto-close is disabled by default; saved SSH, Telnet, and Serial sessions can inherit the global setting, keep their tabs open, or close them when their shells end
 - Session log cleanup policy is configurable in Settings and defaults to enabled (7-day retention)
 - Tools menu launches registered standalone GUI processes so a busy tool cannot stall the main console UI
 - Standalone tool CLI exposes full `--help` output, every registered tool key, and supported prefill flags through `snakesh tool`

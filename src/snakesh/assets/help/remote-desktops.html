@@ -29,6 +29,7 @@
   <h2>Display Preferences</h2>
   <p>RDP and VNC sessions can store options such as resolution, fullscreen, and color depth. These settings stay attached to the session definition so reconnects use the same viewing preference each time.</p>
   <p>For the native macOS SDL RDP viewer, <strong>Default</strong> and fixed resolutions scale the desktop as its window is resized. <strong>Auto</strong> requests changes to the remote desktop resolution and requires server display-control support.</p>
+  <p>An explicit fixed resolution is also passed to the macOS SDL viewer when starting fullscreen, so the requested remote desktop can be scaled to fill the screen. Larger remote resolutions process more pixels than enlarging a smaller fixed desktop locally; reducing the fixed resolution may help a slow session.</p>
   <p>The native macOS SDL viewer maps both Command keys to remote Ctrl, so Command-C and Command-V use the remote application's Ctrl-C/Ctrl-V bindings. Other Command combinations also act as remote Ctrl combinations. For Linux terminals that use Ctrl-Shift-C/V to copy and paste, use Command-Shift-C/V.</p>
 
   <h2>Automatic RDP Resize Recovery</h2>
