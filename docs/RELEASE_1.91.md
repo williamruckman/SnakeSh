@@ -39,3 +39,21 @@ acceptance remains outstanding.
 Pushing v1.91 starts release preparation. Package builds are requested through
 GitLab's BUILD_PACKAGES trigger; publication of the GitHub draft remains a
 separate step. The tag is v1.91 and the release version is 1.91.
+
+## Release preparation status
+
+Release commit `afe783dee20aaf7241ca33b8fdd0c1cf64c9c41f` and annotated tag
+`v1.91` were pushed to GitLab and mirrored to GitHub. The tag's commit matches
+on both services; GitHub main also reached that release commit.
+
+[GitHub release preparation](https://github.com/williamruckman/SnakeSh/actions/runs/43726487685)
+passed the native Windows terminal/RDP checks, the required FreeRDP parser
+checks, and draft creation. The v1.91 draft is ready for publication.
+
+The additional package-build handoff in
+[GitLab pipeline 298](https://gitlab.ruckman.net/wruckman/snakesh/-/pipelines/298)
+failed after branch/tag synchronization. No GitHub Build run for the release
+commit was present at verification. GitHub API authentication is unavailable
+in this workspace, so package builds need either publication of the draft or
+a manual run of the Build workflow using tag v1.91. Package compilation and
+artifact attachment have not been verified yet.
