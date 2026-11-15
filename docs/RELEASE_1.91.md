@@ -57,3 +57,12 @@ commit was present at verification. GitHub API authentication is unavailable
 in this workspace, so package builds need either publication of the draft or
 a manual run of the Build workflow using tag v1.91. Package compilation and
 artifact attachment have not been verified yet.
+
+The user subsequently published
+[v1.91](https://github.com/williamruckman/SnakeSh/releases/tag/v1.91) at
+**2026-11-15 14:54:38 UTC**. Publication started
+[Build run 43726916453](https://github.com/williamruckman/SnakeSh/actions/runs/43726916453)
+for release commit `afe783dee20aaf7241ca33b8fdd0c1cf64c9c41f`. The run was
+verified in progress. The failed optional dispatch is superseded by the normal
+published-release build path; package completion and hashes remain to be
+checked once the platform jobs finish.
